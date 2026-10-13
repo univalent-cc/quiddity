@@ -142,6 +142,9 @@ VALUES = [
         boolean(True), boolean(False), null(),
     )),
     ("set {b, aa}", set_(string("b"), string("aa"))),
+    ("set {ab, a}", set_(string("ab"), string("a"))),
+    ("set {-1, 1} (1 first)", set_(int_(-1), int_(1))),
+    ("set {1.5, 1} (1 first)", set_(float_(1.5), int_(1))),
     ("set {[1,2], [1]}", set_(list_(int_(1), int_(2)), list_(int_(1)))),
     # Maps: entries sorted by key, then value; duplicates kept.
     ("map empty", map_()),
@@ -152,6 +155,7 @@ VALUES = [
         (string("k"), null()), (int_(2), null()), (null(), null()),
         (list_(), null()), (boolean(True), null()),
     )),
+    ("map keys a and a-NUL (a-NUL first)", map_((string("a"), int_(1)), (string("a\u0000"), int_(2)))),
     ("map duplicate key", map_((string("k"), int_(2)), (string("k"), int_(1)))),
     ("map nested", obj(
         to=string("bob"), amount=int_(100),

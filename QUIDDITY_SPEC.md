@@ -109,46 +109,24 @@ identical byte strings.
 
 ### 2.5 Canonical order
 
-The **canonical order** is the total order `≤` on values defined here. It
-determines the order of set members and map entries in the encoding (3.6,
-3.7).
+Sets and maps are unordered. Their encodings (3.6, 3.7) arrange members and
+entries in the **canonical order**, which is defined on encodings:
 
-Values of different kinds are ordered by kind rank:
+- Byte strings are compared lexicographically: at the first position where
+  they differ, the one with the lesser byte, as an unsigned integer, is
+  less; if one is a proper prefix of the other, the shorter is less.
+- Set members are arranged by their encodings `E(m)`.
+- Map entries are arranged by the encodings of their keys `E(k)`, and
+  entries whose keys have identical encodings by the encodings of their
+  values `E(v)`.
+- Equal members, and entries equal in both key and value, are all retained;
+  their relative order does not affect the encoding.
 
-| Rank | Kind |
-|---|---|
-| 0 | null |
-| 1 | boolean |
-| 2 | number (integer and float together) |
-| 3 | string |
-| 4 | bytes |
-| 5 | list |
-| 6 | set |
-| 7 | map |
-
-Values of the same rank are ordered as follows:
-
-- **boolean**: `false < true`.
-- **number**: by mathematical value, where integers and finite floats are
-  compared exactly, `−∞` is less than every other number, `+∞` is greater
-  than every integer and finite float, and NaN is greater than every other
-  number. (Two distinct numbers never compare equal, by 2.2.)
-- **string**: by lexicographic comparison of their UTF-8 encodings, byte by
-  byte, each byte as an unsigned integer; if one is a proper prefix of the
-  other, the shorter is less. (This equals comparison by code point.)
-- **bytes**: as for strings, comparing the bytes directly.
-- **list**: lexicographically: by the first position at which the elements
-  differ, compared by `≤`; if one list is a proper prefix of the other, the
-  shorter is less.
-- **set**: as the list of its members in canonical order.
-- **map**: as the list of its entries in canonical order, where an entry
-  `(k, v)` is compared as the two-element list `[k, v]`.
-
-Set members are arranged in canonical order of the members. Map entries are
-arranged in canonical order of their keys, and entries with equal keys in
-canonical order of their values. Equal members, and entries equal in both
-key and value, are all retained; their relative order does not affect the
-encoding.
+The canonical order depends only on the values, never on the type of
+container holding them or its iteration order. It is not, in general,
+numeric or alphabetical order: `-1` follows `1`, because the encoding of
+`-1` begins with `0xFF`. (Informative: for strings that do not contain
+U+0000, it coincides with code-point order.)
 
 ## 3. Encoding
 
@@ -226,7 +204,7 @@ For a list `[v1, …, vn]`:
 E(list) = E(v1) ‖ … ‖ E(vn) ‖ u64be(n) ‖ [0x30]
 ```
 
-For a set with members `m1 ≤ … ≤ mn` in canonical order (2.5):
+For a set with members `m1, …, mn` arranged in canonical order (2.5):
 
 ```
 E(set) = E(m1) ‖ … ‖ E(mn) ‖ u64be(n) ‖ [0x31]
@@ -381,11 +359,8 @@ Types requiring the `alloc` feature: everything above except primitives,
 `char`, `str`, `()`, `Option`, arrays, slices, tuples, references and
 `PhantomData`. Types requiring the `std` feature: `HashSet`, `HashMap`.
 
-An implementation MAY stream a `BTreeMap` or `BTreeSet` in its own iteration
-order only when the key type's `Ord` agrees with the canonical order (as for
-`String`, `str`, integers, `bool`, `char`, and tuples and lists of such
-types); otherwise, and for hash-based collections, it MUST arrange entries
-in canonical order.
+Every set and map type is encoded with its members or entries in canonical
+order (2.5), whatever its own iteration order.
 
 ### 5.3 Derived implementations: structs
 
@@ -505,10 +480,16 @@ compile errors.
 | `Object(m)` | map with string keys, whatever the iteration order of `m` |
 
 A `Number` holding an `i64` or `u64` is that integer. A `Number` holding an
-`f64` is normalized by 2.2. With serde_json's `arbitrary_precision`
-feature, a `Number` whose exact decimal value is an integer is that
-integer; any other is converted to the nearest binary64 value (ties to
-even) and then normalized by 2.2.
+`f64` is normalized by 2.2.
+
+With serde_json's `arbitrary_precision` feature, a `Number` holds its
+decimal text. Such a `Number` MUST have the value it would have had without
+the feature, so that a digest does not depend on a feature that any crate
+in the dependency graph can enable: if its text is an integer within the
+range of `i64` or `u64`, it is that integer; otherwise it is converted to
+the nearest binary64 value (ties to even) and normalized by 2.2. A decimal
+value that binary64 cannot represent exactly is therefore rounded, as JCS
+(RFC 8785) and I-JSON (RFC 7493) also require.
 
 ### 5.7 The `serde` feature
 

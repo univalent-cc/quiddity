@@ -55,8 +55,9 @@ let digest: Digest = task.quiddity(); // every field except `submitted_at`
 println!("{digest}"); // sha256:9f2c…
 ```
 
-A `Digest` displays and parses as `sha256:<64 hex digits>`, and serializes to
-the same string with serde. This example uses one as an HTTP `ETag`:
+A `Digest` is written as text in the form `sha256:<64 hex digits>`.
+The `Display` and `Serialize` implementations write this format and `FromStr` parses it.
+This example uses a digest as an HTTP `ETag`:
 
 ```rust
 let current = task.quiddity();
@@ -224,7 +225,7 @@ must resist deliberate collisions, as with secure signatures.
 | `std` | yes | `HashMap` and `HashSet` | `alloc` |
 | `alloc` | yes | `String`, `Vec`, `VecDeque`, `Box`, `Rc`, `Arc`, `Cow`, `BTreeMap` and `BTreeSet` | |
 | `serde_json` | no | `Value`, `Map` and `Number` | `alloc` |
-| `serde` | no | `encode_as = serde` and `quiddity::serde::digest`, for any `Serialize` type | `alloc` |
+| `serde` | no | `encode_as = serde` and `quiddity::serde::digest`; `Serialize` and `Deserialize` for `Digest`, `Digest128` and `Digest64` | `alloc` |
 | `indexmap` | no | `IndexMap` and `IndexSet` | `alloc` |
 | `uuid` | no | `Uuid` | |
 | `bytes` | no | `Bytes` and `BytesMut` | `alloc` |
@@ -303,6 +304,12 @@ representation:
   key as a `None` field with `none_as_missing`.
 - Numbers are compared by value: `1`, `1.0` and `1e0` have the same digest,
   which is also the digest of an integer field holding `1`.
+- serde_json's `arbitrary_precision` feature does not change digests either:
+  a number digests as it would without the feature. A number that is
+  neither an integer within `i64` or `u64` nor exactly representable as an
+  `f64` is rounded to the nearest `f64`.
+  serde_json's default parser can itself be off by one in the last bit of a
+  float; its `float_roundtrip` feature makes parsing exact.
 - Arrays are ordered.
 - Strings are not Unicode-normalized, here or anywhere else: `é` as one code
   point and as `e` plus a combining accent are different strings, with
@@ -406,7 +413,7 @@ impl Quiddity for Interval {
 
     fn encode(&self, e: &mut Encoder) {
         let mut f = e.fields();
-        // Field names must be written in sorted order (checked in debug builds).
+        // Fields must be written in sorted order (checked in debug builds).
         f.field("end", &(self.start + self.len));
         f.field("start", &self.start);
         f.finish();
@@ -579,4 +586,4 @@ the changelog will list the values it affects.
 
 ## License
 
-Licensed under either of Apache License 2.0 or MIT license, at your option.
+Licensed under the MIT license.

@@ -159,9 +159,10 @@ Consequences:
   struct with a domain is compared with untyped data: digest the JSON value,
   then raise it into the struct's domain.
 - Raising is one-way. An in-domain digest cannot be lowered, and nothing in
-  its bytes says whether it is in a domain, or which. A caller needing the
-  structural digest of a type with a domain should be able to ask for it
-  directly (API to be named).
+  its bytes says whether it is in a domain, or which. There is no API for
+  the structural digest of a type that has a domain: a type is given a
+  domain because its digests belong in it, and comparing it with untyped
+  data raises the other side instead.
 
 **What a domain is for.** There are two kinds of collision:
 
@@ -508,6 +509,11 @@ rejected, integers wider than 64 bits would fail without serde_json's
 `arbitrary_precision`, and non-string map keys would be stringified or
 rejected.
 
+The one `serde` feature (requiring `alloc`) also provides `Serialize` and
+`Deserialize` for `Digest`, `Digest128` and `Digest64`, as their text forms.
+A separate feature for the serializer was considered and rejected: it would
+only serve `no_std` users without an allocator who serialize digests.
+
 API: `encode_as = serde`, on a type or a field, available only with the
 feature; `quiddity::serde::digest(&value) -> Result<Digest, Error>` for any
 `Serialize` value; and `quiddity::serde::encode(&value, &mut Encoder)` for
@@ -570,26 +576,39 @@ anyway, so the `no_std` core (D12) is unaffected. Otherwise:
 
 ## D13. Canonical order of map entries and set members
 
-Map entries are ordered by key, and set members by value, in natural value
-order:
+Set members are ordered by their encodings, and map entries by the
+encodings of their keys, then of their values, compared as byte strings
+(lexicographically, a proper prefix first). Duplicates are kept.
 
-- integers by numeric value (floats exactly equal to an integer are that
-  integer, D14); other floats by numeric value, with −∞ first, +∞ after
-  every finite value, and NaN last;
-- strings and bytes by lexicographic comparison of their bytes (for UTF-8
-  strings this is code-point order: `"aa"` before `"b"`);
-- `false` before `true`;
-- lists element by element, a proper prefix first; maps entry by entry, in
-  canonical order;
-- values of different kinds by a fixed order of kinds, given in the spec.
+The requirement is that the same values give the same digest whatever
+container holds them: a `HashMap` under any seed, a `BTreeMap`, an
+`IndexMap` in any insertion order, a JSON object. Any total order on values
+defined by the spec meets it, and the order never appears in a digest, so
+the cheapest order to implement correctly is the right one. Comparing
+encodings is a `memcmp` in every language; it is sound because encodings
+are injective, so equal bytes means equal values.
 
-This matches Rust's `Ord` for `String`, the integer types and tuples, so a
-`BTreeMap` with such keys streams in its own order, in O(n), and the derive
-sorts field names the same way at compile time. Maps whose iteration order
-is not canonical (`HashMap`, `HashSet`, `IndexMap`, serde_json `Map` with
-`preserve_order`) are sorted into a buffer, O(n log n). Ordering by encoded
-bytes was rejected: it would not match Rust's orders, so even a `BTreeMap`
-would need re-sorting. (Resolves R2.)
+Natural value order (numbers by value, strings by code point, kinds by a
+fixed rank) was the first choice and was dropped after the prior-art review
+(D16): it needs a comparator across kinds, numbers and nested values in
+every implementation, where a subtle mistake gives silently wrong digests.
+No canonical form reviewed sorts by value: CBOR and Preserves sort by
+encoded bytes (Preserves does so even though its data model defines a value
+order), Ion Hash and objecthash by per-entry hashes, and `stable-hash`
+avoids sorting with an additive hash. Sorting by per-entry hashes costs a
+SHA-256 per entry; an additive hash is unusual and harder to specify.
+
+Consequences:
+
+- Sorting needs each entry encoded into a buffer (`alloc`), as before; only
+  the comparison is cheaper.
+- A `BTreeMap` cannot stream in its own order, because Rust's `Ord` almost
+  never matches encoded-byte order (a negative integer's encoding starts
+  with `0xFF`). Every map and set is sorted.
+- The derive sorts a struct's field entries at expansion time, by the
+  encodings of their keys, which it can compute. For names without U+0000
+  this is code-point order. `Encoder::fields()` checks the order in debug
+  builds.
 
 ## D14. Encoding framing and numbers
 
@@ -643,6 +662,41 @@ machine-readable file. No machine-checked proofs. Four layers:
 Layers 1 to 3 are normative for any implementation. Layer 4 binds only the
 Rust crate, and is kept separate.
 
+## D16. Prior-art review
+
+Reviewed before implementation: Ion Hash, CBOR deterministic encoding
+(RFC 8949 section 4.2) and dCBOR, Preserves, JCS (RFC 8785), objecthash and
+`stable-hash`.
+
+Confirmed:
+
+- **Integral floats as integers** (D14). dCBOR requires the same reduction,
+  and a single NaN. Ion and Preserves keep floats and integers distinct;
+  JCS makes every number a double.
+- **Lengths, not escaping** (D14). Ion Hash delimits values with begin and
+  end bytes and escapes them inside values; its list formula omits the
+  escaping, leaving the framing of nested lists ambiguous. Postfix lengths
+  need no escaping.
+- **No Unicode normalization.** Ion and JCS do not normalize; objecthash
+  offers NFC only as a separate, optional step.
+- **Deferring a pluggable hash** (W6). Ion Hash leaves the hash function to
+  the caller and records it nowhere; the `sha256:` text prefix leaves room
+  to add algorithms later.
+- **Top-level domains** (D4). Ion hashes annotations wherever they occur,
+  which is the nested behaviour D4 rejected.
+
+Changed:
+
+- **Canonical order**: by encoded bytes, not by value (D13).
+- **`arbitrary_precision` numbers**: digest as without the feature (see the
+  drafting choices below).
+
+Recorded for later:
+
+- **Exact decimals** (R4): Ion's decimal kind, where precision is
+  significant (`1.0` and `1.00` differ), is the model.
+- **Redaction** (R5), from objecthash.
+
 ## To revisit
 
 ### R4. Richer kinds
@@ -653,6 +707,38 @@ decimal, UUID) breaks equivalence with JSON for its values, which JSON
 carries as strings. Proposed: keep the core model as is, but make it
 extensible in the way CBOR's tags are, so that typed kinds can be added in
 later versions without disturbing existing digests.
+
+The first candidate is an exact decimal (for `rust_decimal`, and for
+serde_json numbers that binary64 rounds), modelled on Ion's decimal, where
+precision is significant. Tag `0x12` is free for it.
+
+### R5. Redaction (potential future addition)
+
+Not needed now. objecthash lets part of a value be replaced by its hash
+while the overall digest stays the same, so that one field can be shown
+without revealing the others. Applied to every node, this needs a hash per
+value and a different encoding; quiddity's flat encoding does not offer it.
+
+An opt-in form is a small, purely additive extension:
+
+- A **digest kind** (e.g. tag `0x22`) whose content is the 32-byte
+  structural digest of a value.
+- A field attribute, `redactable`, under which the field is always encoded
+  as the digest of its value, never as the value itself.
+- An `Encoder` method that writes a digest already in hand, so that a
+  verifier given the redacted form can rebuild the parent's encoding and
+  check the top-level digest.
+
+Fields without the attribute cost nothing. Marking a field `redactable`
+changes the type's digests, so it is chosen when the type is designed, like
+`domain`. A struct with a redactable field no longer has the digest of the
+plain JSON object, unless the JSON side marks that value the same way.
+
+The digest of a guessable value (a boolean, an age) reveals it: the value
+can be found by hashing each candidate. objecthash adds a random 32-byte
+salt to each value for this; with quiddity, a value to be hidden would need
+to be stored with a salt, by the caller.
+
 
 ## Desiderata
 
@@ -698,16 +784,7 @@ encoding. Deferred: SHA-256 only, until there is a need.
 Details for the encoding specification, collected here until `SPEC.md` is
 written. Each needs a precise statement there.
 
-Prior art to study first:
-
-- Amazon Ion's data model (exact decimals, timestamps with precision,
-  symbols, annotations, typed nulls) and **Ion Hash**, its specification for
-  hashing Ion values independently of their text or binary encoding,
-  including struct field order. The closest existing specification to this
-  one. (Check the status of its Rust implementation.)
-- CBOR's deterministic encoding (RFC 8949, section 4.2) and its tags, as a
-  model for extensible kinds (R4).
-- JCS (RFC 8785), objecthash, and `stable-hash`'s handling of defaults.
+Prior art: reviewed in D16.
 
 Details:
 
@@ -726,8 +803,7 @@ Details:
 - The data model and the mapping of Rust forms onto it (Goal section), with
   the default shapes and `encode_as` rules (D6).
 - Framing (D14): each value ends with its tag, preceded by its fixed-width
-  length or count when variable; the tag values and the fixed order of kinds
-  for D13 are chosen in the spec.
+  length or count when variable; the tag values are chosen in the spec.
 - Canonical order of map entries and set members (D13).
 - Numbers (D14): DER integers, exactly-integral floats as integers,
   binary64 otherwise, canonical infinities and NaN.
@@ -772,9 +848,6 @@ Decided in the draft, open to review:
 
 - Tags: null `0x01`, false `0x02`, true `0x03`, integer `0x10`, float
   `0x11`, string `0x20`, bytes `0x21`, list `0x30`, set `0x31`, map `0x32`.
-- Kind order for the canonical order: null, boolean, number, string, bytes,
-  list, set, map. Numbers compare by value across integer and float, with
-  NaN last.
 - Hash input prefixes: `quiddity/1/value` (structural) and
   `quiddity/1/domain`; the domain input is prefix ‖ label ‖ u64be(label
   length) ‖ structural digest. Domain labels must be non-empty.
@@ -795,8 +868,12 @@ Decided in the draft, open to review:
   errors. A scoped `domain` is allowed (only `identities` cannot be
   scoped).
 - Strings with surrogate code points are rejected, not repaired.
-- serde_json `arbitrary_precision` numbers: an exact integer is that
-  integer; anything else is rounded to binary64 and normalized.
+- serde_json `arbitrary_precision` numbers digest as they would without the
+  feature: an integer within `i64` or `u64` is that integer, and anything
+  else is rounded to binary64 and normalized. Like `preserve_order`, the
+  feature can be enabled by any crate in the dependency graph, so a digest
+  must not depend on it. JCS and I-JSON also round to binary64. serde_json
+  itself keeps the text under the feature; exact decimals belong to R4.
 - The serde serializer reports `is_human_readable() == true`, so types such
   as `Uuid` and timestamps serialize as their string forms, matching JSON.
 - The worked examples in the spec's Appendix A, and the normative vectors
@@ -813,9 +890,9 @@ Decided in the draft, open to review:
   vectors are in `test-vectors/`. The directory is named for the
   conventional term (BLAKE3, CBOR, Wycheproof); `conformance` usually names a
   test harness, which this is not.
-- R4: richer kinds.
-- Naming the API for the structural digest of a type with a domain (D4).
+- R4: richer kinds (exact decimals first).
+- R5: redaction (potential future addition).
 - W6: pluggable hash function (deferred).
 - W7: identities for dynamic data (separate issue).
 - W4: labels readable from digests (typed `Digest<I>`, text form).
-- License (README says MIT OR Apache-2.0; unconfirmed).
+- License: MIT for now.

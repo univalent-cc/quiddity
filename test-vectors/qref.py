@@ -17,7 +17,6 @@ wins. Python values map onto the data model as:
 Usage as a library: enc(v), digest(v), in_domain(d, label), text(d).
 """
 
-import functools
 import hashlib
 import math
 import struct
@@ -68,78 +67,14 @@ def norm(v):
     return v
 
 
-def rank(v):
-    """Kind rank for the canonical order (spec 2.5)."""
-    if v is None:
-        return 0
-    if isinstance(v, bool):
-        return 1
-    if isinstance(v, (int, float)):
-        return 2
-    if isinstance(v, str):
-        return 3
-    if isinstance(v, bytes):
-        return 4
-    if isinstance(v, list):
-        return 5
-    if isinstance(v, Set):
-        return 6
-    if isinstance(v, (dict, Map)):
-        return 7
-    raise TypeError(f"not a data-model value: {v!r}")
-
-
-def _sign(x):
-    return (x > 0) - (x < 0)
-
-
-def cmp(a, b):
-    """Canonical order (spec 2.5): negative, zero or positive."""
-    a, b = norm(a), norm(b)
-    ra, rb = rank(a), rank(b)
-    if ra != rb:
-        return _sign(ra - rb)
-    if ra == 0:
-        return 0
-    if ra == 1:
-        return _sign(int(a) - int(b))
-    if ra == 2:
-        na = isinstance(a, float) and math.isnan(a)
-        nb = isinstance(b, float) and math.isnan(b)
-        if na or nb:
-            return _sign(int(na) - int(nb))  # NaN is greatest
-        return (a > b) - (a < b)
-    if ra == 3:
-        a, b = a.encode("utf-8"), b.encode("utf-8")
-    if ra in (3, 4):
-        return (a > b) - (a < b)
-    if ra == 5:
-        return cmp_seq(a, b)
-    if ra == 6:
-        return cmp_seq(sorted_members(a.items), sorted_members(b.items))
-    return cmp_seq(
-        [[k, x] for k, x in sorted_entries(a)],
-        [[k, x] for k, x in sorted_entries(b)],
-    )
-
-
-def cmp_seq(a, b):
-    for x, y in zip(a, b):
-        c = cmp(x, y)
-        if c:
-            return c
-    return _sign(len(a) - len(b))
-
-
 def sorted_members(items):
-    return sorted(items, key=functools.cmp_to_key(cmp))
+    """Set members in canonical order (spec 2.5): by their encodings."""
+    return sorted(items, key=enc)
 
 
 def sorted_entries(m):
-    def by_key_then_value(p, q):
-        return cmp(p[0], q[0]) or cmp(p[1], q[1])
-
-    return sorted(entries(m), key=functools.cmp_to_key(by_key_then_value))
+    """Map entries in canonical order (spec 2.5): by E(k), then E(v)."""
+    return sorted(entries(m), key=lambda kv: (enc(kv[0]), enc(kv[1])))
 
 
 def enc(v):
