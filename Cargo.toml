@@ -1,5 +1,54 @@
+[package]
+name = "quiddity"
+description = "Stable and configurable digests to capture the essence of values"
+readme = "README.md"
+keywords = ["digest", "hash", "canonical", "derive", "no-std"]
+categories = ["cryptography", "encoding", "no-std"]
+exclude = ["DESIGN.md", "test-vectors/", ".*"]
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[features]
+default = ["std", "derive"]
+std = ["alloc"]
+alloc = []
+derive = ["dep:quiddity-derive"]
+serde_json = ["alloc", "dep:serde_json"]
+serde = ["alloc", "dep:serde"]
+indexmap = ["alloc", "dep:indexmap"]
+uuid = ["dep:uuid"]
+bytes = ["alloc", "dep:bytes"]
+url = ["std", "dep:url"]
+
+[dependencies]
+quiddity-derive = { path = "quiddity-derive", version = "=0.1.0", optional = true }
+sha2 = { version = "0.11", default-features = false }
+
+serde_json = { version = "1", default-features = false, features = ["alloc"], optional = true }
+serde = { version = "1", default-features = false, optional = true }
+indexmap = { version = "2", default-features = false, optional = true }
+uuid = { version = "1", default-features = false, optional = true }
+bytes = { version = "1", default-features = false, optional = true }
+url = { version = "2", optional = true }
+
+[dev-dependencies]
+bytes = "1"
+indexmap = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+trybuild = "1"
+url = "2"
+uuid = "1"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--generate-link-to-definition"]
+
 [workspace]
-members = ["quiddity", "quiddity-derive"]
+members = ["quiddity-derive"]
 resolver = "3"
 
 [workspace.package]
@@ -7,6 +56,4 @@ version = "0.1.0"
 edition = "2024"
 rust-version = "1.85"
 license = "MIT"
-
-[workspace.dependencies]
-quiddity-derive = { path = "quiddity-derive", version = "=0.1.0" }
+repository = "https://github.com/univalent-cc/quiddity"

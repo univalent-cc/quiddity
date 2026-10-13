@@ -1,4 +1,8 @@
 //! Checks the encoder and digests against `test-vectors/quiddity-v1.json`.
+//!
+//! The vectors are not part of the published crate. In a published crate
+//! (recognized by the `.cargo_vcs_info.json` that `cargo package` adds),
+//! these tests skip; anywhere else, a missing vectors file is a failure.
 
 use std::string::{String, ToString};
 use std::vec::Vec;
@@ -8,7 +12,7 @@ use serde_json::Value as Json;
 
 use crate::{Digest, Digest64, Digest128, Encoder, Quiddity, QuiddityExt};
 
-const VECTORS: &str = include_str!("../../test-vectors/quiddity-v1.json");
+use std::path::Path;
 
 /// A data-model value, parsed from the vectors' typed notation.
 #[derive(Debug)]
@@ -129,8 +133,18 @@ fn encoding(v: &Value) -> Vec<u8> {
     e.into_buffer()
 }
 
-fn vectors() -> Json {
-    serde_json::from_str(VECTORS).expect("the vectors file is valid JSON")
+/// The vectors, or `None` in a published crate, which does not include them.
+fn vectors() -> Option<Json> {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let path = root.join("test-vectors/quiddity-v1.json");
+    match std::fs::read_to_string(&path) {
+        Ok(text) => Some(serde_json::from_str(&text).expect("the vectors file is valid JSON")),
+        Err(_) if root.join(".cargo_vcs_info.json").exists() => {
+            std::eprintln!("skipped: the test vectors are not part of the published crate");
+            None
+        }
+        Err(err) => panic!("cannot read {}: {err}", path.display()),
+    }
 }
 
 fn str_of<'a>(case: &'a Json, key: &str) -> &'a str {
@@ -141,7 +155,7 @@ fn str_of<'a>(case: &'a Json, key: &str) -> &'a str {
 
 #[test]
 fn values() {
-    let vectors = vectors();
+    let Some(vectors) = vectors() else { return };
     let cases = vectors["values"].as_array().unwrap();
     assert!(cases.len() > 50);
     for case in cases {
@@ -173,7 +187,7 @@ fn values() {
 
 #[test]
 fn domains() {
-    let vectors = vectors();
+    let Some(vectors) = vectors() else { return };
     for case in vectors["domains"].as_array().unwrap() {
         let name = str_of(case, "name");
         let structural = parse(&case["value"]).quiddity();
@@ -197,7 +211,7 @@ fn domains() {
 fn invalid_strings() {
     // A Rust `str` cannot hold a surrogate, so these cannot reach the
     // encoder; check that they are indeed not representable.
-    let vectors = vectors();
+    let Some(vectors) = vectors() else { return };
     for case in vectors["invalid_strings"].as_array().unwrap() {
         let code_points = case["code_points"].as_array().unwrap();
         let chars: Option<String> = code_points
@@ -210,7 +224,7 @@ fn invalid_strings() {
 
 #[test]
 fn text_forms() {
-    let vectors = vectors();
+    let Some(vectors) = vectors() else { return };
     for case in vectors["text_forms"].as_array().unwrap() {
         let text = str_of(case, "text");
         let valid = case["valid"].as_bool().unwrap();

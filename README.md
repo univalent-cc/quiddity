@@ -594,7 +594,7 @@ the changelog will list the values it affects.
 
 Licensed under the MIT license.
 
-[`QUIDDITY_SPEC.md`]: QUIDDITY_SPEC.md
+[`QUIDDITY_SPEC.md`]: https://github.com/univalent-cc/quiddity/blob/main/QUIDDITY_SPEC.md
 [`Quiddity`]: https://docs.rs/quiddity/latest/quiddity/trait.Quiddity.html
 [`Digest`]: https://docs.rs/quiddity/latest/quiddity/struct.Digest.html
 [`Digest128`]: https://docs.rs/quiddity/latest/quiddity/struct.Digest128.html
