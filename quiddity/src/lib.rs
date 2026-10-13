@@ -1,7 +1,30 @@
-//! Stable digests of values over the fields you choose.
-//!
-//! See the README for an overview, and `QUIDDITY_SPEC.md` for the encoding.
+// Overrides for `docs.rs` links in the README. The first definition takes precedence.
 
+// Fix links that are broken when documented without a feature:
+#![cfg_attr(
+    not(feature = "serde"),
+    doc = "[`quiddity::serde::digest`]: #cargo-features"
+)]
+#![cfg_attr(
+    feature = "serde",
+    doc = "[`quiddity::serde::digest`]: crate::serde::digest"
+)]
+// Normal links to crate items:
+//! [`Quiddity`]: trait@Quiddity
+//! [`Digest`]: Digest
+//! [`Digest128`]: Digest128
+//! [`Digest64`]: Digest64
+//! [`Digest::mini()`]: Digest::mini
+//! [`Digest::micro()`]: Digest::micro
+//! [`in_domain`]: Digest::in_domain
+//! [`IdentityMarker`]: trait@IdentityMarker
+//! [`Primary`]: Primary
+//! [`Encoder`]: Encoder
+//! [`Encoder::bytes`]: Encoder::bytes
+
+#![doc = include_str!("../README.md")]
+// `docs.rs` builds with a nightly compiler, so it can label feature-gated items.
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![no_std]
 
 #[cfg(feature = "alloc")]

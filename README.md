@@ -11,7 +11,7 @@ Properties of `quiddity` include:
 - **stability** across processes, platforms, Rust versions and releases of
   this crate.  Depending on the configuration, it may also be robust against the
   underlying containers, type layouts, in-memory representation, etc.  The 
-  encoding is documented in [`QUIDDITY_SPEC.md`](QUIDDITY_SPEC.md), and a semver-compatible release
+  encoding is documented in [`QUIDDITY_SPEC.md`], and a semver-compatible release
   of `quiddity` will never change the digest of a value.
 - **control over fields**. Limit the hash to specified fields, so incidental 
   fields like timestamps, hints, caches, etc. don't affect the digest.
@@ -26,7 +26,7 @@ quiddity = { version = "0.1", features = ["serde_json"] }
 
 ## Example
 
-```rust
+```rust ignore
 use quiddity::{Digest, Quiddity, QuiddityExt};
 
 #[derive(Quiddity)]
@@ -55,12 +55,12 @@ let digest: Digest = task.quiddity(); // every field except `submitted_at`
 println!("{digest}"); // sha256:9f2c…
 ```
 
-A `Digest` is written as text in the form `sha256:<64 hex digits>`.
+A [`Digest`] is written as text in the form `sha256:<64 hex digits>`.
 The `Display` and `Serialize` implementations write this format and `FromStr` parses it.
 
 This example uses a digest as an HTTP `ETag` to detect concurrent changes:
 
-```rust
+```rust ignore
 let current = task.quiddity();
 let claimed: Digest = request.header("If-Match")?.parse()?;
 
@@ -72,10 +72,10 @@ if claimed != current {
 ## Additional Identities
 
 The fields and parameters that inform the digest logic are an *identity*. Every
-type has a `Primary` identity, and a type can also declare additional identities,
-corresponding to types implementing the `IdentityMarker` trait.
+type has a [`Primary`] identity, and a type can also declare additional identities,
+corresponding to types implementing the [`IdentityMarker`] trait.
 
-```rust
+```rust ignore
 use quiddity::{Digest, IdentityMarker, Quiddity, QuiddityExt};
 
 // Declare an IdentityMarker type to define the `Meaning` identity
@@ -130,7 +130,7 @@ signature must not also verify the `Refund`, even though both types contain exac
 the same fields. The `domain` attribute makes the digests also depend on the
 domain name:
 
-```rust
+```rust ignore
 #[derive(Quiddity)]
 #[quiddity(domain = "example.payment")]
 struct Payment { to: AccountId, amount: u64 }
@@ -146,10 +146,10 @@ first, then the domain label is hashed into the digest. Types may share a domain
 for example an owned type and a borrowed view. The domain is  applied to the
 top-level value only; nested values are digested structurally.
 
-The [`in_domain`](Digest::in_domain) method lifts a structure-only digest into
+The [`in_domain`] method lifts a structure-only digest into
 a domain. This allows untyped data to be compared with a digest in a domain:
 
-```rust
+```rust ignore
 let from_json = json.quiddity().in_domain("example.payment");
 assert_eq!(from_json, payment.quiddity());
 ```
@@ -192,7 +192,7 @@ of another kind.
 Every attribute except `identities(…)` can be limited to one or more
 identities by naming them in parentheses after the attribute's name:
 
-```rust
+```rust ignore
 #[quiddity(skip(Meaning))]                 // skipped under `Meaning` only
 #[quiddity(skip(Primary))]                 // skipped under the primary identity only
 #[quiddity(rename(Meaning) = "question")]  // a different name under `Meaning`
@@ -204,10 +204,10 @@ identities by naming them in parentheses after the attribute's name:
 
 ## Shorter digests
 
-[`Digest::mini()`] returns the first 128 bits of a digest, as a `Digest128`,
-and [`Digest::micro()`] the first 64 bits, as a `Digest64`:
+[`Digest::mini()`] returns the first 128 bits of a digest, as a [`Digest128`],
+and [`Digest::micro()`] the first 64 bits, as a [`Digest64`]:
 
-```rust
+```rust ignore
 let etag: Digest64 = task.quiddity().micro();
 println!("{etag}"); // sha256-64:9f2c4e1a07b3d855
 ```
@@ -272,7 +272,7 @@ A map is digested by its entries, not by the order it iterates in. A
 same digest. A map with string keys also has the same digest as a struct
 with those field names, and as a JSON object with those keys:
 
-```rust
+```rust ignore
 let map = BTreeMap::from([("start", 10u64), ("end", 15)]);
 // Same digest as `{"start": 10, "end": 15}`, and as a struct
 // `{ start: u64, end: u64 }` holding those values.
@@ -289,7 +289,7 @@ the JSON array `[1, 2]`. Reordering the items changes the digest.
 
 `Vec<u8>` and `[u8; N]` are lists of numbers too, as they are in serde's
 JSON. To digest a field as raw bytes instead, use `with` and
-`Encoder::bytes`, as in the UUID example below.
+[`Encoder::bytes`], as in the UUID example below.
 
 ### `serde_json`
 
@@ -338,7 +338,7 @@ The `serde` feature digests any value through its `serde::Serialize` impl.
 It covers types from crates that `quiddity` has no feature for, such as
 `chrono` or `bson`:
 
-```rust
+```rust ignore
 #[derive(Quiddity)]
 struct Event {
     #[quiddity(encode_as = serde)]
@@ -366,6 +366,8 @@ another crate. A type that implements `Display` can be digested as its
 `Display` output with `encode_as = display`:
 
 ```rust
+use quiddity::Quiddity;
+
 #[derive(Quiddity)]
 struct Host {
     #[quiddity(encode_as = display)]
@@ -380,6 +382,8 @@ overrides a type's own encoding, for example to digest a `Uuid` as its 16
 bytes rather than as a string:
 
 ```rust
+use quiddity::Quiddity;
+
 #[derive(Quiddity)]
 struct Event {
     #[quiddity(with = digest_uuid)]
@@ -391,13 +395,13 @@ fn digest_uuid(id: &uuid::Uuid, e: &mut quiddity::Encoder) {
 }
 ```
 
-`Encoder` writes the primitive kinds (`null`, `bool`, `int`, `float`, `str`,
+[`Encoder`] writes the primitive kinds (`null`, `bool`, `int`, `float`, `str`,
 `bytes`) and the composite ones (`list`, `set`, `map`, `fields`). A manual
 `Quiddity` impl uses the same API.
 
 ### Manually implementing the Quiddity trait
 
-When the derive does not fit, it is possible to implement `Quiddity` directly.
+When the derive does not fit, it is possible to implement [`Quiddity`] directly.
 `encode` writes the value through the `Encoder`. This type is stored as a start
 and a length, but digested as a start and an end, the form other systems send it
 in:
@@ -430,7 +434,7 @@ impl Quiddity for Interval {
 implement `Quiddity<I>` for them. A container can implement every identity,
 encoding its items under whichever identity it is encoded under:
 
-```rust
+```rust ignore
 use quiddity::{Encoder, IdentityMarker, Quiddity};
 
 impl<I: IdentityMarker, T: Quiddity<I>> Quiddity<I> for Ring<T> {
@@ -589,3 +593,17 @@ the changelog will list the values it affects.
 ## License
 
 Licensed under the MIT license.
+
+[`QUIDDITY_SPEC.md`]: QUIDDITY_SPEC.md
+[`Quiddity`]: https://docs.rs/quiddity/latest/quiddity/trait.Quiddity.html
+[`Digest`]: https://docs.rs/quiddity/latest/quiddity/struct.Digest.html
+[`Digest128`]: https://docs.rs/quiddity/latest/quiddity/struct.Digest128.html
+[`Digest64`]: https://docs.rs/quiddity/latest/quiddity/struct.Digest64.html
+[`Digest::mini()`]: https://docs.rs/quiddity/latest/quiddity/struct.Digest.html#method.mini
+[`Digest::micro()`]: https://docs.rs/quiddity/latest/quiddity/struct.Digest.html#method.micro
+[`in_domain`]: https://docs.rs/quiddity/latest/quiddity/struct.Digest.html#method.in_domain
+[`IdentityMarker`]: https://docs.rs/quiddity/latest/quiddity/trait.IdentityMarker.html
+[`Primary`]: https://docs.rs/quiddity/latest/quiddity/struct.Primary.html
+[`Encoder`]: https://docs.rs/quiddity/latest/quiddity/struct.Encoder.html
+[`Encoder::bytes`]: https://docs.rs/quiddity/latest/quiddity/struct.Encoder.html#method.bytes
+[`quiddity::serde::digest`]: https://docs.rs/quiddity/latest/quiddity/serde/fn.digest.html

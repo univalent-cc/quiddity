@@ -1,7 +1,7 @@
 [package]
 name = "quiddity"
-description = "Stable digests of values over the fields you choose, selected by derive attributes"
-readme = "../README.md"
+description = "Stable and configurable digests to capture the essence of values"
+readme = "README.md"
 keywords = ["digest", "hash", "canonical", "derive", "no-std"]
 categories = ["cryptography", "encoding", "no-std"]
 version.workspace = true
@@ -43,3 +43,4 @@ uuid = "1"
 
 [package.metadata.docs.rs]
 all-features = true
+rustdoc-args = ["--generate-link-to-definition"]
