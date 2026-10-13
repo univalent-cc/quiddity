@@ -26,16 +26,14 @@ quiddity = { version = "0.1", features = ["serde_json"] }
 
 ## Example
 
-```rust ignore
+```rust
 use quiddity::{Digest, Quiddity, QuiddityExt};
 
 #[derive(Quiddity)]
 pub struct Task {
     prompt: String,
-    inputs: Vec<serde_json::Value>,
     documents: Vec<DocumentRef>,
     priority: u8,
-    tags: Vec<String>,
 
     /// Not part of the digest.
     #[quiddity(skip)]
@@ -48,7 +46,15 @@ pub struct DocumentRef {
     content: Digest, // a digest is itself hashable
 }
 
-let task = Task { /* ... */ };
+let task = Task {
+    prompt: "Summarize the report".into(),
+    documents: vec![DocumentRef {
+        label: "report".into(),
+        content: "The report's text".quiddity(),
+    }],
+    priority: 1,
+    submitted_at: std::time::SystemTime::now(),
+};
 
 let digest: Digest = task.quiddity(); // every field except `submitted_at`
 
@@ -75,7 +81,7 @@ The fields and parameters that inform the digest logic are an *identity*. Every
 type has a [`Primary`] identity, and a type can also declare additional identities,
 corresponding to types implementing the [`IdentityMarker`] trait.
 
-```rust ignore
+```rust
 use quiddity::{Digest, IdentityMarker, Quiddity, QuiddityExt};
 
 // Declare an IdentityMarker type to define the `Meaning` identity
@@ -86,26 +92,29 @@ pub struct Meaning;
 #[quiddity(identities(Meaning))]
 pub struct Task {
     prompt: String,
-    inputs: Vec<serde_json::Value>,
-    documents: Vec<DocumentRef>,
 
-    // These fields are left out of `Meaning`
+    // Left out of `Meaning`
     #[quiddity(skip(Meaning))]
     priority: u8,
-    #[quiddity(skip(Meaning))]
-    tags: Vec<String>,
 
     // Part of `Meaning`, but not the `Primary` identity
     #[quiddity(skip(Primary))]
-    answer_schema: serde_json::Value,
+    answer_format: String,
 
     /// Not part of any identity.
     #[quiddity(skip)]
     submitted_at: std::time::SystemTime,
 }
 
-let primary: Digest = task.quiddity();               // every field except `submitted_at` and `answer_schema`
-let meaning: Digest = task.quiddity_as::<Meaning>(); // the prompt, inputs, documents and answer schema
+let task = Task {
+    prompt: "Summarize the report".into(),
+    priority: 1,
+    answer_format: "one paragraph".into(),
+    submitted_at: std::time::SystemTime::now(),
+};
+
+let primary: Digest = task.quiddity();               // the prompt and priority
+let meaning: Digest = task.quiddity_as::<Meaning>(); // the prompt and answer format
 ```
 
 An attribute written without an identity applies to every identity. An
@@ -130,14 +139,20 @@ signature must not also verify the `Refund`, even though both types contain exac
 the same fields. The `domain` attribute makes the digests also depend on the
 domain name:
 
-```rust ignore
+```rust
+use quiddity::{Quiddity, QuiddityExt};
+
 #[derive(Quiddity)]
 #[quiddity(domain = "example.payment")]
-struct Payment { to: AccountId, amount: u64 }
+struct Payment { to: String, amount: u64 }
 
 #[derive(Quiddity)]
 #[quiddity(domain = "example.refund")]
-struct Refund { to: AccountId, amount: u64 }
+struct Refund { to: String, amount: u64 }
+
+let payment = Payment { to: "bob".into(), amount: 100 };
+let refund = Refund { to: "bob".into(), amount: 100 };
+assert_ne!(payment.quiddity(), refund.quiddity());
 ```
 
 A type has no domain unless one is explicitly set. A type with a domain has its
@@ -207,9 +222,11 @@ identities by naming them in parentheses after the attribute's name:
 [`Digest::mini()`] returns the first 128 bits of a digest, as a [`Digest128`],
 and [`Digest::micro()`] the first 64 bits, as a [`Digest64`]:
 
-```rust ignore
-let etag: Digest64 = task.quiddity().micro();
-println!("{etag}"); // sha256-64:9f2c4e1a07b3d855
+```rust
+use quiddity::{Digest64, QuiddityExt};
+
+let etag: Digest64 = "Summarize the report".quiddity().micro();
+assert_eq!(etag.to_string(), "sha256-64:366d2ab7f2c3e7db");
 ```
 
 They save space where many digests are stored or sent; computing costs
@@ -272,10 +289,19 @@ A map is digested by its entries, not by the order it iterates in. A
 same digest. A map with string keys also has the same digest as a struct
 with those field names, and as a JSON object with those keys:
 
-```rust ignore
-let map = BTreeMap::from([("start", 10u64), ("end", 15)]);
-// Same digest as `{"start": 10, "end": 15}`, and as a struct
-// `{ start: u64, end: u64 }` holding those values.
+```rust
+use std::collections::{BTreeMap, HashMap};
+use quiddity::{Quiddity, QuiddityExt};
+
+#[derive(Quiddity)]
+struct Interval { start: u64, end: u64 }
+
+let btree_map = BTreeMap::from([("start", 10u64), ("end", 15)]);
+let hash_map = HashMap::from([("end", 15u64), ("start", 10)]);
+let interval = Interval { start: 10, end: 15 };
+
+assert_eq!(btree_map.quiddity(), hash_map.quiddity());
+assert_eq!(btree_map.quiddity(), interval.quiddity());
 ```
 
 Sets (`HashSet`, `BTreeSet`) are likewise unordered, but a set is not a
@@ -434,8 +460,20 @@ impl Quiddity for Interval {
 implement `Quiddity<I>` for them. A container can implement every identity,
 encoding its items under whichever identity it is encoded under:
 
-```rust ignore
-use quiddity::{Encoder, IdentityMarker, Quiddity};
+```rust
+use quiddity::{Encoder, IdentityMarker, Quiddity, QuiddityExt};
+
+/// A ring buffer: `items[head]` is its first item.
+pub struct Ring<T> {
+    items: Vec<T>,
+    head: usize,
+}
+
+impl<T> Ring<T> {
+    fn iter_from_head(&self) -> impl Iterator<Item = &T> {
+        self.items[self.head..].iter().chain(&self.items[..self.head])
+    }
+}
 
 impl<I: IdentityMarker, T: Quiddity<I>> Quiddity<I> for Ring<T> {
     fn encode(&self, e: &mut Encoder) {
@@ -446,6 +484,9 @@ impl<I: IdentityMarker, T: Quiddity<I>> Quiddity<I> for Ring<T> {
         l.finish();
     }
 }
+
+let ring = Ring { items: vec![3, 1, 2], head: 1 };
+assert_eq!(ring.quiddity(), vec![1, 2, 3].quiddity());
 ```
 
 ### Requesting other implementations

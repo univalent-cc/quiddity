@@ -31,7 +31,7 @@ Implementations in other languages are out of scope for the first version,
 but the design should not prevent them. A digest must be computable from a
 value's data and a set of strings, without reference to Rust. In practice:
 
-- Everything that enters a digest is defined in `SPEC.md` in terms of a
+- Everything that enters a digest is defined in `QUIDDITY_SPEC.md` in terms of a
   language-neutral data model (null, boolean, number, string, bytes, list,
   set, map), not Rust types. Rust-specific forms (`Option`, tuples, structs,
   enums) are defined by how they map onto it.
@@ -791,10 +791,10 @@ non-cryptographic choice (xxh3) gives up collision resistance. Speed gains
 are mostly for large values; for JSON-sized data the cost is dominated by
 encoding. Deferred: SHA-256 only, until there is a need.
 
-## Notes for SPEC.md
+## Notes carried into QUIDDITY_SPEC
 
-Details for the encoding specification, collected here until `SPEC.md` is
-written. Each needs a precise statement there.
+Details collected before the spec was written. Each is now stated precisely
+in `QUIDDITY_SPEC.md`, which is authoritative where the two differ.
 
 Prior art: reviewed in D16.
 

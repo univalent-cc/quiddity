@@ -1,0 +1,12 @@
+[package]
+name = "quiddity-test-arbitrary-precision"
+description = "Tests quiddity's serde_json impls with serde_json's arbitrary_precision feature, which would otherwise be on for every test"
+publish = false
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dev-dependencies]
+quiddity = { path = "../..", features = ["serde_json"] }
+serde_json = { version = "1", features = ["arbitrary_precision"] }
