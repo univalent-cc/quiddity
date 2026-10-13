@@ -1,0 +1,10 @@
+# Rust
+/target/
+Cargo.lock
+
+# Python reference implementation
+__pycache__/
+*.pyc
+
+# macOS
+.DS_Store

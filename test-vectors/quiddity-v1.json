@@ -1,0 +1,1051 @@
+{
+  "spec": "QUIDDITY_SPEC.md, version 1 (draft)",
+  "generator": "test-vectors/generate.py",
+  "values": [
+    {
+      "name": "null",
+      "value": {
+        "null": null
+      },
+      "encoding": "01",
+      "digest": "sha256:9b33f75d21a313761583c755e50288efa6ccb37c900dc413d3951395aada56c3",
+      "digest128": "sha256-128:9b33f75d21a313761583c755e50288ef",
+      "digest64": "sha256-64:9b33f75d21a31376"
+    },
+    {
+      "name": "false",
+      "value": {
+        "bool": false
+      },
+      "encoding": "02",
+      "digest": "sha256:a4ed0a81c41082d0a594048e1d5d81ae85a74cfc9e5b4f2fc9d38f54b2c1aa12",
+      "digest128": "sha256-128:a4ed0a81c41082d0a594048e1d5d81ae",
+      "digest64": "sha256-64:a4ed0a81c41082d0"
+    },
+    {
+      "name": "true",
+      "value": {
+        "bool": true
+      },
+      "encoding": "03",
+      "digest": "sha256:1f7cd40876216c600adafc174c5cba0920d945af797c81b05591b288c1c21741",
+      "digest128": "sha256-128:1f7cd40876216c600adafc174c5cba09",
+      "digest64": "sha256-64:1f7cd40876216c60"
+    },
+    {
+      "name": "int 0",
+      "value": {
+        "int": "0"
+      },
+      "encoding": "00000000000000000110",
+      "digest": "sha256:1c6e2c7c95d2fd9b5bb439aac67a11822e9f3b28ee12899bf743818a389672c7",
+      "digest128": "sha256-128:1c6e2c7c95d2fd9b5bb439aac67a1182",
+      "digest64": "sha256-64:1c6e2c7c95d2fd9b"
+    },
+    {
+      "name": "int 1",
+      "value": {
+        "int": "1"
+      },
+      "encoding": "01000000000000000110",
+      "digest": "sha256:2703bfd3b50d7dd6522d108837053d9af4e32055e94d0f69e63ca983bfac4f8c",
+      "digest128": "sha256-128:2703bfd3b50d7dd6522d108837053d9a",
+      "digest64": "sha256-64:2703bfd3b50d7dd6"
+    },
+    {
+      "name": "int -1",
+      "value": {
+        "int": "-1"
+      },
+      "encoding": "ff000000000000000110",
+      "digest": "sha256:d51e197fd8fe34ec12c167f0c402bb17c0309fca56fb37e75d12cdc322f2b521",
+      "digest128": "sha256-128:d51e197fd8fe34ec12c167f0c402bb17",
+      "digest64": "sha256-64:d51e197fd8fe34ec"
+    },
+    {
+      "name": "int 127",
+      "value": {
+        "int": "127"
+      },
+      "encoding": "7f000000000000000110",
+      "digest": "sha256:de9d49e51256d1ec05eb01247c9928f6d58b22b29bc047ffc1e9b7280814fb11",
+      "digest128": "sha256-128:de9d49e51256d1ec05eb01247c9928f6",
+      "digest64": "sha256-64:de9d49e51256d1ec"
+    },
+    {
+      "name": "int 128",
+      "value": {
+        "int": "128"
+      },
+      "encoding": "0080000000000000000210",
+      "digest": "sha256:56cdc8560672bad80e52a006ea0d9ead51c1c601e8dce92e7ab20a52405c164d",
+      "digest128": "sha256-128:56cdc8560672bad80e52a006ea0d9ead",
+      "digest64": "sha256-64:56cdc8560672bad8"
+    },
+    {
+      "name": "int -128",
+      "value": {
+        "int": "-128"
+      },
+      "encoding": "80000000000000000110",
+      "digest": "sha256:6b6e995a564f6a6de4d8608006ac0ecd52a33a98145a3baadb76d92dcf6239a0",
+      "digest128": "sha256-128:6b6e995a564f6a6de4d8608006ac0ecd",
+      "digest64": "sha256-64:6b6e995a564f6a6d"
+    },
+    {
+      "name": "int -129",
+      "value": {
+        "int": "-129"
+      },
+      "encoding": "ff7f000000000000000210",
+      "digest": "sha256:9c95bf53abed7ed40fe0ef7e877fd91fe7e5ae23c74e2ca3569474f42727f929",
+      "digest128": "sha256-128:9c95bf53abed7ed40fe0ef7e877fd91f",
+      "digest64": "sha256-64:9c95bf53abed7ed4"
+    },
+    {
+      "name": "int 255",
+      "value": {
+        "int": "255"
+      },
+      "encoding": "00ff000000000000000210",
+      "digest": "sha256:8eff39abe3bcb94f56e1c81ff60de03b6e5e73247578951443ea77154d90c2f9",
+      "digest128": "sha256-128:8eff39abe3bcb94f56e1c81ff60de03b",
+      "digest64": "sha256-64:8eff39abe3bcb94f"
+    },
+    {
+      "name": "int 256",
+      "value": {
+        "int": "256"
+      },
+      "encoding": "0100000000000000000210",
+      "digest": "sha256:b4e85ec9c9a21fbe063cda306f1cab7b0d805856a2d5db87b76d93ab2a9fab45",
+      "digest128": "sha256-128:b4e85ec9c9a21fbe063cda306f1cab7b",
+      "digest64": "sha256-64:b4e85ec9c9a21fbe"
+    },
+    {
+      "name": "int i64::MIN",
+      "value": {
+        "int": "-9223372036854775808"
+      },
+      "encoding": "8000000000000000000000000000000810",
+      "digest": "sha256:c7b5dd5ba3d770f545dcc8f53aa006a546fa1a3643e2a95564acb5786759b1e9",
+      "digest128": "sha256-128:c7b5dd5ba3d770f545dcc8f53aa006a5",
+      "digest64": "sha256-64:c7b5dd5ba3d770f5"
+    },
+    {
+      "name": "int i64::MAX",
+      "value": {
+        "int": "9223372036854775807"
+      },
+      "encoding": "7fffffffffffffff000000000000000810",
+      "digest": "sha256:efff5fca0597cef15c41e6a589e46605566e0d695f8397295e56644d5ed6ad8e",
+      "digest128": "sha256-128:efff5fca0597cef15c41e6a589e46605",
+      "digest64": "sha256-64:efff5fca0597cef1"
+    },
+    {
+      "name": "int u64::MAX",
+      "value": {
+        "int": "18446744073709551615"
+      },
+      "encoding": "00ffffffffffffffff000000000000000910",
+      "digest": "sha256:834e4579290eba7854c5eb035716c1a0b41969b7172e184c94a662900b599397",
+      "digest128": "sha256-128:834e4579290eba7854c5eb035716c1a0",
+      "digest64": "sha256-64:834e4579290eba78"
+    },
+    {
+      "name": "int 2^64",
+      "value": {
+        "int": "18446744073709551616"
+      },
+      "encoding": "010000000000000000000000000000000910",
+      "digest": "sha256:ea68dd7237027dea9aa364321e866776f344a219dbc0d3eae2f1b03e0553d9a8",
+      "digest128": "sha256-128:ea68dd7237027dea9aa364321e866776",
+      "digest64": "sha256-64:ea68dd7237027dea"
+    },
+    {
+      "name": "int u128::MAX",
+      "value": {
+        "int": "340282366920938463463374607431768211455"
+      },
+      "encoding": "00ffffffffffffffffffffffffffffffff000000000000001110",
+      "digest": "sha256:14efc96814d4df7c5bc25cd210ef8ce2b39cf4eb7dfb870c69bd8bee9ff4d830",
+      "digest128": "sha256-128:14efc96814d4df7c5bc25cd210ef8ce2",
+      "digest64": "sha256-64:14efc96814d4df7c"
+    },
+    {
+      "name": "int i128::MIN",
+      "value": {
+        "int": "-170141183460469231731687303715884105728"
+      },
+      "encoding": "80000000000000000000000000000000000000000000001010",
+      "digest": "sha256:b2ba64034246ef712f568c6ec006ff0f8b70841da67b6a27805a8fceeacb7cd4",
+      "digest128": "sha256-128:b2ba64034246ef712f568c6ec006ff0f",
+      "digest64": "sha256-64:b2ba64034246ef71"
+    },
+    {
+      "name": "int 2^200",
+      "value": {
+        "int": "1606938044258990275541962092341162602522202993782792835301376"
+      },
+      "encoding": "0100000000000000000000000000000000000000000000000000000000000000001a10",
+      "digest": "sha256:d2821f5817bcfae2a52a291ffc52c91ba3595ba85725f9b36df916474d25ce40",
+      "digest128": "sha256-128:d2821f5817bcfae2a52a291ffc52c91b",
+      "digest64": "sha256-64:d2821f5817bcfae2"
+    },
+    {
+      "name": "float 1.0 (is int 1)",
+      "value": {
+        "float": "3ff0000000000000"
+      },
+      "encoding": "01000000000000000110",
+      "digest": "sha256:2703bfd3b50d7dd6522d108837053d9af4e32055e94d0f69e63ca983bfac4f8c",
+      "digest128": "sha256-128:2703bfd3b50d7dd6522d108837053d9a",
+      "digest64": "sha256-64:2703bfd3b50d7dd6"
+    },
+    {
+      "name": "float -0.0 (is int 0)",
+      "value": {
+        "float": "8000000000000000"
+      },
+      "encoding": "00000000000000000110",
+      "digest": "sha256:1c6e2c7c95d2fd9b5bb439aac67a11822e9f3b28ee12899bf743818a389672c7",
+      "digest128": "sha256-128:1c6e2c7c95d2fd9b5bb439aac67a1182",
+      "digest64": "sha256-64:1c6e2c7c95d2fd9b"
+    },
+    {
+      "name": "float -2.0 (is int -2)",
+      "value": {
+        "float": "c000000000000000"
+      },
+      "encoding": "fe000000000000000110",
+      "digest": "sha256:365a48562e6787122032dbf32b9a49b9be51a3d4010fe507d75eb5584c9b1b72",
+      "digest128": "sha256-128:365a48562e6787122032dbf32b9a49b9",
+      "digest64": "sha256-64:365a48562e678712"
+    },
+    {
+      "name": "float 2^64 (is int 2^64)",
+      "value": {
+        "float": "43f0000000000000"
+      },
+      "encoding": "010000000000000000000000000000000910",
+      "digest": "sha256:ea68dd7237027dea9aa364321e866776f344a219dbc0d3eae2f1b03e0553d9a8",
+      "digest128": "sha256-128:ea68dd7237027dea9aa364321e866776",
+      "digest64": "sha256-64:ea68dd7237027dea"
+    },
+    {
+      "name": "float 1e300 (is an int)",
+      "value": {
+        "float": "7e37e43c8800759c"
+      },
+      "encoding": "17e43c8800759c00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000007d10",
+      "digest": "sha256:2b4a7bec8c482e8f645d2654afc6dae353c2a00065ebe73d70b003755e2f0258",
+      "digest128": "sha256-128:2b4a7bec8c482e8f645d2654afc6dae3",
+      "digest64": "sha256-64:2b4a7bec8c482e8f"
+    },
+    {
+      "name": "float 1.5",
+      "value": {
+        "float": "3ff8000000000000"
+      },
+      "encoding": "3ff800000000000011",
+      "digest": "sha256:abee116c081a17dae4b03f4ec6c3339cdb6134726180231494373b1c9ce377ee",
+      "digest128": "sha256-128:abee116c081a17dae4b03f4ec6c3339c",
+      "digest64": "sha256-64:abee116c081a17da"
+    },
+    {
+      "name": "float -1.5",
+      "value": {
+        "float": "bff8000000000000"
+      },
+      "encoding": "bff800000000000011",
+      "digest": "sha256:fa99d442ebefae5c4d6168f59b94e6e888091a8a0177483ff1a9b44ab40b50fb",
+      "digest128": "sha256-128:fa99d442ebefae5c4d6168f59b94e6e8",
+      "digest64": "sha256-64:fa99d442ebefae5c"
+    },
+    {
+      "name": "float 0.1",
+      "value": {
+        "float": "3fb999999999999a"
+      },
+      "encoding": "3fb999999999999a11",
+      "digest": "sha256:d76d2a2b31296db606cdca1cb156fe81aa67e7b3c6dddef69d3fbab62a28a018",
+      "digest128": "sha256-128:d76d2a2b31296db606cdca1cb156fe81",
+      "digest64": "sha256-64:d76d2a2b31296db6"
+    },
+    {
+      "name": "float f32 0.1 widened",
+      "value": {
+        "float": "3fb99999a0000000"
+      },
+      "encoding": "3fb99999a000000011",
+      "digest": "sha256:e4e875dd901a9de8f504060f7e49e4355b16af9e4aa2bd23ff82ab76e77deaca",
+      "digest128": "sha256-128:e4e875dd901a9de8f504060f7e49e435",
+      "digest64": "sha256-64:e4e875dd901a9de8"
+    },
+    {
+      "name": "float smallest subnormal",
+      "value": {
+        "float": "0000000000000001"
+      },
+      "encoding": "000000000000000111",
+      "digest": "sha256:d01ece66c25f0f3cabc79a585546e46ace5d679f07ee45a1554e812a82c12219",
+      "digest128": "sha256-128:d01ece66c25f0f3cabc79a585546e46a",
+      "digest64": "sha256-64:d01ece66c25f0f3c"
+    },
+    {
+      "name": "float +inf",
+      "value": {
+        "float": "7ff0000000000000"
+      },
+      "encoding": "7ff000000000000011",
+      "digest": "sha256:d455353696a0fe2ac9b62369b6eaa512135eeab8f0684dd1a7ad3d6364ee39df",
+      "digest128": "sha256-128:d455353696a0fe2ac9b62369b6eaa512",
+      "digest64": "sha256-64:d455353696a0fe2a"
+    },
+    {
+      "name": "float -inf",
+      "value": {
+        "float": "fff0000000000000"
+      },
+      "encoding": "fff000000000000011",
+      "digest": "sha256:fca22aad80c2e38f04f8b28858bcc8a54a840406f82970ea48fc4946cc62039b",
+      "digest128": "sha256-128:fca22aad80c2e38f04f8b28858bcc8a5",
+      "digest64": "sha256-64:fca22aad80c2e38f"
+    },
+    {
+      "name": "float NaN canonical",
+      "value": {
+        "float": "7ff8000000000000"
+      },
+      "encoding": "7ff800000000000011",
+      "digest": "sha256:bce9627bba3659dc2f1d1a3fe58f45a7397ac56f06b6bb1e0c392c21d7b86cc0",
+      "digest128": "sha256-128:bce9627bba3659dc2f1d1a3fe58f45a7",
+      "digest64": "sha256-64:bce9627bba3659dc"
+    },
+    {
+      "name": "float NaN with payload",
+      "value": {
+        "float": "7ff0000000000001"
+      },
+      "encoding": "7ff800000000000011",
+      "digest": "sha256:bce9627bba3659dc2f1d1a3fe58f45a7397ac56f06b6bb1e0c392c21d7b86cc0",
+      "digest128": "sha256-128:bce9627bba3659dc2f1d1a3fe58f45a7",
+      "digest64": "sha256-64:bce9627bba3659dc"
+    },
+    {
+      "name": "float NaN negative",
+      "value": {
+        "float": "fff8000000000000"
+      },
+      "encoding": "7ff800000000000011",
+      "digest": "sha256:bce9627bba3659dc2f1d1a3fe58f45a7397ac56f06b6bb1e0c392c21d7b86cc0",
+      "digest128": "sha256-128:bce9627bba3659dc2f1d1a3fe58f45a7",
+      "digest64": "sha256-64:bce9627bba3659dc"
+    },
+    {
+      "name": "string empty",
+      "value": {
+        "string": ""
+      },
+      "encoding": "000000000000000020",
+      "digest": "sha256:ccfa4dd49d648cac65707bcf15fc185e123719040e76c8821528aa740681368d",
+      "digest128": "sha256-128:ccfa4dd49d648cac65707bcf15fc185e",
+      "digest64": "sha256-64:ccfa4dd49d648cac"
+    },
+    {
+      "name": "string a",
+      "value": {
+        "string": "a"
+      },
+      "encoding": "61000000000000000120",
+      "digest": "sha256:0c5e6442aeba354df983cdeb8d149971d02caa5e542a84f929c3dd7faa0d14a6",
+      "digest128": "sha256-128:0c5e6442aeba354df983cdeb8d149971",
+      "digest64": "sha256-64:0c5e6442aeba354d"
+    },
+    {
+      "name": "string e-acute precomposed",
+      "value": {
+        "string": "\u00e9"
+      },
+      "encoding": "c3a9000000000000000220",
+      "digest": "sha256:d3a8c32bb9af3134c7b000ba18e1c8c0366413e94a6fd2269e7f04598cb2a00f",
+      "digest128": "sha256-128:d3a8c32bb9af3134c7b000ba18e1c8c0",
+      "digest64": "sha256-64:d3a8c32bb9af3134"
+    },
+    {
+      "name": "string e-acute decomposed",
+      "value": {
+        "string": "e\u0301"
+      },
+      "encoding": "65cc81000000000000000320",
+      "digest": "sha256:321f2f95e4fbcf33ad01a7be6dc6609ba6ef7cc38125213a534d82a36e7d439a",
+      "digest128": "sha256-128:321f2f95e4fbcf33ad01a7be6dc6609b",
+      "digest64": "sha256-64:321f2f95e4fbcf33"
+    },
+    {
+      "name": "string astral",
+      "value": {
+        "string": "\ud83d\ude00"
+      },
+      "encoding": "f09f9880000000000000000420",
+      "digest": "sha256:f6fe5841e8845f22f28f150d159b7bfe13f900c1ab6f5bb8aa8062cd13fd8de6",
+      "digest128": "sha256-128:f6fe5841e8845f22f28f150d159b7bfe",
+      "digest64": "sha256-64:f6fe5841e8845f22"
+    },
+    {
+      "name": "string nul",
+      "value": {
+        "string": "\u0000"
+      },
+      "encoding": "00000000000000000120",
+      "digest": "sha256:a7db543aef16e8ab5005cc51cecb0561aac62dcb5cb2f144290536973e616b88",
+      "digest128": "sha256-128:a7db543aef16e8ab5005cc51cecb0561",
+      "digest64": "sha256-64:a7db543aef16e8ab"
+    },
+    {
+      "name": "bytes empty",
+      "value": {
+        "bytes": ""
+      },
+      "encoding": "000000000000000021",
+      "digest": "sha256:309807ca7a398f19398f87f15c27c20dafdc3e7674a812e4061fd0deb8cda2dc",
+      "digest128": "sha256-128:309807ca7a398f19398f87f15c27c20d",
+      "digest64": "sha256-64:309807ca7a398f19"
+    },
+    {
+      "name": "bytes 0102",
+      "value": {
+        "bytes": "0102"
+      },
+      "encoding": "0102000000000000000221",
+      "digest": "sha256:7991d5d6d37fb8a576ea776dc2fad7c9562867a447a84b9986093ced1210581b",
+      "digest128": "sha256-128:7991d5d6d37fb8a576ea776dc2fad7c9",
+      "digest64": "sha256-64:7991d5d6d37fb8a5"
+    },
+    {
+      "name": "list empty",
+      "value": {
+        "list": []
+      },
+      "encoding": "000000000000000030",
+      "digest": "sha256:b52c4f6479ddcb1f0d711017abc9e3b2a2f12ac98cece3a735d5655dd654c2ba",
+      "digest128": "sha256-128:b52c4f6479ddcb1f0d711017abc9e3b2",
+      "digest64": "sha256-64:b52c4f6479ddcb1f"
+    },
+    {
+      "name": "list [1, a]",
+      "value": {
+        "list": [
+          {
+            "int": "1"
+          },
+          {
+            "string": "a"
+          }
+        ]
+      },
+      "encoding": "0100000000000000011061000000000000000120000000000000000230",
+      "digest": "sha256:6d359306fa0b11cbc527ad722b2ad1a84ee1ff8e8da24d442e1778271cd0bd5e",
+      "digest128": "sha256-128:6d359306fa0b11cbc527ad722b2ad1a8",
+      "digest64": "sha256-64:6d359306fa0b11cb"
+    },
+    {
+      "name": "list [a, 1]",
+      "value": {
+        "list": [
+          {
+            "string": "a"
+          },
+          {
+            "int": "1"
+          }
+        ]
+      },
+      "encoding": "6100000000000000012001000000000000000110000000000000000230",
+      "digest": "sha256:be13ce6c96698dbf41baa2037b8208b7e8856c241ec432c6c4e4252b6410357e",
+      "digest128": "sha256-128:be13ce6c96698dbf41baa2037b8208b7",
+      "digest64": "sha256-64:be13ce6c96698dbf"
+    },
+    {
+      "name": "list nested",
+      "value": {
+        "list": [
+          {
+            "list": []
+          },
+          {
+            "list": [
+              {
+                "null": null
+              }
+            ]
+          }
+        ]
+      },
+      "encoding": "00000000000000003001000000000000000130000000000000000230",
+      "digest": "sha256:fcf8465061e30a94301ed563f4e775672ec3aff21279115b6382007fb5979e23",
+      "digest128": "sha256-128:fcf8465061e30a94301ed563f4e77567",
+      "digest64": "sha256-64:fcf8465061e30a94"
+    },
+    {
+      "name": "list of byte-valued ints",
+      "value": {
+        "list": [
+          {
+            "int": "1"
+          },
+          {
+            "int": "2"
+          }
+        ]
+      },
+      "encoding": "0100000000000000011002000000000000000110000000000000000230",
+      "digest": "sha256:bf870ad50f4b5d4b88b3571ce3be68bdd54dc517b56fc76504042458644c90b3",
+      "digest128": "sha256-128:bf870ad50f4b5d4b88b3571ce3be68bd",
+      "digest64": "sha256-64:bf870ad50f4b5d4b"
+    },
+    {
+      "name": "set empty",
+      "value": {
+        "set": []
+      },
+      "encoding": "000000000000000031",
+      "digest": "sha256:34765a3a335348b5b54e1dc80ea67e35f53ded05b613e16a818cdbf865e4a617",
+      "digest128": "sha256-128:34765a3a335348b5b54e1dc80ea67e35",
+      "digest64": "sha256-64:34765a3a335348b5"
+    },
+    {
+      "name": "set {2, 1}",
+      "value": {
+        "set": [
+          {
+            "int": "2"
+          },
+          {
+            "int": "1"
+          }
+        ]
+      },
+      "encoding": "0100000000000000011002000000000000000110000000000000000231",
+      "digest": "sha256:64406ae97b773d0d58df470287202a49cea075a3bd13fa3a7cd500b329d0bb08",
+      "digest128": "sha256-128:64406ae97b773d0d58df470287202a49",
+      "digest64": "sha256-64:64406ae97b773d0d"
+    },
+    {
+      "name": "set {1, 2}",
+      "value": {
+        "set": [
+          {
+            "int": "1"
+          },
+          {
+            "int": "2"
+          }
+        ]
+      },
+      "encoding": "0100000000000000011002000000000000000110000000000000000231",
+      "digest": "sha256:64406ae97b773d0d58df470287202a49cea075a3bd13fa3a7cd500b329d0bb08",
+      "digest128": "sha256-128:64406ae97b773d0d58df470287202a49",
+      "digest64": "sha256-64:64406ae97b773d0d"
+    },
+    {
+      "name": "set {1, 1}",
+      "value": {
+        "set": [
+          {
+            "int": "1"
+          },
+          {
+            "int": "1"
+          }
+        ]
+      },
+      "encoding": "0100000000000000011001000000000000000110000000000000000231",
+      "digest": "sha256:d946137c319ae4282ce501fbce2fecb92d00708c6e6c874bccd8b21712717c69",
+      "digest128": "sha256-128:d946137c319ae4282ce501fbce2fecb9",
+      "digest64": "sha256-64:d946137c319ae428"
+    },
+    {
+      "name": "set {1, 1.0}",
+      "value": {
+        "set": [
+          {
+            "int": "1"
+          },
+          {
+            "float": "3ff0000000000000"
+          }
+        ]
+      },
+      "encoding": "0100000000000000011001000000000000000110000000000000000231",
+      "digest": "sha256:d946137c319ae4282ce501fbce2fecb92d00708c6e6c874bccd8b21712717c69",
+      "digest128": "sha256-128:d946137c319ae4282ce501fbce2fecb9",
+      "digest64": "sha256-64:d946137c319ae428"
+    },
+    {
+      "name": "set of every kind",
+      "value": {
+        "set": [
+          {
+            "map": []
+          },
+          {
+            "set": []
+          },
+          {
+            "list": []
+          },
+          {
+            "bytes": ""
+          },
+          {
+            "string": ""
+          },
+          {
+            "float": "7ff8000000000000"
+          },
+          {
+            "float": "7ff0000000000000"
+          },
+          {
+            "float": "3ff8000000000000"
+          },
+          {
+            "int": "1"
+          },
+          {
+            "float": "fff0000000000000"
+          },
+          {
+            "bool": true
+          },
+          {
+            "bool": false
+          },
+          {
+            "null": null
+          }
+        ]
+      },
+      "encoding": "010203fff000000000000011010000000000000001103ff8000000000000117ff0000000000000117ff800000000000011000000000000000020000000000000000021000000000000000030000000000000000031000000000000000032000000000000000d31",
+      "digest": "sha256:41272742be022ae3f945f438cad9296f87dc5d16f49ad7d6a9c4159f8ec188c2",
+      "digest128": "sha256-128:41272742be022ae3f945f438cad9296f",
+      "digest64": "sha256-64:41272742be022ae3"
+    },
+    {
+      "name": "set {b, aa}",
+      "value": {
+        "set": [
+          {
+            "string": "b"
+          },
+          {
+            "string": "aa"
+          }
+        ]
+      },
+      "encoding": "616100000000000000022062000000000000000120000000000000000231",
+      "digest": "sha256:3f1654a0745ffac1b20d625e689331e055b267c8f0d4ff883969956fc8c8a54e",
+      "digest128": "sha256-128:3f1654a0745ffac1b20d625e689331e0",
+      "digest64": "sha256-64:3f1654a0745ffac1"
+    },
+    {
+      "name": "set {[1,2], [1]}",
+      "value": {
+        "set": [
+          {
+            "list": [
+              {
+                "int": "1"
+              },
+              {
+                "int": "2"
+              }
+            ]
+          },
+          {
+            "list": [
+              {
+                "int": "1"
+              }
+            ]
+          }
+        ]
+      },
+      "encoding": "010000000000000001100000000000000001300100000000000000011002000000000000000110000000000000000230000000000000000231",
+      "digest": "sha256:68b6b5a839b7a230be489bfe535484fd0c0a866825c94994a01e769a4fb2912a",
+      "digest128": "sha256-128:68b6b5a839b7a230be489bfe535484fd",
+      "digest64": "sha256-64:68b6b5a839b7a230"
+    },
+    {
+      "name": "map empty",
+      "value": {
+        "map": []
+      },
+      "encoding": "000000000000000032",
+      "digest": "sha256:a3fe341b5de46146b7380f41d042ace641a60f8e16c88b1f5a637034cbba0f21",
+      "digest128": "sha256-128:a3fe341b5de46146b7380f41d042ace6",
+      "digest64": "sha256-64:a3fe341b5de46146"
+    },
+    {
+      "name": "map {start, end}",
+      "value": {
+        "map": [
+          [
+            {
+              "string": "start"
+            },
+            {
+              "int": "10"
+            }
+          ],
+          [
+            {
+              "string": "end"
+            },
+            {
+              "int": "15"
+            }
+          ]
+        ]
+      },
+      "encoding": "656e640000000000000003200f00000000000000011073746172740000000000000005200a000000000000000110000000000000000232",
+      "digest": "sha256:ce5c58de07557be10cb78541577e3812bdb0b96b8af3aa17c4224753841bd989",
+      "digest128": "sha256-128:ce5c58de07557be10cb78541577e3812",
+      "digest64": "sha256-64:ce5c58de07557be1"
+    },
+    {
+      "name": "map {end, start}",
+      "value": {
+        "map": [
+          [
+            {
+              "string": "end"
+            },
+            {
+              "int": "15"
+            }
+          ],
+          [
+            {
+              "string": "start"
+            },
+            {
+              "int": "10"
+            }
+          ]
+        ]
+      },
+      "encoding": "656e640000000000000003200f00000000000000011073746172740000000000000005200a000000000000000110000000000000000232",
+      "digest": "sha256:ce5c58de07557be10cb78541577e3812bdb0b96b8af3aa17c4224753841bd989",
+      "digest128": "sha256-128:ce5c58de07557be10cb78541577e3812",
+      "digest64": "sha256-64:ce5c58de07557be1"
+    },
+    {
+      "name": "map {b, aa}",
+      "value": {
+        "map": [
+          [
+            {
+              "string": "b"
+            },
+            {
+              "int": "1"
+            }
+          ],
+          [
+            {
+              "string": "aa"
+            },
+            {
+              "int": "2"
+            }
+          ]
+        ]
+      },
+      "encoding": "6161000000000000000220020000000000000001106200000000000000012001000000000000000110000000000000000232",
+      "digest": "sha256:6a957d43f08b5acc1f086c15a06e6129d318026cf2c1e2923e5c0b99b641158d",
+      "digest128": "sha256-128:6a957d43f08b5acc1f086c15a06e6129",
+      "digest64": "sha256-64:6a957d43f08b5acc"
+    },
+    {
+      "name": "map non-string keys",
+      "value": {
+        "map": [
+          [
+            {
+              "string": "k"
+            },
+            {
+              "null": null
+            }
+          ],
+          [
+            {
+              "int": "2"
+            },
+            {
+              "null": null
+            }
+          ],
+          [
+            {
+              "null": null
+            },
+            {
+              "null": null
+            }
+          ],
+          [
+            {
+              "list": []
+            },
+            {
+              "null": null
+            }
+          ],
+          [
+            {
+              "bool": true
+            },
+            {
+              "null": null
+            }
+          ]
+        ]
+      },
+      "encoding": "0101030102000000000000000110016b0000000000000001200100000000000000003001000000000000000532",
+      "digest": "sha256:15ed188ffac305827fb182fb5a0754c71cb4a07f8a11de4ca39e074c9d4abc8b",
+      "digest128": "sha256-128:15ed188ffac305827fb182fb5a0754c7",
+      "digest64": "sha256-64:15ed188ffac30582"
+    },
+    {
+      "name": "map duplicate key",
+      "value": {
+        "map": [
+          [
+            {
+              "string": "k"
+            },
+            {
+              "int": "2"
+            }
+          ],
+          [
+            {
+              "string": "k"
+            },
+            {
+              "int": "1"
+            }
+          ]
+        ]
+      },
+      "encoding": "6b000000000000000120010000000000000001106b00000000000000012002000000000000000110000000000000000232",
+      "digest": "sha256:2996e6e26a86d84e41f79d0af9810f427a15df52d5373f30a93e4d380a1eebf6",
+      "digest128": "sha256-128:2996e6e26a86d84e41f79d0af9810f42",
+      "digest64": "sha256-64:2996e6e26a86d84e"
+    },
+    {
+      "name": "map nested",
+      "value": {
+        "map": [
+          [
+            {
+              "string": "to"
+            },
+            {
+              "string": "bob"
+            }
+          ],
+          [
+            {
+              "string": "amount"
+            },
+            {
+              "int": "100"
+            }
+          ],
+          [
+            {
+              "string": "tags"
+            },
+            {
+              "set": [
+                {
+                  "string": "x"
+                },
+                {
+                  "string": "y"
+                }
+              ]
+            }
+          ],
+          [
+            {
+              "string": "memo"
+            },
+            {
+              "null": null
+            }
+          ]
+        ]
+      },
+      "encoding": "616d6f756e74000000000000000620640000000000000001106d656d6f00000000000000042001746167730000000000000004207800000000000000012079000000000000000120000000000000000231746f000000000000000220626f62000000000000000320000000000000000432",
+      "digest": "sha256:fffe3310169b88a160de3ae5f30ee87010f94b48a2917d3e4822f38b702246a6",
+      "digest128": "sha256-128:fffe3310169b88a160de3ae5f30ee870",
+      "digest64": "sha256-64:fffe3310169b88a1"
+    }
+  ],
+  "domains": [
+    {
+      "name": "payment",
+      "value": {
+        "map": [
+          [
+            {
+              "string": "to"
+            },
+            {
+              "string": "bob"
+            }
+          ],
+          [
+            {
+              "string": "amount"
+            },
+            {
+              "int": "100"
+            }
+          ]
+        ]
+      },
+      "label": "example.payment",
+      "structural": "sha256:ebdada98fd6978a74c13d459b99036804651da3c7c677873973a497373f252b7",
+      "digest": "sha256:f9104f8b85740d8c6c47c0f5a04bb05d264ee25f9be3d310be66385b298da830",
+      "digest128": "sha256-128:f9104f8b85740d8c6c47c0f5a04bb05d",
+      "digest64": "sha256-64:f9104f8b85740d8c"
+    },
+    {
+      "name": "refund",
+      "value": {
+        "map": [
+          [
+            {
+              "string": "to"
+            },
+            {
+              "string": "bob"
+            }
+          ],
+          [
+            {
+              "string": "amount"
+            },
+            {
+              "int": "100"
+            }
+          ]
+        ]
+      },
+      "label": "example.refund",
+      "structural": "sha256:ebdada98fd6978a74c13d459b99036804651da3c7c677873973a497373f252b7",
+      "digest": "sha256:d91a67bec27f29012ce16eef0beaf4d00f681f7cfc1c610e9e1aa30a582c93f5",
+      "digest128": "sha256-128:d91a67bec27f29012ce16eef0beaf4d0",
+      "digest64": "sha256-64:d91a67bec27f2901"
+    },
+    {
+      "name": "null in domain",
+      "value": {
+        "null": null
+      },
+      "label": "a",
+      "structural": "sha256:9b33f75d21a313761583c755e50288efa6ccb37c900dc413d3951395aada56c3",
+      "digest": "sha256:6e6b6ccb4ebc8cb864432beb34ec3eba84666a8e016d0dadecb7fb2fdb3e6f31",
+      "digest128": "sha256-128:6e6b6ccb4ebc8cb864432beb34ec3eba",
+      "digest64": "sha256-64:6e6b6ccb4ebc8cb8"
+    },
+    {
+      "name": "non-ascii label",
+      "value": {
+        "null": null
+      },
+      "label": "caf\u00e9",
+      "structural": "sha256:9b33f75d21a313761583c755e50288efa6ccb37c900dc413d3951395aada56c3",
+      "digest": "sha256:9e6551475cebcd8f0f067e3a7887569d6caef92a39557492af2fea5bc8137b35",
+      "digest128": "sha256-128:9e6551475cebcd8f0f067e3a7887569d",
+      "digest64": "sha256-64:9e6551475cebcd8f"
+    }
+  ],
+  "invalid_values": [
+    {
+      "name": "string lone high surrogate",
+      "value": {
+        "string": "\ud800"
+      }
+    },
+    {
+      "name": "string lone low surrogate",
+      "value": {
+        "string": "\udc00"
+      }
+    }
+  ],
+  "text_forms": [
+    {
+      "text": "sha256:9b33f75d21a313761583c755e50288efa6ccb37c900dc413d3951395aada56c3",
+      "valid": true,
+      "requirement": "MUST"
+    },
+    {
+      "text": "sha256-128:9b33f75d21a313761583c755e50288ef",
+      "valid": true,
+      "requirement": "MUST"
+    },
+    {
+      "text": "sha256-64:9b33f75d21a31376",
+      "valid": true,
+      "requirement": "MUST"
+    },
+    {
+      "text": "sha256:9B33F75D21A313761583C755E50288EFA6CCB37C900DC413D3951395AADA56C3",
+      "valid": true,
+      "requirement": "SHOULD"
+    },
+    {
+      "text": "SHA256:9b33f75d21a313761583c755e50288efa6ccb37c900dc413d3951395aada56c3",
+      "valid": false,
+      "requirement": "MUST"
+    },
+    {
+      "text": "sha256:9b33f75d21a313761583c755e50288ef",
+      "valid": false,
+      "requirement": "MUST"
+    },
+    {
+      "text": "sha256-128:9b33f75d21a313761583c755e50288efa6ccb37c900dc413d3951395aada56c3",
+      "valid": false,
+      "requirement": "MUST"
+    },
+    {
+      "text": "sha256-64:9b33f75d21a313",
+      "valid": false,
+      "requirement": "MUST"
+    },
+    {
+      "text": "sha256:9b33f75d21a313761583c755e50288efa6ccb37c900dc413d3951395aada56c300",
+      "valid": false,
+      "requirement": "MUST"
+    },
+    {
+      "text": "sha256: 9b33f75d21a313761583c755e50288efa6ccb37c900dc413d3951395aada56c3",
+      "valid": false,
+      "requirement": "MUST"
+    },
+    {
+      "text": "sha256:9b33f75d21a313761583c755e50288efa6ccb37c900dc413d3951395aada56cg",
+      "valid": false,
+      "requirement": "MUST"
+    }
+  ]
+}
