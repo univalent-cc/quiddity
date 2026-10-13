@@ -32,5 +32,8 @@ uuid = { version = "1", default-features = false, optional = true }
 bytes = { version = "1", default-features = false, optional = true }
 url = { version = "2", optional = true }
 
+[dev-dependencies]
+serde_json = "1"
+
 [package.metadata.docs.rs]
 all-features = true

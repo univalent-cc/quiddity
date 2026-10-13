@@ -171,9 +171,12 @@ DOMAINS = [
     ("non-ascii label", null(), "café"),
 ]
 
-INVALID_VALUES = [
-    ("string lone high surrogate", {"string": "\ud800"}),
-    ("string lone low surrogate", {"string": "\udc00"}),
+# Strings that MUST be rejected, given as code points: many JSON parsers
+# refuse lone surrogate escapes, so they cannot be written as JSON strings.
+INVALID_STRINGS = [
+    ("lone high surrogate", [0xD800]),
+    ("lone low surrogate", [0xDC00]),
+    ("surrogate after a scalar value", [0x61, 0xDFFF]),
 ]
 
 d0 = digest(None)
@@ -208,11 +211,11 @@ def build():
             "structural": text(s), **digests(in_domain(s, label)),
         })
     invalid = []
-    for name, js in INVALID_VALUES:
+    for name, code_points in INVALID_STRINGS:
         try:
-            enc(js["string"])
+            enc("".join(map(chr, code_points)))
         except UnicodeEncodeError:
-            invalid.append({"name": name, "value": js})
+            invalid.append({"name": name, "code_points": code_points})
         else:
             raise AssertionError(name)
     texts = [{"text": t, "valid": ok, "requirement": req} for t, ok, req in TEXT_FORMS]
@@ -221,7 +224,7 @@ def build():
         "generator": "test-vectors/generate.py",
         "values": values,
         "domains": domains,
-        "invalid_values": invalid,
+        "invalid_strings": invalid,
         "text_forms": texts,
     }
 

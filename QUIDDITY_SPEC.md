@@ -536,7 +536,8 @@ describes the typed JSON notation for values. The file has four sections:
   normalization, so they also test 2.2.
 - `domains`: a value, a domain label, and the digest in that domain in each
   text form.
-- `invalid_values`: values that an implementation MUST reject.
+- `invalid_strings`: strings, given as lists of code points, that an
+  implementation MUST reject (2.3).
 - `text_forms`: strings to be parsed as digest text, whether each is valid,
   and whether accepting or rejecting it is required (`MUST`) or recommended
   (`SHOULD`).

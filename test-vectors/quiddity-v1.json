@@ -1055,18 +1055,25 @@
       "digest64": "sha256-64:9e6551475cebcd8f"
     }
   ],
-  "invalid_values": [
+  "invalid_strings": [
     {
-      "name": "string lone high surrogate",
-      "value": {
-        "string": "\ud800"
-      }
+      "name": "lone high surrogate",
+      "code_points": [
+        55296
+      ]
     },
     {
-      "name": "string lone low surrogate",
-      "value": {
-        "string": "\udc00"
-      }
+      "name": "lone low surrogate",
+      "code_points": [
+        56320
+      ]
+    },
+    {
+      "name": "surrogate after a scalar value",
+      "code_points": [
+        97,
+        57343
+      ]
     }
   ],
   "text_forms": [
