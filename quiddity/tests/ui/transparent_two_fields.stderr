@@ -1,0 +1,7 @@
+error: `transparent` needs exactly one participating field, but identity `Primary` has 2
+ --> tests/ui/transparent_two_fields.rs:3:10
+  |
+3 | #[derive(Quiddity)]
+  |          ^^^^^^^^
+  |
+  = note: this error originates in the derive macro `Quiddity` (in Nightly builds, run with -Z macro-backtrace for more info)

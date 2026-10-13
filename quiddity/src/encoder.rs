@@ -83,7 +83,7 @@ impl Encoder {
         }
     }
 
-    fn write(&mut self, bytes: &[u8]) {
+    pub(crate) fn write(&mut self, bytes: &[u8]) {
         match &mut self.sink {
             Sink::Hash(hash) => hash.update(bytes),
             #[cfg(feature = "alloc")]
@@ -91,7 +91,7 @@ impl Encoder {
         }
     }
 
-    fn write_len_tag(&mut self, len: usize, tag: u8) {
+    pub(crate) fn write_len_tag(&mut self, len: usize, tag: u8) {
         self.write(&(len as u64).to_be_bytes());
         self.write(&[tag]);
     }
@@ -200,8 +200,7 @@ impl Encoder {
     pub fn map(&mut self) -> MapEncoder<'_> {
         MapEncoder {
             e: self,
-            buf: Vec::new(),
-            spans: Vec::new(),
+            entries: Entries::default(),
         }
     }
 
@@ -372,10 +371,7 @@ impl Drop for SetEncoder<'_> {
 #[cfg(feature = "alloc")]
 pub struct MapEncoder<'e> {
     e: &'e mut Encoder,
-    /// The entries' encodings, key then value, one after another.
-    buf: Vec<u8>,
-    /// Each entry's start, end of key, and end of value in `buf`.
-    spans: Vec<(usize, usize, usize)>,
+    entries: Entries,
 }
 
 #[cfg(feature = "alloc")]
@@ -405,11 +401,8 @@ impl MapEncoder<'_> {
     /// Adds an entry whose key is the one value `key` writes, and whose
     /// value is the one value `value` writes.
     pub fn entry_with(&mut self, key: impl FnOnce(&mut Encoder), value: impl FnOnce(&mut Encoder)) {
-        let start = self.buf.len();
-        self.buf = encode_into(core::mem::take(&mut self.buf), key);
-        let mid = self.buf.len();
-        self.buf = encode_into(core::mem::take(&mut self.buf), value);
-        self.spans.push((start, mid, self.buf.len()));
+        self.entries.key_with(key);
+        self.entries.value_with(value);
     }
 
     /// Ends the map. Dropping the writer does the same.
@@ -419,23 +412,76 @@ impl MapEncoder<'_> {
 #[cfg(feature = "alloc")]
 impl Drop for MapEncoder<'_> {
     fn drop(&mut self) {
+        core::mem::take(&mut self.entries).write_sorted(self.e);
+    }
+}
+
+/// A map's entries, buffered for sorting. Keys and values can be added in
+/// separate steps, as serde supplies them.
+#[cfg(feature = "alloc")]
+#[derive(Default)]
+pub(crate) struct Entries {
+    /// The entries' encodings, key then value, one after another.
+    buf: Vec<u8>,
+    /// Each entry's start, end of key, and end of value in `buf`.
+    spans: Vec<(usize, usize, usize)>,
+    /// The start and end of a key whose value has not been added yet.
+    pending: Option<(usize, usize)>,
+}
+
+#[cfg(feature = "alloc")]
+impl Entries {
+    /// Adds the key of a new entry: the one value `f` writes.
+    pub(crate) fn key_with<R>(&mut self, f: impl FnOnce(&mut Encoder) -> R) -> R {
+        assert!(
+            self.pending.is_none(),
+            "quiddity: a map key was added without its value"
+        );
+        let start = self.buf.len();
+        let (buf, r) = encode_into_with(core::mem::take(&mut self.buf), f);
+        self.buf = buf;
+        self.pending = Some((start, self.buf.len()));
+        r
+    }
+
+    /// Adds the value of the entry whose key was just added.
+    pub(crate) fn value_with<R>(&mut self, f: impl FnOnce(&mut Encoder) -> R) -> R {
+        let (start, mid) = self
+            .pending
+            .take()
+            .expect("quiddity: a map value was added without a key");
+        let (buf, r) = encode_into_with(core::mem::take(&mut self.buf), f);
+        self.buf = buf;
+        self.spans.push((start, mid, self.buf.len()));
+        r
+    }
+
+    /// Writes the map: its entries in canonical order (spec 2.5), then the
+    /// count and tag.
+    pub(crate) fn write_sorted(mut self, e: &mut Encoder) {
         let buf = &self.buf;
         self.spans.sort_unstable_by(|a, b| {
             (&buf[a.0..a.1], &buf[a.1..a.2]).cmp(&(&buf[b.0..b.1], &buf[b.1..b.2]))
         });
         for &(start, _, end) in &self.spans {
-            self.e.write(&buf[start..end]);
+            e.write(&buf[start..end]);
         }
-        self.e.write_len_tag(self.spans.len(), tag::MAP);
+        e.write_len_tag(self.spans.len(), tag::MAP);
     }
 }
 
 /// Appends what `f` writes to `buf`.
 #[cfg(feature = "alloc")]
 fn encode_into(buf: Vec<u8>, f: impl FnOnce(&mut Encoder)) -> Vec<u8> {
+    encode_into_with(buf, f).0
+}
+
+/// Appends what `f` writes to `buf`, and returns `f`'s result too.
+#[cfg(feature = "alloc")]
+fn encode_into_with<R>(buf: Vec<u8>, f: impl FnOnce(&mut Encoder) -> R) -> (Vec<u8>, R) {
     let mut e = Encoder::buffer(buf);
-    f(&mut e);
-    e.into_buffer()
+    let r = f(&mut e);
+    (e.into_buffer(), r)
 }
 
 /// Writes the fields of a map with string keys known in advance. Created by

@@ -33,7 +33,13 @@ bytes = { version = "1", default-features = false, optional = true }
 url = { version = "2", optional = true }
 
 [dev-dependencies]
+bytes = "1"
+indexmap = "2"
+serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+trybuild = "1"
+url = "2"
+uuid = "1"
 
 [package.metadata.docs.rs]
 all-features = true

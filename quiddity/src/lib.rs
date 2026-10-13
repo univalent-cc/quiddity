@@ -12,7 +12,11 @@ extern crate std;
 
 mod digest;
 mod encoder;
+mod features;
+mod impls;
 mod number;
+#[cfg(feature = "serde")]
+pub mod serde;
 
 #[cfg(all(test, feature = "alloc"))]
 mod vectors;
@@ -45,6 +49,11 @@ pub trait Quiddity<I: IdentityMarker = Primary> {
 
     /// Writes this value's encoding: exactly one value.
     fn encode(&self, e: &mut Encoder);
+
+    /// Whether a field of this type is left out of a derived type's
+    /// encoding, as if skipped. `true` only for `PhantomData`.
+    #[doc(hidden)]
+    const ABSENT_AS_FIELD: bool = false;
 }
 
 /// The methods that compute digests. Implemented for every type; available
@@ -74,3 +83,46 @@ pub trait QuiddityExt {
 }
 
 impl<T: ?Sized> QuiddityExt for T {}
+
+/// Used by the derive's expansion. Not part of the public API.
+#[doc(hidden)]
+pub mod __private {
+    /// Implemented only for `Option<T>`, so that `none_as_missing` on any
+    /// other type fails to compile.
+    #[diagnostic::on_unimplemented(
+        message = "`none_as_missing` applies only to `Option` fields, not `{Self}`",
+        label = "not an `Option`"
+    )]
+    pub trait OptionLike {
+        fn is_none(&self) -> bool;
+    }
+
+    impl<T> OptionLike for Option<T> {
+        fn is_none(&self) -> bool {
+            Option::is_none(self)
+        }
+    }
+
+    #[cfg(feature = "serde")]
+    pub use crate::serde::encode_or_panic as encode_serde;
+}
+
+/// Used by the derive's expansion for `encode_as = serde`.
+#[doc(hidden)]
+#[cfg(feature = "serde")]
+#[macro_export]
+macro_rules! __encode_serde {
+    ($value:expr, $e:expr) => {
+        $crate::__private::encode_serde($value, $e)
+    };
+}
+
+/// Used by the derive's expansion for `encode_as = serde`.
+#[doc(hidden)]
+#[cfg(not(feature = "serde"))]
+#[macro_export]
+macro_rules! __encode_serde {
+    ($value:expr, $e:expr) => {
+        ::core::compile_error!("`encode_as = serde` needs the `serde` feature of `quiddity`")
+    };
+}

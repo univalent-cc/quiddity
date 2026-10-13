@@ -1,0 +1,5 @@
+error: a domain must not be empty
+ --> tests/ui/empty_domain.rs:4:21
+  |
+4 | #[quiddity(domain = "")]
+  |                     ^^

@@ -1,0 +1,7 @@
+error: `encode_as = serde` needs the `serde` feature of `quiddity`
+ --> tests/ui/serde_without_feature.rs:3:10
+  |
+3 | #[derive(Quiddity)]
+  |          ^^^^^^^^
+  |
+  = note: this error originates in the macro `::quiddity::__encode_serde` which comes from the expansion of the derive macro `Quiddity` (in Nightly builds, run with -Z macro-backtrace for more info)

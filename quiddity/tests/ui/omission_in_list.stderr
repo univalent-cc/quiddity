@@ -1,0 +1,5 @@
+error: `none_as_missing` and `omit_if` apply only to fields encoded as a map
+ --> tests/ui/omission_in_list.rs:7:8
+  |
+7 |     a: Option<u8>,
+  |        ^^^^^^^^^^

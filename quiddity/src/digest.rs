@@ -166,3 +166,48 @@ fn parse_hex<const N: usize>(s: &str, prefix: &'static str) -> Result<[u8; N], P
     }
     Ok(bytes)
 }
+
+/// With the `serde` feature, digests serialize as their text forms.
+#[cfg(feature = "serde")]
+mod serde_impls {
+    use core::fmt;
+    use core::marker::PhantomData;
+    use core::str::FromStr;
+
+    use ::serde::de::{self, Deserialize, Deserializer, Visitor};
+    use ::serde::ser::{Serialize, Serializer};
+
+    use super::{Digest, Digest64, Digest128};
+
+    struct TextVisitor<T>(PhantomData<T>);
+
+    impl<T: FromStr<Err = super::ParseDigestError>> Visitor<'_> for TextVisitor<T> {
+        type Value = T;
+
+        fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            f.write_str("a digest in text form, such as `sha256:…`")
+        }
+
+        fn visit_str<E: de::Error>(self, s: &str) -> Result<T, E> {
+            s.parse().map_err(E::custom)
+        }
+    }
+
+    macro_rules! serde_text {
+        ($($t:ty)*) => {$(
+            impl Serialize for $t {
+                fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+                    s.collect_str(self)
+                }
+            }
+
+            impl<'de> Deserialize<'de> for $t {
+                fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+                    d.deserialize_str(TextVisitor(PhantomData))
+                }
+            }
+        )*};
+    }
+
+    serde_text!(Digest Digest128 Digest64);
+}

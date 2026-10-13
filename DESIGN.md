@@ -373,16 +373,26 @@ The derive emits one `impl Quiddity<X> for T` per identity (`Primary` plus
 each one listed in `identities(...)`), with that identity's fields sorted by
 name at expansion time.
 
-**Encoder API (as shown in the README).** `e.fields()` writes a struct or
-string-keyed map with names known in advance; names must be written in
-sorted order, checked by a debug assertion (a release build cannot check
-without cost). `field(name, &v)` encodes `v` under its primary identity, and
-`field_as::<I, _>(name, &v)` under `I`. `e.list()` with `item` /
-`item_as::<I, _>` writes a list. Each composite is closed
-with `finish()`. Primitives: `null`, `bool`, `int`, `float`, `str`, `bytes`;
-composites: `list`, `set`, `map`, `fields`. Still a sketch. `set` and `map`
-order their entries canonically (D13). With counts written after the items
-(D14), `list` takes no length: `e.list()`.
+**Encoder API.** Primitives: `null`, `bool`, `int` (any primitive
+integer, through the sealed `Integer` trait), `int_twos_complement` (an
+integer of any size, as big-endian two's-complement bytes, the form
+`num_bigint` produces), `float` (normalized), `str`, `bytes`, and `display`.
+Streams: `str_stream()` (a `fmt::Write`) and `bytes_stream()` (an
+`io::Write` with `std`), which write the length when they end. Composites:
+`list()`, `set()` and `map()` (the last two need `alloc` and sort their
+entries, D13), and `fields()`, a map with `&'static str` keys written in
+canonical order without buffering, checked in debug builds. Each writer
+has `item`/`member`/`entry`/`field`, an `_as::<I, _>` form, and a `_with`
+form taking a closure that writes one value. A writer ends when it is
+finished or dropped, so forgetting `finish()` cannot corrupt an encoding.
+
+**Bounds in derived impls.** For a generic type, the derive adds
+`T: Quiddity<J>` for each type parameter `T` that appears in a field written
+through its own impl under identity `J`, as serde does for `Serialize`.
+Type parameters inside `PhantomData<…>` get no bound, so `Id<T>` with a
+`PhantomData<T>` field does not require `T: Quiddity`. Bounds on field
+types themselves were rejected: they make recursive types (`struct Node {
+children: Vec<Node> }`) overflow the trait solver.
 
 **Why `QuiddityExt` is a separate trait.** The caller-facing methods must
 live on a trait implemented once per type. A type implements `Quiddity<I>`

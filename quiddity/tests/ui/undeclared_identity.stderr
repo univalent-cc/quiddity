@@ -1,0 +1,5 @@
+error: identity `Meaning` is not declared in this type's `identities(…)`
+ --> tests/ui/undeclared_identity.rs:8:21
+  |
+8 |     #[quiddity(skip(Meaning))]
+  |                     ^^^^^^^

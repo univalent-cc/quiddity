@@ -1,0 +1,5 @@
+error: on an enum, `encode_as` must be `string`, `int`, `display` or `serde`
+ --> tests/ui/enum_as_list.rs:4:12
+  |
+4 | #[quiddity(encode_as = list)]
+  |            ^^^^^^^^^

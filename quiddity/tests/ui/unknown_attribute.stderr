@@ -1,0 +1,5 @@
+error: unknown field attribute `skip_if_empty`
+ --> tests/ui/unknown_attribute.rs:5:16
+  |
+5 |     #[quiddity(skip_if_empty)]
+  |                ^^^^^^^^^^^^^

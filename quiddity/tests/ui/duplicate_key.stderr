@@ -1,0 +1,5 @@
+error: two fields have the key "a" under identity `Primary`
+ --> tests/ui/duplicate_key.rs:7:8
+  |
+7 |     b: u8,
+  |        ^^

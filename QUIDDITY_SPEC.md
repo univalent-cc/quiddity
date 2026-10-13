@@ -340,7 +340,7 @@ encoding its elements or fields, if any, under the same `I`.
 | tuples `(T1, …, Tn)`, `n ≥ 1` | list, in order |
 | `BTreeSet<T>`, `HashSet<T, S>` | set |
 | `BTreeMap<K, V>`, `HashMap<K, V, S>` | map |
-| `&T`, `&mut T`, `Box<T>`, `Rc<T>`, `Arc<T>`, `Cow<'_, T>` | the value of `T` |
+| `&T`, `&mut T`, `Box<T>`, `Rc<T>`, `Arc<T>`, `Cow<'_, T>` | the value of `T`; at the top level, in `T`'s domain, if any |
 | `PhantomData<T>` | null; as a field of a derived type, absent (5.3) |
 
 `Vec<u8>` and `[u8; N]` are lists of integers, not bytes. The bytes kind is
@@ -393,7 +393,9 @@ field is a `PhantomData<T>` has the value null.
   one.
 
 It is a compile error if two participating fields have the same key under
-the same identity.
+the same identity. A newtype struct whose field is skipped under an
+identity is null under that identity. A unit struct, and a struct with no
+fields, is null.
 
 ### 5.4 Derived implementations: enums
 
@@ -456,7 +458,10 @@ struct encoded as a list are compile errors.
 
 **Applicability.** `encode_as = map | list` on anything but a struct with
 named fields, and `encode_as = string | int` on anything but an enum, are
-compile errors.
+compile errors. So are: `transparent` on an enum; `rename` on a tuple
+field; more than one of `with`, `encode_as` and `identity` on a field under
+the same identity; a scope list naming an identity not declared in
+`identities(…)`; and an attribute given twice for the same identity.
 
 ### 5.6 Optional features
 
