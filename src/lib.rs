@@ -34,6 +34,8 @@ extern crate alloc;
 extern crate std;
 
 mod digest;
+#[cfg(all(doctest, feature = "derive"))]
+mod doctests;
 mod encoder;
 mod features;
 mod impls;

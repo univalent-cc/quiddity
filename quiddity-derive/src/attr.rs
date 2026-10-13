@@ -53,14 +53,12 @@ fn items(attrs: &[Attribute]) -> syn::Result<Vec<Item>> {
     Ok(out)
 }
 
-/// The key identifying an identity path, for comparing scope lists with
-/// the declared identities.
+/// The key identifying an identity in scope lists: its type name, the last
+/// segment of its path, with any generic arguments. A derive macro cannot
+/// resolve paths, so `Meaning` and `crate::Meaning` are matched by name; the
+/// identities a type declares must therefore have distinct names.
 pub fn identity_key(path: &Path) -> String {
-    if path.is_ident(PRIMARY) {
-        PRIMARY.to_owned()
-    } else {
-        path.to_token_stream().to_string()
-    }
+    path.segments.last().unwrap().to_token_stream().to_string()
 }
 
 /// An attribute's values: an unscoped one, and scoped ones.
@@ -230,7 +228,14 @@ impl TypeAttrs {
                     .iter()
                     .any(|q| identity_key(q) == identity_key(p))
                 {
-                    return Err(syn::Error::new_spanned(p, "duplicate identity"));
+                    return Err(syn::Error::new_spanned(
+                        p,
+                        format!(
+                            "two identities named `{}`: identities are matched by name \
+                             in attribute lists, so their names must differ",
+                            identity_key(p)
+                        ),
+                    ));
                 }
                 out.identities.push(p.clone());
             }
@@ -283,7 +288,7 @@ impl FieldAttrs {
                 "rename" => out.rename.set(item, string(item)?, ids)?,
                 "identity" => {
                     let p = path(item)?;
-                    let p = if p.is_ident(PRIMARY) {
+                    let p = if identity_key(&p) == PRIMARY {
                         syn::parse_quote!(::quiddity::Primary)
                     } else {
                         p

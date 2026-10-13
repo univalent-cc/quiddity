@@ -390,7 +390,8 @@ field is a `PhantomData<T>` has the value null.
 - **`transparent`.** The struct is encoded as the value of its single
   participating field. It is a compile error if, under any identity the
   attribute applies to, the number of participating fields is not exactly
-  one.
+  one. If that field's type is generic, instantiating it as `PhantomData`
+  is a compile error where the instantiated type is digested.
 
 It is a compile error if two participating fields have the same key under
 the same identity. A newtype struct whose field is skipped under an
@@ -421,7 +422,10 @@ All attributes are written `#[quiddity(…)]`.
 type. With identities, it applies to those listed and, for them, replaces
 the unscoped form. `identities(…)` cannot be scoped. In identity lists,
 `Primary` denotes `quiddity::Primary` without being imported. A marker type
-named `Primary` is a compile error.
+named `Primary` is a compile error. Identities in scope lists are matched by
+name, the last segment of their path with any generic arguments, so
+`skip(Meaning)` and `skip(crate::Meaning)` name the same identity; it is a
+compile error for two identities in `identities(…)` to have the same name.
 
 Type attributes:
 

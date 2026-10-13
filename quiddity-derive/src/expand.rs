@@ -45,8 +45,11 @@ enum ValueEncoding {
 enum Shape {
     Map,
     List,
-    /// The value of the one participating field.
+    /// The value of the one participating field, or null if a newtype's
+    /// field does not participate.
     Single,
+    /// The value of the one participating field, which must exist.
+    Transparent,
 }
 
 pub fn derive(input: DeriveInput) -> syn::Result<TokenStream> {
@@ -204,7 +207,7 @@ fn struct_shape(
     type_shape: Option<(EncodeAs, Span)>,
 ) -> syn::Result<Shape> {
     if attrs.transparent.get(key).copied().unwrap_or(false) {
-        return Ok(Shape::Single);
+        return Ok(Shape::Transparent);
     }
     match (form, type_shape) {
         (Fields::Named(_), None | Some((EncodeAs::Map, _))) => Ok(Shape::Map),
@@ -341,6 +344,38 @@ fn write_fields(
                     ),
                 ))
             }
+        }
+        Shape::Transparent => {
+            if participating.len() != 1 {
+                return Err(syn::Error::new(
+                    Span::call_site(),
+                    format!(
+                        "`transparent` needs exactly one participating field, but identity \
+                         `{key}` has {}",
+                        participating.len()
+                    ),
+                ));
+            }
+            let field = participating[0];
+            let value = field.write_value(key, bounds)?;
+            // A generic field can turn out to be `PhantomData`, which does
+            // not participate: check once the type is known.
+            let check = match field.encoding(key)? {
+                ValueEncoding::Own(j) => {
+                    let ty = &field.ty;
+                    quote! {
+                        const {
+                            ::core::assert!(
+                                !<#ty as ::quiddity::Quiddity<#j>>::ABSENT_AS_FIELD,
+                                "`transparent` needs exactly one participating field, \
+                                 but this one is `PhantomData`",
+                            )
+                        };
+                    }
+                }
+                _ => quote!(),
+            };
+            Ok(quote!(#check #value))
         }
         Shape::List if fields.is_empty() => Ok(quote!(__e.null();)),
         Shape::List => {

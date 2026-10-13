@@ -1,0 +1,5 @@
+error: two identities named `Meaning`: identities are matched by name in attribute lists, so their names must differ
+  --> tests/ui/identities_same_name.rs:12:35
+   |
+12 | #[quiddity(identities(a::Meaning, b::Meaning))]
+   |                                   ^^^^^^^^^^

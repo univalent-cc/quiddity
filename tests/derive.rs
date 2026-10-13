@@ -518,3 +518,46 @@ fn identity_as_generic_parameter() {
         task().quiddity_as::<Meaning>()
     );
 }
+
+mod spelled {
+    use super::*;
+
+    #[derive(Quiddity)]
+    #[quiddity(identities(crate::Meaning))]
+    pub struct Spelled {
+        #[quiddity(skip(Meaning))]
+        a: u8,
+        #[quiddity(skip(quiddity::Primary))]
+        b: u8,
+    }
+
+    #[test]
+    fn identities_matched_by_name() {
+        let s = Spelled { a: 1, b: 2 };
+        assert_eq!(s.quiddity(), Map::new().with("a", 1u8).quiddity());
+        assert_eq!(
+            s.quiddity_as::<Meaning>(),
+            Map::new().with("b", 2u8).quiddity()
+        );
+    }
+}
+
+#[derive(Quiddity)]
+#[quiddity(transparent)]
+struct Transparent<T> {
+    value: T,
+    #[quiddity(skip)]
+    _note: &'static str,
+}
+
+#[test]
+fn generic_transparent() {
+    assert_eq!(
+        Transparent {
+            value: 5u8,
+            _note: ""
+        }
+        .quiddity(),
+        5u8.quiddity()
+    );
+}
