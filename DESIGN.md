@@ -542,7 +542,9 @@ Rules:
 
 ## D12. `no_std` tiers: `std` and `alloc` features
 
-`default = ["std"]`, and `std` enables `alloc`, so both are on by default.
+`default = ["std", "derive"]`, and `std` enables `alloc`, so all three are on by
+default. `derive` re-exports the macros from `quiddity-derive`; turning it
+off avoids compiling the proc macro, for crates with only manual impls.
 With default features off, the crate is `no_std` and needs no allocator.
 This costs little because hashing never allocates (see the constraint
 below), and it serves firmware or embedded code that verifies signed

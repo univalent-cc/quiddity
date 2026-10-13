@@ -1,0 +1,36 @@
+[package]
+name = "quiddity"
+description = "Stable digests of values over the fields you choose, selected by derive attributes"
+readme = "../README.md"
+keywords = ["digest", "hash", "canonical", "derive", "no-std"]
+categories = ["cryptography", "encoding", "no-std"]
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[features]
+default = ["std", "derive"]
+std = ["alloc"]
+alloc = []
+derive = ["dep:quiddity-derive"]
+serde_json = ["alloc", "dep:serde_json"]
+serde = ["alloc", "dep:serde"]
+indexmap = ["alloc", "dep:indexmap"]
+uuid = ["dep:uuid"]
+bytes = ["alloc", "dep:bytes"]
+url = ["std", "dep:url"]
+
+[dependencies]
+quiddity-derive = { workspace = true, optional = true }
+sha2 = { version = "0.11", default-features = false }
+
+serde_json = { version = "1", default-features = false, features = ["alloc"], optional = true }
+serde = { version = "1", default-features = false, optional = true }
+indexmap = { version = "2", default-features = false, optional = true }
+uuid = { version = "1", default-features = false, optional = true }
+bytes = { version = "1", default-features = false, optional = true }
+url = { version = "2", optional = true }
+
+[package.metadata.docs.rs]
+all-features = true

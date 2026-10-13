@@ -57,7 +57,8 @@ println!("{digest}"); // sha256:9f2c…
 
 A `Digest` is written as text in the form `sha256:<64 hex digits>`.
 The `Display` and `Serialize` implementations write this format and `FromStr` parses it.
-This example uses a digest as an HTTP `ETag`:
+
+This example uses a digest as an HTTP `ETag` to detect concurrent changes:
 
 ```rust
 let current = task.quiddity();
@@ -222,6 +223,7 @@ must resist deliberate collisions, as with secure signatures.
 
 | Feature | Default | Provides | Requires |
 |---|---|---|---|
+| `derive` | yes | `#[derive(Quiddity)]` and `#[derive(IdentityMarker)]` | |
 | `std` | yes | `HashMap` and `HashSet` | `alloc` |
 | `alloc` | yes | `String`, `Vec`, `VecDeque`, `Box`, `Rc`, `Arc`, `Cow`, `BTreeMap` and `BTreeSet` | |
 | `serde_json` | no | `Value`, `Map` and `Number` | `alloc` |
@@ -232,13 +234,13 @@ must resist deliberate collisions, as with secure signatures.
 | `url` | no | `Url` | `std` |
 
 With `default-features = false`, `quiddity` is `no_std` and needs no
-allocator. The derive, `Digest` and its shorter forms, numbers, `bool`,
+allocator. The derive (with the `derive` feature), `Digest` and its shorter forms, numbers, `bool`,
 `char`, `&str`, slices, arrays, tuples, `Option`, references and
 `encode_as = display` all work without `std` or `alloc`:
 
 ```toml
 [dependencies]
-quiddity = { version = "0.1", default-features = false }
+quiddity = { version = "0.1", default-features = false, features = ["derive"] }
 ```
 
 ## Implementations of the Quiddity trait
