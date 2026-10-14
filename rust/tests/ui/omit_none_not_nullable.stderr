@@ -1,0 +1,19 @@
+error[E0277]: `omit_none` applies only to types that can be null (`Option`, `()`, `serde_json::Value`, …), not `u32`
+ --> tests/ui/omit_none_not_nullable.rs:3:10
+  |
+3 | #[derive(Quiddity)]
+  |          ^^^^^^^^ cannot be null
+...
+6 |     count: u32,
+  |            --- required by a bound introduced by this call
+  |
+  = help: the trait `quiddity::__private::Nullable` is not implemented for `u32`
+  = help: the following other types implement trait `quiddity::__private::Nullable`:
+            &T
+            &mut T
+            ()
+            Arc<T>
+            Box<T>
+            Cow<'_, T>
+            Option<T>
+            Rc<T>

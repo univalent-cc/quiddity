@@ -11,7 +11,7 @@ use syn::{
     Variant,
 };
 
-use crate::attr::{EncodeAs, FieldAttrs, PRIMARY, TypeAttrs, VariantAttrs};
+use crate::attr::{EncodeAs, FieldAttrs, PRIMARY, RenameRule, TypeAttrs, VariantAttrs};
 
 /// An identity the type implements.
 struct Identity {
@@ -38,6 +38,8 @@ enum ValueEncoding {
     With(Path),
     Display,
     Serde,
+    /// The items of a sequence, as a set.
+    Set,
 }
 
 /// The shape a list of fields is written in.
@@ -156,7 +158,8 @@ fn implement(
         (Some((EncodeAs::Serde, _)), _) => quote!(::quiddity::__encode_serde!(self, __e);),
         (_, Body::Struct(fields, form)) => {
             let shape = struct_shape(attrs, key, form, type_shape)?;
-            let write = write_fields(fields, shape, key, &mut bounds)?;
+            let rename_all = attrs.rename_all.get(key).copied();
+            let write = write_fields(fields, shape, key, rename_all, &mut bounds)?;
             let pattern = pattern(quote!(Self), fields, form);
             quote! {
                 let #pattern = self;
@@ -174,7 +177,8 @@ fn implement(
                     ));
                 }
             };
-            write_enum(variants, int, key, &mut bounds)?
+            let rename_all = attrs.rename_all.get(key).copied();
+            write_enum(variants, int, key, rename_all, &mut bounds)?
         }
     };
 
@@ -261,6 +265,7 @@ impl Field {
         Ok(match (with, shape, identity) {
             (Some(path), _, _) => ValueEncoding::With(path.clone()),
             (_, Some((EncodeAs::Display, _)), _) => ValueEncoding::Display,
+            (_, Some((EncodeAs::Set, _)), _) => ValueEncoding::Set,
             (_, Some(_), _) => ValueEncoding::Serde,
             (_, _, Some(j)) => ValueEncoding::Own(quote!(#j)),
             _ => ValueEncoding::Own(quote!(::quiddity::Primary)),
@@ -278,6 +283,11 @@ impl Field {
             ValueEncoding::With(path) => quote!(#path(#b, __e);),
             ValueEncoding::Display => quote!(__e.display(#b);),
             ValueEncoding::Serde => quote!(::quiddity::__encode_serde!(#b, __e);),
+            ValueEncoding::Set => {
+                // The items are written under their primary identity.
+                bounds.add(ty, &quote!(::quiddity::Primary));
+                quote!(::quiddity::__encode_set!(#b, __e);)
+            }
         })
     }
 
@@ -289,22 +299,23 @@ impl Field {
             ValueEncoding::Own(j) => quote!(!<#ty as ::quiddity::Quiddity<#j>>::ABSENT_AS_FIELD),
             _ => quote!(true),
         };
-        let none = self
-            .attrs
-            .none_as_missing
-            .get(key)
-            .copied()
-            .unwrap_or(false);
+        let none = self.attrs.omit_none.get(key).copied().unwrap_or(false);
+        let empty = self.attrs.omit_empty.get(key).copied().unwrap_or(false);
         let omit_if = self.attrs.omit_if.get(key);
-        if (none || omit_if.is_some()) && shape != Shape::Map {
+        if (none || empty || omit_if.is_some()) && shape != Shape::Map {
             return Err(syn::Error::new_spanned(
                 &self.ty,
-                "`none_as_missing` and `omit_if` apply only to fields encoded as a map",
+                "`omit_none`, `omit_empty` and `omit_if` apply only to fields encoded as a map",
             ));
         }
         if none {
             cond.extend(
-                quote_spanned!(ty.span()=> && !::quiddity::__private::OptionLike::is_none(#b)),
+                quote_spanned!(ty.span()=> && !::quiddity::__private::Nullable::is_null(#b)),
+            );
+        }
+        if empty {
+            cond.extend(
+                quote_spanned!(ty.span()=> && !::quiddity::__private::IsEmpty::is_empty(#b)),
             );
         }
         if let Some(path) = omit_if {
@@ -319,6 +330,7 @@ fn write_fields(
     fields: &[Field],
     shape: Shape,
     key: &str,
+    rename_all: Option<RenameRule>,
     bounds: &mut Bounds,
 ) -> syn::Result<TokenStream> {
     let participating: Vec<&Field> = fields.iter().filter(|f| f.participates(key)).collect();
@@ -394,9 +406,10 @@ fn write_fields(
         Shape::Map => {
             let mut entries = Vec::new();
             for f in participating {
-                let name = match f.attrs.rename.get(key) {
-                    Some(lit) => lit.value(),
-                    None => unraw(f.name.as_ref().unwrap()),
+                let name = match (f.attrs.rename.get(key), rename_all) {
+                    (Some(lit), _) => lit.value(),
+                    (None, Some(rule)) => rule.apply_to_field(&unraw(f.name.as_ref().unwrap())),
+                    (None, None) => unraw(f.name.as_ref().unwrap()),
                 };
                 entries.push((name, f));
             }
@@ -441,10 +454,13 @@ fn cmp_key_encodings(a: &str, b: &str) -> std::cmp::Ordering {
     encoding(a).cmp(encoding(b))
 }
 
+/// Writes an enum. `rename_all` applies to variant names, not to the fields
+/// of struct variants, as in serde.
 fn write_enum(
     variants: &[(&Variant, VariantAttrs, Vec<Field>)],
     int: bool,
     key: &str,
+    rename_all: Option<RenameRule>,
     bounds: &mut Bounds,
 ) -> syn::Result<TokenStream> {
     let unit_only = variants
@@ -455,9 +471,10 @@ fn write_enum(
     let mut arms = TokenStream::new();
     for (v, attrs, fields) in variants {
         let ident = &v.ident;
-        let name = match attrs.rename.get(key) {
-            Some(lit) => lit.value(),
-            None => unraw(ident),
+        let name = match (attrs.rename.get(key), rename_all) {
+            (Some(lit), _) => lit.value(),
+            (None, Some(rule)) => rule.apply_to_variant(&unraw(ident)),
+            (None, None) => unraw(ident),
         };
         if !names.insert(name.clone()) {
             return Err(syn::Error::new_spanned(
@@ -488,7 +505,7 @@ fn write_enum(
             (Fields::Unit, false) => quote!(__e.str(#name);),
             (Fields::Unit, true) => quote!(__e.int(#discriminant);),
             (_, false) => {
-                let data = write_fields(fields, shape, key, bounds)?;
+                let data = write_fields(fields, shape, key, None, bounds)?;
                 quote! {
                     let mut __m = __e.fields();
                     __m.field_with(#name, |__e| { #data });
@@ -496,7 +513,7 @@ fn write_enum(
                 }
             }
             (_, true) => {
-                let data = write_fields(fields, shape, key, bounds)?;
+                let data = write_fields(fields, shape, key, None, bounds)?;
                 quote! {
                     let mut __l = __e.list();
                     __l.item_with(|__e| __e.int(#discriminant));

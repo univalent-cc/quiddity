@@ -382,6 +382,17 @@ pub(crate) mod alloc_impls {
         }
     }
 
+    /// Encodes the items of a sequence as a set, under their primary
+    /// identity: the derive's `encode_as = set`.
+    pub fn encode_set<'a, C, T>(items: &'a C, e: &mut Encoder)
+    where
+        C: ?Sized,
+        &'a C: IntoIterator<Item = &'a T>,
+        T: Quiddity + 'a,
+    {
+        set::<crate::Primary, T>(e, items);
+    }
+
     /// Encodes `entries` as a map, under identity `I`.
     pub(crate) fn map<'a, I, K, V>(
         e: &mut Encoder,

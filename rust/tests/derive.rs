@@ -182,7 +182,7 @@ struct Custom {
     raw: [u8; 2],
     #[quiddity(encode_as = display)]
     addr: std::net::Ipv4Addr,
-    #[quiddity(none_as_missing)]
+    #[quiddity(omit_none)]
     note: Option<String>,
     maybe: Option<u8>,
     #[quiddity(omit_if = is_zero)]
@@ -339,7 +339,7 @@ enum Shape {
     Rect(u32, u32),
     Poly {
         sides: u8,
-        #[quiddity(none_as_missing)]
+        #[quiddity(omit_none)]
         label: Option<String>,
     },
     Ghost(PhantomData<String>),
@@ -559,5 +559,201 @@ fn generic_transparent() {
         }
         .quiddity(),
         5u8.quiddity()
+    );
+}
+
+#[derive(Quiddity)]
+struct Omissions {
+    #[quiddity(omit_empty)]
+    tags: Vec<String>,
+    #[quiddity(omit_empty)]
+    note: String,
+    #[quiddity(omit_empty)]
+    path: std::path::PathBuf,
+    #[quiddity(omit_empty)]
+    os: std::ffi::OsString,
+    #[quiddity(omit_empty)]
+    c: std::ffi::CString,
+    #[quiddity(omit_empty, omit_none)]
+    extra: Option<BTreeMap<String, u8>>,
+}
+
+#[test]
+fn omit_empty() {
+    let empty = Omissions {
+        tags: vec![],
+        note: String::new(),
+        path: Default::default(),
+        os: Default::default(),
+        c: Default::default(),
+        extra: None,
+    };
+    assert_eq!(empty.quiddity(), Map::new().quiddity());
+    let full = Omissions {
+        tags: vec!["x".into()],
+        note: "n".into(),
+        path: "p".into(),
+        os: "o".into(),
+        c: std::ffi::CString::new("c").unwrap(),
+        extra: Some(BTreeMap::new()),
+    };
+    assert_eq!(
+        full.quiddity(),
+        Map::new()
+            .with("tags", vec!["x"])
+            .with("note", "n")
+            .with("path", "p")
+            .with("os", "o")
+            .with("c", "c")
+            .quiddity()
+    );
+}
+
+#[derive(Quiddity)]
+#[quiddity(identities(Meaning))]
+struct Tagged<T> {
+    #[quiddity(encode_as = set)]
+    tags: Vec<T>,
+    #[quiddity(encode_as(Meaning) = set)]
+    order: Vec<u8>,
+}
+
+#[test]
+fn encode_as_set() {
+    use std::collections::BTreeSet;
+    let t = Tagged {
+        tags: vec!["b", "a", "b"],
+        order: vec![2, 1],
+    };
+    // Sets are multisets: the repeated "b" is kept.
+    let expected = Map::new()
+        .with("tags", Multiset(vec!["a", "b", "b"]))
+        .with("order", vec![2u8, 1]);
+    assert_eq!(t.quiddity(), expected.quiddity());
+    assert_ne!(
+        t.quiddity(),
+        Map::new()
+            .with("tags", vec!["b", "a", "b"])
+            .with("order", vec![2u8, 1])
+            .quiddity()
+    );
+    // A scoped `encode_as`: a set under `Meaning` only.
+    assert_eq!(
+        t.quiddity_as::<Meaning>(),
+        Map::new()
+            .with("tags", Multiset(vec!["a", "b", "b"]))
+            .with("order", BTreeSet::from([1u8, 2]))
+            .quiddity()
+    );
+    let u = Tagged {
+        tags: vec!["a"],
+        order: vec![1, 2],
+    };
+    assert_eq!(
+        u.quiddity(),
+        Map::new()
+            .with("tags", BTreeSet::from(["a"]))
+            .with("order", vec![1u8, 2])
+            .quiddity()
+    );
+}
+
+/// A set that keeps repeated members.
+struct Multiset(Vec<&'static str>);
+
+impl Quiddity for Multiset {
+    fn encode(&self, e: &mut Encoder) {
+        let mut s = e.set();
+        for m in &self.0 {
+            s.member(m);
+        }
+    }
+}
+
+#[derive(Quiddity)]
+#[quiddity(identities(Meaning), rename_all = "camelCase", rename_all(Meaning) = "SCREAMING-KEBAB-CASE")]
+struct Renamed {
+    user_id: u8,
+    #[quiddity(rename = "kept")]
+    other_name: u8,
+    r#type: u8,
+}
+
+#[derive(Quiddity)]
+#[quiddity(rename_all = "snake_case")]
+enum Activity {
+    PageView,
+    #[quiddity(rename = "click")]
+    ButtonClick,
+    FormSubmit {
+        form_id: u8,
+    },
+}
+
+#[test]
+fn rename_all() {
+    let r = Renamed {
+        user_id: 1,
+        other_name: 2,
+        r#type: 3,
+    };
+    assert_eq!(
+        r.quiddity(),
+        Map::new()
+            .with("userId", 1u8)
+            .with("kept", 2u8)
+            .with("type", 3u8)
+            .quiddity()
+    );
+    assert_eq!(
+        r.quiddity_as::<Meaning>(),
+        Map::new()
+            .with("USER-ID", 1u8)
+            .with("kept", 2u8)
+            .with("TYPE", 3u8)
+            .quiddity()
+    );
+    assert_eq!(Activity::PageView.quiddity(), "page_view".quiddity());
+    assert_eq!(Activity::ButtonClick.quiddity(), "click".quiddity());
+    // Fields of struct variants keep their names, as in serde.
+    assert_eq!(
+        Activity::FormSubmit { form_id: 4 }.quiddity(),
+        Map::new()
+            .with("form_submit", Map::new().with("form_id", 4u8))
+            .quiddity()
+    );
+}
+
+#[derive(Quiddity)]
+struct Nulls {
+    #[quiddity(omit_none)]
+    a: Option<u8>,
+    #[quiddity(omit_none)]
+    b: Box<Option<u8>>,
+    #[quiddity(omit_none)]
+    c: (),
+    #[quiddity(omit_none)]
+    d: Option<Option<u8>>,
+}
+
+#[test]
+fn omit_none_on_nullable_types() {
+    let n = Nulls {
+        a: None,
+        b: Box::new(None),
+        c: (),
+        d: Some(None),
+    };
+    // `Some(None)` is not omitted: only the outer `None` is.
+    assert_eq!(n.quiddity(), Map::new().with("d", ()).quiddity());
+    let n = Nulls {
+        a: Some(1),
+        b: Box::new(Some(2)),
+        c: (),
+        d: None,
+    };
+    assert_eq!(
+        n.quiddity(),
+        Map::new().with("a", 1u8).with("b", 2u8).quiddity()
     );
 }

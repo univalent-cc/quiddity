@@ -1,0 +1,5 @@
+error: `encode_as = set` applies to fields, not types
+ --> tests/ui/encode_as_set_on_type.rs:4:12
+  |
+4 | #[quiddity(encode_as = set)]
+  |            ^^^^^^^^^

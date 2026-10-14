@@ -2,7 +2,7 @@ use quiddity::Quiddity;
 
 #[derive(Quiddity)]
 struct S {
-    #[quiddity(none_as_missing)]
+    #[quiddity(omit_none)]
     count: u32,
 }
 

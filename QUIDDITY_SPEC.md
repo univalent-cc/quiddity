@@ -560,7 +560,8 @@ Type attributes:
 | `identities(I, …)` | The type also implements `Quiddity<I>` for each listed `I`. |
 | `domain = "L"` | The type's digests are in the domain `L` (4.2). `L` MUST be non-empty. |
 | `transparent` | See 5.3. |
-| `encode_as = map \| list` | Structs with named fields (5.3). |
+| `rename_all = "c"` | On a struct, each field's key is its name in the case convention `c`; on an enum, each variant's name is. The conventions and their rules are serde's: `lowercase`, `UPPERCASE`, `PascalCase`, `camelCase`, `snake_case`, `SCREAMING_SNAKE_CASE`, `kebab-case` and `SCREAMING-KEBAB-CASE`, applied to field names as snake_case and to variant names as PascalCase. A field's or variant's `rename` takes precedence. It does not apply to the fields of struct variants. |
+| `encode_as = map \| list` | Structs with named fields (5.3). `encode_as = set` applies to fields only. |
 | `encode_as = string \| int` | Enums (5.4). |
 | `encode_as = display` | The value is the string produced by the type's `Display` impl. |
 | `encode_as = serde` | The value is produced from the type's `Serialize` impl (5.7). Requires the `serde` feature. |
@@ -573,18 +574,20 @@ Field attributes:
 | `rename = "k"` | The field's key is `k`. |
 | `identity = J` | The field's value is encoded under the field type's identity `J`. Without it, a field's value is encoded under the field type's primary identity, whatever identity the enclosing type is being encoded under. |
 | `with = path` | The field's value is encoded by calling `path(&field, &mut Encoder)`. |
-| `none_as_missing` | When the field is `None`, the field's entry is omitted. The field's type MUST be `Option<T>`; otherwise compile error. |
+| `omit_none` | When the field is null, the field's entry is omitted: `None`, `()`, a `serde_json::Value` that is `Null`, or such a value behind a reference or smart pointer. `Some(x)` is not omitted, even when `x` is null. The field's type MUST be one of these; otherwise compile error. |
+| `omit_empty` | When the field's value is an empty string, list, set or map, the field's entry is omitted; for an `Option<T>`, when it is `Some` of such a value. The field's type MUST be one that encodes as a string, list, set or map, or an `Option` of one; otherwise compile error. |
 | `omit_if = path` | When `path(&field)` returns `true`, the field's entry is omitted. |
+| `encode_as = set` | The field's value is a set of the items of the sequence it holds, each encoded under its primary identity. The field's type MUST be one whose shared reference iterates over references to items (`Vec<T>`, `[T]`, `[T; N]`, `VecDeque<T>`, …); otherwise compile error. |
 | `encode_as = display` | As the type attribute, for the field's value. |
 | `encode_as = serde` | As the type attribute, for the field's value. |
 
 Variant attributes: `rename = "name"` only.
 
 **Omission.** An omitted field contributes no entry to the map, and is
-not counted. A field is omitted when its `none_as_missing` or `omit_if`
-condition holds under the identity being encoded. Each condition is
-evaluated at most once per encoding. `none_as_missing` and `omit_if` on a
-struct encoded as a list are compile errors.
+not counted. A field is omitted when its `omit_none`, `omit_empty` or
+`omit_if` condition holds under the identity being encoded. Each condition
+is evaluated at most once per encoding. `omit_none`, `omit_empty` and
+`omit_if` on a struct encoded as a list are compile errors.
 
 **Applicability.** `encode_as = map | list` on anything but a struct with
 named fields, and `encode_as = string | int` on anything but an enum, are

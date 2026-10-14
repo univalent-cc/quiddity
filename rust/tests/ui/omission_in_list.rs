@@ -3,7 +3,7 @@ use quiddity::Quiddity;
 #[derive(Quiddity)]
 #[quiddity(encode_as = list)]
 struct S {
-    #[quiddity(none_as_missing)]
+    #[quiddity(omit_none)]
     a: Option<u8>,
 }
 

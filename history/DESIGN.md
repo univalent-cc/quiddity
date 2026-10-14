@@ -754,6 +754,229 @@ OS string types. Not implemented: `BinaryHeap` (no canonical order),
 `RefCell`, `Mutex` and `RwLock` (reading them can panic or block),
 `OnceCell` and `OnceLock`.
 
+## D19. Dynamic identities (in progress)
+
+Started 2026-10-13. This section is being worked through; nothing in it is
+implemented yet.
+
+### Goal
+
+Digest dynamic values, such as a `serde_json::Value`, with the same field
+selection the derive gives static types. In Rust the main target is
+`serde_json::Value`, but the design is not limited to it. The same design
+serves languages without static typing (Python, Elixir), where it is the
+primary API rather than an addition.
+
+The intended invariant: a derived type `T` exports, per identity, a dynamic
+identity `S`, and for any value whose JSON form is faithful,
+
+```
+value.quiddity_as::<I>() == S.digest(to_json(value))
+```
+
+This can be tested in every language, and any failure marks a place where
+the static and dynamic designs disagree.
+
+### Decided
+
+- **The dynamic form is primary.** The selection rules (identities, fields,
+  skipping, renaming, omission, encodings, nesting) move from the Rust
+  section of the spec to a language-neutral section. The Rust derive is
+  defined by reference to them.
+- **Export from static types, per identity.** Each identity of a derived
+  type can be exported as a dynamic identity object.
+- **Identities are the schema objects.** The dynamic API has no separate
+  notion of identities: one object describes one identity. A type with
+  several identities exports several objects.
+- **A dynamic identity can carry a domain** (4.2), applied at the top level
+  as for static types.
+- **Keys the identity does not list are skipped by default.** This matches
+  static types, where a field not in the struct does not exist. The rule can
+  be set at the top level of an identity object.
+- **Fields refer to sub-identities or to spec-defined encodings.** In the
+  static form, a field has a type and the type has a `Quiddity` impl. In the
+  dynamic form, a field has a sub-identity (inline or by reference) or names
+  an encoding defined in the spec.
+- **Conversions are explicit.** Where a static type's encoding differs from
+  its JSON form (for example `SystemTime`, integer nanoseconds, against an
+  RFC 3339 string or serde's map), either the Rust type declares a
+  compatible encoding (such as `encode_as = display`), or the exported
+  identity names a conversion that the dynamic side applies (for example,
+  parse a time string and convert it to nanoseconds).
+- **Discriminated unions are needed.** A dynamic identity must be able to
+  describe an enum whose variants have different shapes, as JSON represents
+  them.
+- **Unlisted keys: future-proofed for "include".** v1 implements only
+  skipping unlisted keys, but the document has an explicit rule for them
+  whose only accepted value is "skip", and a per-field `skip` is reserved
+  for when "include" is added. An implementation MUST reject an identity
+  document containing a key or value it does not know, since ignoring one
+  would change digests without notice.
+- **Missing and null follow `omit_none`.** A listed field that is missing
+  from the value, or is null, is treated as a `None`: by default it is
+  encoded as null, and with `omit_none` (formerly `none_as_missing`) its
+  entry is omitted. This is the static rule for `Option` fields, applied to
+  fields whose type is unknown.
+- **Every field has an explicit kind.** The kinds are the scalars (`null`,
+  `bool`, `integer`, `number`, `string`), the spec types (`bytes`,
+  `instant`, `duration`, `uuid`), `list(k)`, `set(k)` and `map(k)`, a
+  reference to an identity, a union (tagged enum), and `any`. `any` is the
+  explicit catch-all, needed where the static field type is itself a
+  dynamic value (`serde_json::Value`) and for opaque parts of hand-written
+  identities; it encodes the value as it is. There is no implicit default.
+  Explicit kinds make a mismatch fail rather than silently change the
+  digest: JSON `"5"` where an `integer` is expected is converted, and a
+  value that cannot be is an error.
+- **Nested identities.** Every sub-identity is an identity in its own
+  right, with its own rule for unlisted keys (default: skip). Named
+  definitions live at the root of a document, and every reference
+  resolves there; a sub-identity may therefore use definitions its parent
+  document holds. Export collects every reachable type into the root
+  table, qualifying names where two types share one.
+- **Unions of kinds.** A union lists alternative kinds that a value's
+  JSON type tells apart (null, boolean, number, string, array, object). Each
+  alternative claims JSON types natively (`integer`: numbers) and by
+  conversion (`integer`: strings). A union is valid when no JSON type is
+  claimed natively by two alternatives, or by conversion by two; a native
+  claim beats a claim by conversion. Validity is checked when the identity
+  is loaded, and order never matters. So `integer | string`,
+  `bool | string`, `string | ref(Row)` and `null | T` are valid, and
+  `ref(A) | ref(B)` and `list(A) | list(B)` are not (use a tagged union). A
+  union encodes the chosen alternative's value, without a tag. `null | T`
+  is how `Option<T>` exports. This is the model of TypeScript's unions and
+  of validation libraries such as zod.
+- **`any`** encodes a value as it is, structurally. It is the export of a
+  static field that is itself a dynamic value (`serde_json::Value`), where
+  it keeps the static and dynamic digests equal. Nothing else exports as
+  `any`; below it there is no selection, conversion or validation, so
+  hand-written identities should prefer unions and references.
+- **`omit_none` applies to any type that can be null**: `Option`, `()`,
+  `serde_json::Value`, and references and smart pointers to them. Done.
+  `Some(None)` is not omitted (only the outer `None` is), which keeps the
+  check a simple trait method rather than a second encoding pass.
+- **Checking untagged enums.** The derive rejects overlaps it can see from
+  syntax (two unit variants, identical field types, two struct variants,
+  two tuple variants of equal length), and `construct_identity()` performs
+  the full check. A compile-time check through a hidden associated const
+  was rejected: its errors appear only in `cargo build`, not `cargo check`
+  or rust-analyzer (as with the `transparent` check); every impl would
+  carry facts about serde's JSON form; manual impls could not sensibly
+  declare it; and it would duplicate what export computes. A purely static
+  user is not warned about overlaps the syntax does not show, as with
+  serde's untagged enums.
+- **Enum tagging.** External (the current form), internal (`tag`) and
+  adjacent (`tag` and `content`), with serde's attribute names and serde's
+  restrictions on internal tagging. Untagged enums are supported when their
+  variants are told apart by JSON type, as for unions of kinds: the derive
+  gains `untagged`, a variant overlap is a compile error, and the enum
+  exports as a union. Untagged enums with overlapping variants are not
+  supported, since the dynamic side would have to guess. `encode_as = int`
+  combines with the tagged styles; the tag value is then the
+  discriminant.
+- **Value types.** The read-only view of a dynamic value covers the whole
+  data model and the spec types, so a value that holds bytes or a time
+  natively (CBOR, TOML, a Python `datetime`) is read without conversion.
+- **Conversions.** Each spec kind defines, in the spec, the source forms it
+  accepts and how each is converted. A form is accepted automatically when
+  the value's own kind identifies it; where it does not (an integer
+  instant's unit, hex against base64 text), the identity declares it.
+  Anything else is an error, never a guess. The goal: common formats work
+  without the user having to think about it. Draft vocabulary:
+
+  | Kind | Accepted automatically | Needs a declaration |
+  |---|---|---|
+  | `instant` | RFC 3339 text with an offset; serde's `SystemTime` map | an integer, with its unit |
+  | `duration` | ISO 8601 `PnDTnHnMnS`; serde's `Duration` map | an integer, with its unit |
+  | `bytes` | an array of integers 0 to 255; base64 text (standard or URL-safe, padded or not) | hex text |
+  | `integer` | a number; decimal text, if exactly an integer (`"5"`, `"5.0"`) | |
+  | `number` | a number; decimal text; NaN and infinities spelled `nan`, `inf`, `infinity`, `∞`, signed with `+`, `-` or U+2212 `−`, case-insensitively | |
+  | `uuid` | hyphenated, simple, braced or URN text, any case | |
+
+  Map keys use the same kinds, so integer keys written as JSON strings are
+  converted back. Conversions from text trim surrounding ASCII whitespace.
+  Leniency is deliberate where it creates no ambiguity: every accepted
+  spelling maps to one value, and only where the kind is declared.
+  Declarations (a unit, hex) select how a value is read.
+- **The identity's own digest is a test of the crate.** `Identity` derives
+  `Quiddity` with portable attributes only. Its exported identity, applied
+  to any identity document, must give the same digest as
+  `Identity::quiddity()` (a fixed point), and every language must agree on
+  it.
+- **Digesting a dynamic value can fail**, for example when a value does not
+  have the shape its identity describes or a conversion cannot parse it.
+- **Conversions are in the first version.** Spec-defined encodings such as
+  a time encoding parse a rendered value (for example an RFC 3339 string)
+  and encode it as the spec defines (integer nanoseconds, 2.6). This is the
+  purpose of the spec's defined encodings.
+- **Export.** The `Quiddity` trait gains a provided method,
+  `construct_identity()`, which the derive implements for each identity.
+  The name says it is not an accessor: it builds a structure of nested
+  allocations, may be costly, and can fail, so it returns a `Result`.
+  It fails if the identity uses a Rust-specific attribute or custom
+  function (`with`, `omit_if = path`, `encode_as = display` or `serde`), or
+  reaches a type that cannot describe itself, since such an identity could
+  not be written out and used in another language. Identities can also be
+  created and modified directly through an `Identity` API; construction
+  from annotated types is a second, less error-prone path to the same
+  objects.
+- **An identity has its own digest.**
+- **Custom code.** In Rust, custom encodings are written with the derive
+  (`with`, `omit_if = path`, `encode_as`); a Rust `Identity` holds no
+  functions. Implementations in other languages MAY let an identity hold
+  functions as extensions. An identity holding a function has no portable
+  document form.
+
+### Open questions
+
+1. **Name of the dynamic identity type.** Decided: `Identity`. The spec
+   already defines an identity as what "selects, for a type, which fields
+   are encoded and how", and the static marker is `IdentityMarker`, so the
+   pair reads `IdentityMarker` (compile time) and `Identity` (run time).
+   Rust's scoping makes the short name safe; languages with a flat
+   namespace may use a prefixed name such as `QIdentity`. Alternatives
+   considered: `Schema` (suggests JSON Schema validation), `Profile`,
+   `Lens`, `Projection`, `Essence`, `Form`; `Quiddity` is taken by the
+   trait.
+2. **Unordered arrays.** A `HashSet` field serializes to a JSON array in
+   iteration order, which varies by process. The exported identity marks
+   such an array as a set. Done in the derive as `encode_as = set` for
+   sequence fields.
+3. **The vocabulary of spec-defined encodings and conversions.** *(Decided above.)* A starting
+   set: instant and duration (2.6) from RFC 3339 text and from serde's
+   forms, bytes from base64 or hex, and UUID normalization.
+4. **Representation of enums and discriminated unions.** *(Decided above.)* Externally tagged
+   (`{"Variant": value}`, the derive's current form), internally tagged
+   (`{"type": "Variant", ...}`), adjacently tagged, and untagged, as serde
+   offers. Whether the derive gains `tag = "..."` to match.
+5. **Declarative omission predicates.** `null`, `empty` (an empty string,
+   list or map), and possibly "equal to a given value", shared by both
+   forms. Done in the derive as `omit_none` (renamed from
+   `none_as_missing`) and `omit_empty`.
+   Path-based `omit_if` and `with` remain Rust-only, since a portable
+   identity cannot hold a function. Whether a predicate can be set once at
+   the type or identity level.
+6. **`rename_all` in the derive.** Done, with serde's conventions and
+   rules, tested against serde for every convention.
+7. **How the unlisted-keys rule applies to nested objects** *(Decided above.)*: per identity
+   object, inherited, or top level only.
+8. **The portable document format**: an identity written as JSON, loadable
+   by every implementation. Its structure, how attribute scoping maps onto
+   it now that each object is one identity, how sub-identities are
+   referenced, and how list encoding fixes field order (JSON object order
+   is not reliable).
+9. **Rust API.** A read-only value trait (kind, string, number, list items,
+   map entries) implemented for `serde_json::Value` first, then other value
+   types. Whether an identity can also drive the serde bridge, applying it
+   to any `Serialize` type. Names: `Identity::from_json`, `digest`,
+   `T::identity()`, `T::identity_as::<I>()`.
+10. **Null.** *(Decided above.)* `None` stays null by default (decided in D5 and D6, and relied on
+    by Appendix B of the spec). To confirm that the dynamic default is the
+    same, with omission available through the predicates of question 5.
+11. **Validation.** The derive's compile errors (duplicate keys, an
+    attribute given twice, conflicting encodings) become errors when an
+    identity object is loaded. Which checks carry over, and which become
+    impossible without types.
+
 ## To revisit
 
 ### R4. Richer kinds

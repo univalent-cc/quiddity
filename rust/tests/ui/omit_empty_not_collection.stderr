@@ -1,0 +1,20 @@
+error[E0277]: `omit_empty` applies only to strings, sequences, sets and maps, not `u32`
+ --> tests/ui/omit_empty_not_collection.rs:3:10
+  |
+3 | #[derive(Quiddity)]
+  |          ^^^^^^^^ cannot be empty
+...
+6 |     count: u32,
+  |            --- required by a bound introduced by this call
+  |
+  = help: the trait `quiddity::__private::IsEmpty` is not implemented for `u32`
+  = help: the following other types implement trait `quiddity::__private::IsEmpty`:
+            &T
+            &mut T
+            Arc<T>
+            BTreeMap<K, V>
+            BTreeSet<T>
+            Box<T>
+            CStr
+            CString
+          and $N others

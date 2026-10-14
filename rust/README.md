@@ -183,6 +183,7 @@ of another kind.
 | `domain = "…"` | A label hashed into every digest of this type, so that its digests differ from those of other types with the same fields (see [Domains](#domains)). None by default. |
 | `identities(A, B, …)` | The named identities this type implements, in addition to the primary one. Each is a type deriving `IdentityMarker`. |
 | `transparent` | The type digests as its single field. Exactly one field must remain, after skips, for every identity it applies to, or it is a compile error. |
+| `rename_all = "…"` | Rename every field (on a struct) or every variant (on an enum) to a case convention, as serde's `rename_all` does: `"lowercase"`, `"UPPERCASE"`, `"PascalCase"`, `"camelCase"`, `"snake_case"`, `"SCREAMING_SNAKE_CASE"`, `"kebab-case"` or `"SCREAMING-KEBAB-CASE"`. A field's or variant's own `rename` takes precedence. Use the same convention as the type's serde attributes so that its digest keys match its JSON keys. |
 | `encode_as = …` | `map` or `list` for a struct with named fields (default = `map`), `string` or `int` for an enum (default = `string`). `display` for any type that implements `Display`, encode the output. `serde` (with the `serde` feature) for any type that implements `Serialize`, encode it through serde; panics if serialization fails (see [Direct from `serde`](#direct-from-serde)). |
 
 ### On a field
@@ -193,10 +194,15 @@ of another kind.
 | `rename = "…"` | Provide another name that the field or enum variant is hashed under. |
 | `identity = A` | Encode this nested value using its identity `A` instead of its primary one. |
 | `with = path` | Digest this field with `path(&value, &mut Encoder)`, for types that do not implement `Quiddity` (see [Foreign types](#foreign-types-and-custom-field-encoding)). |
+| `encode_as = set` | Digest this sequence field (`Vec`, slice, array, `VecDeque`, …) as a set, so that the order of its items does not affect the digest. Repeated items are kept. |
 | `encode_as = display` | Encode this field as its `Display` output, a string. For types that implement `Display` but not `Quiddity`. |
 | `encode_as = serde` | With the `serde` feature: encode this field through its `Serialize` impl. Panics if serialization fails (see [Direct from `serde`](#direct-from-serde)). |
-| `none_as_missing` | When the field is `None`, hash it as a missing key rather than as null. Only valid on `Option` fields. |
-| `omit_if = path` | Omit the field when `path(&value)` returns `true` (e.g. `omit_if = Vec::is_empty`), so that adding the field does not change existing digests. The cost of the check is the caller's. |
+| `omit_none` | When the field is null (`None`, `()`, JSON `null`), omit it, as if the key were missing, rather than hashing it as null. Only valid on types that can be null: `Option`, `()`, `serde_json::Value`, and references and smart pointers to them. `Some(None)` is not omitted. |
+| `omit_empty` | When the field is an empty string, sequence, set or map, omit it. On an `Option`, `Some` of an empty value is omitted, and `None` is not (combine with `omit_none` to omit both). |
+| `omit_if = path` | Omit the field when `path(&value)` returns `true`, for conditions the two above do not cover. The cost of the check is the caller's. |
+
+Omitting a field lets it be added to a type without changing the digests of
+existing values, as long as the new field is omitted in them.
 
 ### On an enum variant
 
@@ -265,7 +271,7 @@ quiddity = { version = "0.1", default-features = false, features = ["derive"] }
 - `String`, `&str`, `Box<str>` and `Cow<str>` are all strings, with the same
   digest for the same text.
 - `None` is digested as null, and `Some(x)` as `x`. In a struct, a `None`
-  field is null unless it has `none_as_missing`.
+  field is null unless it has `omit_none`.
 - `Box`, `Rc`, `Arc` and references are digested as the value they point to.
 - `char` is digested as a one-character string.
 - `bool` is digested as `true` or `false`.
@@ -343,7 +349,7 @@ representation:
   dependency graph.
 - An object has the same digest as a struct with the same field names and
   values. JSON `null` hashes as a Rust `None`, and a missing
-  key as a `None` field with `none_as_missing`.
+  key as a `None` field with `omit_none`.
 - Numbers are compared by value: `1`, `1.0` and `1e0` have the same digest,
   which is also the digest of an integer field holding `1`.
 - serde_json's `arbitrary_precision` feature does not change digests either:

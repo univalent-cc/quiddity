@@ -122,8 +122,18 @@ impl<T: Clone> Scoped<T> {
     }
 }
 
+/// An attribute's value, without the invisible group that wraps a value
+/// passed in through a `macro_rules!` fragment.
+fn value(item: &Item) -> Option<&Expr> {
+    let mut e = item.value.as_ref()?;
+    while let Expr::Group(g) = e {
+        e = &g.expr;
+    }
+    Some(e)
+}
+
 fn flag(item: &Item) -> syn::Result<bool> {
-    match &item.value {
+    match value(item) {
         None => Ok(true),
         Some(Expr::Lit(ExprLit {
             lit: Lit::Bool(b), ..
@@ -133,7 +143,7 @@ fn flag(item: &Item) -> syn::Result<bool> {
 }
 
 fn string(item: &Item) -> syn::Result<LitStr> {
-    match &item.value {
+    match value(item) {
         Some(Expr::Lit(ExprLit {
             lit: Lit::Str(s), ..
         })) => Ok(s.clone()),
@@ -146,7 +156,7 @@ fn string(item: &Item) -> syn::Result<LitStr> {
 }
 
 fn path(item: &Item) -> syn::Result<Path> {
-    match &item.value {
+    match value(item) {
         Some(Expr::Path(p)) if p.qself.is_none() => Ok(p.path.clone()),
         Some(other) => Err(syn::Error::new_spanned(other, "expected a path")),
         None => Err(syn::Error::new(
@@ -165,6 +175,7 @@ pub enum EncodeAs {
     Int,
     Display,
     Serde,
+    Set,
 }
 
 fn encode_as(item: &Item) -> syn::Result<(EncodeAs, Span)> {
@@ -176,14 +187,117 @@ fn encode_as(item: &Item) -> syn::Result<(EncodeAs, Span)> {
         Some("int") => EncodeAs::Int,
         Some("display") => EncodeAs::Display,
         Some("serde") => EncodeAs::Serde,
+        Some("set") => EncodeAs::Set,
         _ => {
             return Err(syn::Error::new_spanned(
                 p,
-                "expected one of `map`, `list`, `string`, `int`, `display`, `serde`",
+                "expected one of `map`, `list`, `set`, `string`, `int`, `display`, `serde`",
             ));
         }
     };
     Ok((shape, item.name.span()))
+}
+
+/// A case convention for `rename_all`, with serde's names and rules.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum RenameRule {
+    Lower,
+    Upper,
+    Pascal,
+    Camel,
+    Snake,
+    ScreamingSnake,
+    Kebab,
+    ScreamingKebab,
+}
+
+const RENAME_RULES: &[(&str, RenameRule)] = &[
+    ("lowercase", RenameRule::Lower),
+    ("UPPERCASE", RenameRule::Upper),
+    ("PascalCase", RenameRule::Pascal),
+    ("camelCase", RenameRule::Camel),
+    ("snake_case", RenameRule::Snake),
+    ("SCREAMING_SNAKE_CASE", RenameRule::ScreamingSnake),
+    ("kebab-case", RenameRule::Kebab),
+    ("SCREAMING-KEBAB-CASE", RenameRule::ScreamingKebab),
+];
+
+impl RenameRule {
+    fn parse(lit: &LitStr) -> syn::Result<Self> {
+        let value = lit.value();
+        RENAME_RULES
+            .iter()
+            .find(|(name, _)| *name == value)
+            .map(|(_, rule)| *rule)
+            .ok_or_else(|| {
+                let names: Vec<String> =
+                    RENAME_RULES.iter().map(|(n, _)| format!("{n:?}")).collect();
+                syn::Error::new_spanned(lit, format!("expected one of {}", names.join(", ")))
+            })
+    }
+
+    /// A field name, written in snake_case, in this convention.
+    pub fn apply_to_field(self, field: &str) -> String {
+        match self {
+            RenameRule::Lower | RenameRule::Snake => field.to_owned(),
+            RenameRule::Upper | RenameRule::ScreamingSnake => field.to_ascii_uppercase(),
+            RenameRule::Pascal => {
+                let mut pascal = String::new();
+                let mut capitalize = true;
+                for ch in field.chars() {
+                    if ch == '_' {
+                        capitalize = true;
+                    } else if capitalize {
+                        pascal.push(ch.to_ascii_uppercase());
+                        capitalize = false;
+                    } else {
+                        pascal.push(ch);
+                    }
+                }
+                pascal
+            }
+            RenameRule::Camel => lower_first(&RenameRule::Pascal.apply_to_field(field)),
+            RenameRule::Kebab => field.replace('_', "-"),
+            RenameRule::ScreamingKebab => field.to_ascii_uppercase().replace('_', "-"),
+        }
+    }
+
+    /// A variant name, written in PascalCase, in this convention.
+    pub fn apply_to_variant(self, variant: &str) -> String {
+        match self {
+            RenameRule::Pascal => variant.to_owned(),
+            RenameRule::Lower => variant.to_ascii_lowercase(),
+            RenameRule::Upper => variant.to_ascii_uppercase(),
+            RenameRule::Camel => lower_first(variant),
+            RenameRule::Snake => {
+                let mut snake = String::new();
+                for (i, ch) in variant.char_indices() {
+                    if i > 0 && ch.is_uppercase() {
+                        snake.push('_');
+                    }
+                    snake.push(ch.to_ascii_lowercase());
+                }
+                snake
+            }
+            RenameRule::ScreamingSnake => RenameRule::Snake
+                .apply_to_variant(variant)
+                .to_ascii_uppercase(),
+            RenameRule::Kebab => RenameRule::Snake
+                .apply_to_variant(variant)
+                .replace('_', "-"),
+            RenameRule::ScreamingKebab => RenameRule::ScreamingSnake
+                .apply_to_variant(variant)
+                .replace('_', "-"),
+        }
+    }
+}
+
+fn lower_first(s: &str) -> String {
+    let mut chars = s.chars();
+    match chars.next() {
+        Some(first) => first.to_ascii_lowercase().to_string() + chars.as_str(),
+        None => String::new(),
+    }
 }
 
 fn unknown(item: &Item, what: &str) -> syn::Error {
@@ -200,6 +314,7 @@ pub struct TypeAttrs {
     pub domain: Scoped<LitStr>,
     pub transparent: Scoped<bool>,
     pub encode_as: Scoped<(EncodeAs, Span)>,
+    pub rename_all: Scoped<RenameRule>,
 }
 
 impl TypeAttrs {
@@ -252,7 +367,20 @@ impl TypeAttrs {
                     out.domain.set(item, s, &ids)?;
                 }
                 "transparent" => out.transparent.set(item, flag(item)?, &ids)?,
-                "encode_as" => out.encode_as.set(item, encode_as(item)?, &ids)?,
+                "encode_as" => {
+                    let (shape, span) = encode_as(item)?;
+                    if shape == EncodeAs::Set {
+                        return Err(syn::Error::new(
+                            span,
+                            "`encode_as = set` applies to fields, not types",
+                        ));
+                    }
+                    out.encode_as.set(item, (shape, span), &ids)?;
+                }
+                "rename_all" => {
+                    let rule = RenameRule::parse(&string(item)?)?;
+                    out.rename_all.set(item, rule, &ids)?;
+                }
                 _ => return Err(unknown(item, "type")),
             }
         }
@@ -274,7 +402,8 @@ pub struct FieldAttrs {
     pub rename: Scoped<LitStr>,
     pub identity: Scoped<Path>,
     pub with: Scoped<Path>,
-    pub none_as_missing: Scoped<bool>,
+    pub omit_none: Scoped<bool>,
+    pub omit_empty: Scoped<bool>,
     pub omit_if: Scoped<Path>,
     pub encode_as: Scoped<(EncodeAs, Span)>,
 }
@@ -296,14 +425,15 @@ impl FieldAttrs {
                     out.identity.set(item, p, ids)?;
                 }
                 "with" => out.with.set(item, path(item)?, ids)?,
-                "none_as_missing" => out.none_as_missing.set(item, flag(item)?, ids)?,
+                "omit_none" => out.omit_none.set(item, flag(item)?, ids)?,
+                "omit_empty" => out.omit_empty.set(item, flag(item)?, ids)?,
                 "omit_if" => out.omit_if.set(item, path(item)?, ids)?,
                 "encode_as" => {
                     let (shape, span) = encode_as(item)?;
-                    if !matches!(shape, EncodeAs::Display | EncodeAs::Serde) {
+                    if !matches!(shape, EncodeAs::Display | EncodeAs::Serde | EncodeAs::Set) {
                         return Err(syn::Error::new(
                             span,
-                            "on a field, `encode_as` must be `display` or `serde`",
+                            "on a field, `encode_as` must be `set`, `display` or `serde`",
                         ));
                     }
                     out.encode_as.set(item, (shape, span), ids)?;

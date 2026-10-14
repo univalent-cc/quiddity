@@ -36,6 +36,7 @@ extern crate std;
 mod digest;
 #[cfg(all(doctest, feature = "derive"))]
 mod doctests;
+mod empty;
 mod encoder;
 mod features;
 mod impls;
@@ -112,24 +113,33 @@ impl<T: ?Sized> QuiddityExt for T {}
 /// Used by the derive's expansion. Not part of the public API.
 #[doc(hidden)]
 pub mod __private {
-    /// Implemented only for `Option<T>`, so that `none_as_missing` on any
-    /// other type fails to compile.
-    #[diagnostic::on_unimplemented(
-        message = "`none_as_missing` applies only to `Option` fields, not `{Self}`",
-        label = "not an `Option`"
-    )]
-    pub trait OptionLike {
-        fn is_none(&self) -> bool;
-    }
+    pub use crate::empty::{IsEmpty, Nullable};
 
-    impl<T> OptionLike for Option<T> {
-        fn is_none(&self) -> bool {
-            Option::is_none(self)
-        }
-    }
+    #[cfg(feature = "alloc")]
+    pub use crate::impls::alloc_impls::encode_set;
 
     #[cfg(feature = "serde")]
     pub use crate::serde::encode_or_panic as encode_serde;
+}
+
+/// Used by the derive's expansion for `encode_as = set`.
+#[doc(hidden)]
+#[cfg(feature = "alloc")]
+#[macro_export]
+macro_rules! __encode_set {
+    ($value:expr, $e:expr) => {
+        $crate::__private::encode_set($value, $e)
+    };
+}
+
+/// Used by the derive's expansion for `encode_as = set`.
+#[doc(hidden)]
+#[cfg(not(feature = "alloc"))]
+#[macro_export]
+macro_rules! __encode_set {
+    ($value:expr, $e:expr) => {
+        ::core::compile_error!("`encode_as = set` needs the `alloc` feature of `quiddity`")
+    };
 }
 
 /// Used by the derive's expansion for `encode_as = serde`.

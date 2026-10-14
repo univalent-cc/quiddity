@@ -1,0 +1,5 @@
+error: expected one of "lowercase", "UPPERCASE", "PascalCase", "camelCase", "snake_case", "SCREAMING_SNAKE_CASE", "kebab-case", "SCREAMING-KEBAB-CASE"
+ --> tests/ui/rename_all_unknown.rs:4:25
+  |
+4 | #[quiddity(rename_all = "Train-Case")]
+  |                         ^^^^^^^^^^^^

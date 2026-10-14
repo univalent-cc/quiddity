@@ -92,6 +92,27 @@ mod serde_json_feature {
             json!({"prompt": "p", "inputs": [{"k": 1}]}).quiddity()
         );
     }
+
+    #[derive(Quiddity)]
+    struct Annotated {
+        id: u8,
+        #[quiddity(omit_none)]
+        extra: Value,
+    }
+
+    #[test]
+    fn omit_none_on_json_null() {
+        let a = Annotated {
+            id: 1,
+            extra: Value::Null,
+        };
+        assert_eq!(a.quiddity(), json!({"id": 1}).quiddity());
+        let a = Annotated {
+            id: 1,
+            extra: json!([]),
+        };
+        assert_eq!(a.quiddity(), json!({"id": 1, "extra": []}).quiddity());
+    }
 }
 
 #[cfg(all(feature = "serde", feature = "derive"))]
@@ -125,7 +146,7 @@ mod serde_feature {
         ch: char,
         float: f32,
         #[serde(skip_serializing_if = "Option::is_none")]
-        #[quiddity(none_as_missing)]
+        #[quiddity(omit_none)]
         gone: Option<u8>,
     }
 
@@ -134,6 +155,53 @@ mod serde_feature {
 
     #[derive(Serialize, Quiddity)]
     struct UnitStruct;
+
+    /// Every `rename_all` convention, on fields and on variants, gives the
+    /// names serde gives.
+    macro_rules! same_renames {
+        ($($rule:literal $s:ident $e:ident;)*) => {$(
+            #[derive(Serialize, Quiddity)]
+            #[serde(rename_all = $rule)]
+            #[quiddity(rename_all = $rule)]
+            struct $s {
+                user_id: u8,
+                x: u8,
+                http_status_code: u8,
+                a_b_c: u8,
+            }
+
+            #[derive(Serialize, Quiddity)]
+            #[serde(rename_all = $rule)]
+            #[quiddity(rename_all = $rule)]
+            enum $e {
+                PageView,
+                X,
+                HTTPStatus,
+                FormSubmit { form_id: u8 },
+            }
+        )*
+
+            #[test]
+            fn rename_all_matches_serde() {$(
+                let s = $s { user_id: 1, x: 2, http_status_code: 3, a_b_c: 4 };
+                assert_eq!(quiddity::serde::digest(&s).unwrap(), s.quiddity(), "{}", $rule);
+                for e in [$e::PageView, $e::X, $e::HTTPStatus, $e::FormSubmit { form_id: 5 }] {
+                    assert_eq!(quiddity::serde::digest(&e).unwrap(), e.quiddity(), "{}", $rule);
+                }
+            )*}
+        };
+    }
+
+    same_renames! {
+        "lowercase" Lower LowerE;
+        "UPPERCASE" Upper UpperE;
+        "PascalCase" Pascal PascalE;
+        "camelCase" Camel CamelE;
+        "snake_case" Snake SnakeE;
+        "SCREAMING_SNAKE_CASE" ScreamingSnake ScreamingSnakeE;
+        "kebab-case" Kebab KebabE;
+        "SCREAMING-KEBAB-CASE" ScreamingKebab ScreamingKebabE;
+    }
 
     #[test]
     fn same_as_native() {
