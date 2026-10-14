@@ -267,3 +267,103 @@ fn text_forms() {
         }
     }
 }
+
+/// Identities (spec 5): each document's digest, which is computed with the
+/// derive on `Identity` (spec 5.10), and each source value's encoding,
+/// digest or error.
+#[cfg(feature = "identity")]
+#[test]
+fn identities() {
+    use crate::identity::Identity;
+    let Some(vectors) = vectors() else { return };
+    let cases = vectors["identities"].as_array().unwrap();
+    assert!(cases.len() > 20);
+    for case in cases {
+        let name = str_of(case, "name");
+        let identity =
+            Identity::from_json(&case["document"]).unwrap_or_else(|e| panic!("{name}: {e}"));
+        assert_eq!(
+            identity.quiddity().to_string(),
+            str_of(case, "identity_digest"),
+            "identity digest of {name}"
+        );
+        let reloaded = Identity::from_json(&identity.to_json()).unwrap();
+        assert_eq!(reloaded, identity, "{name} round-trips");
+        for c in case["cases"].as_array().unwrap() {
+            let source = &c["source"];
+            match identity.digest(source) {
+                Ok(digest) => {
+                    assert!(c.get("error").is_none(), "{name}: {source} must fail");
+                    assert_eq!(
+                        to_hex(&identity.encoding(source).unwrap()),
+                        str_of(c, "encoding"),
+                        "{name}: encoding of {source}"
+                    );
+                    assert_eq!(digest.to_string(), str_of(c, "digest"), "{name}: {source}");
+                }
+                Err(e) => assert!(c.get("error").is_some(), "{name}: {source} failed: {e}"),
+            }
+        }
+    }
+}
+
+#[cfg(feature = "identity")]
+#[test]
+fn invalid_documents() {
+    use crate::identity::Identity;
+    let Some(vectors) = vectors() else { return };
+    for case in vectors["invalid_documents"].as_array().unwrap() {
+        assert!(
+            Identity::from_json(&case["document"]).is_err(),
+            "{} must be rejected",
+            str_of(case, "name")
+        );
+    }
+}
+
+#[cfg(feature = "identity")]
+#[test]
+fn same_identity() {
+    use crate::identity::Identity;
+    let Some(vectors) = vectors() else { return };
+    for case in vectors["same_identity"].as_array().unwrap() {
+        for doc in case["documents"].as_array().unwrap() {
+            let identity = Identity::from_json(doc).unwrap();
+            assert_eq!(
+                identity.quiddity().to_string(),
+                str_of(case, "identity_digest"),
+                "{}",
+                str_of(case, "name")
+            );
+        }
+    }
+}
+
+/// The identity of identity documents (spec Appendix C), under itself: its
+/// digest computed with the derive equals its digest computed by applying
+/// it, as an identity, to its own document.
+#[cfg(feature = "identity")]
+#[test]
+fn identity_of_identities() {
+    use crate::identity::Identity;
+    let Some(vectors) = vectors() else { return };
+    let case = &vectors["identity_of_identities"];
+    let meta = Identity::from_json(&case["document"]).unwrap();
+    let expected = str_of(case, "identity_digest");
+    assert_eq!(meta.quiddity().to_string(), expected, "derived");
+    assert_eq!(
+        meta.digest(&meta.to_json()).unwrap().to_string(),
+        expected,
+        "applied to itself"
+    );
+    // And for every identity in the vectors.
+    for c in vectors["identities"].as_array().unwrap() {
+        let identity = Identity::from_json(&c["document"]).unwrap();
+        assert_eq!(
+            meta.digest(&identity.to_json()).unwrap(),
+            identity.quiddity(),
+            "{}",
+            str_of(c, "name")
+        );
+    }
+}

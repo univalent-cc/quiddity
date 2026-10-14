@@ -170,20 +170,7 @@ impl Encoder {
     #[cfg(any(all(windows, feature = "std"), all(test, feature = "alloc")))]
     pub(crate) fn utf16(&mut self, units: impl IntoIterator<Item = u16>) {
         let mut s = self.bytes_stream();
-        for unit in char::decode_utf16(units) {
-            match unit {
-                Ok(c) => s.push(c.encode_utf8(&mut [0; 4]).as_bytes()),
-                Err(err) => {
-                    // The three bytes UTF-8's scheme gives the code point.
-                    let u = err.unpaired_surrogate();
-                    s.push(&[
-                        0xE0 | (u >> 12) as u8,
-                        0x80 | ((u >> 6) & 0x3F) as u8,
-                        0x80 | (u & 0x3F) as u8,
-                    ]);
-                }
-            }
-        }
+        wtf8(units, |b| s.push(b));
     }
 
     /// Writes the string produced by `value`'s `Display` impl.
@@ -303,6 +290,30 @@ impl std::io::Write for BytesStream<'_> {
 impl Drop for BytesStream<'_> {
     fn drop(&mut self) {
         self.e.write_len_tag(self.len, tag::STRING);
+    }
+}
+
+/// The WTF-8 bytes (spec 2.3) of UTF-16 code units, which may be
+/// ill-formed, passed to `push` piece by piece.
+#[cfg(any(
+    all(windows, feature = "std"),
+    all(test, feature = "alloc"),
+    feature = "identity"
+))]
+pub(crate) fn wtf8(units: impl IntoIterator<Item = u16>, mut push: impl FnMut(&[u8])) {
+    for unit in char::decode_utf16(units) {
+        match unit {
+            Ok(c) => push(c.encode_utf8(&mut [0; 4]).as_bytes()),
+            Err(err) => {
+                // The three bytes UTF-8's scheme gives the code point.
+                let u = err.unpaired_surrogate();
+                push(&[
+                    0xE0 | (u >> 12) as u8,
+                    0x80 | ((u >> 6) & 0x3F) as u8,
+                    0x80 | (u & 0x3F) as u8,
+                ]);
+            }
+        }
     }
 }
 

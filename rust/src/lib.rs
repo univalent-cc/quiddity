@@ -9,6 +9,11 @@
     feature = "serde",
     doc = "[`quiddity::serde::digest`]: crate::serde::digest"
 )]
+#![cfg_attr(not(feature = "identity"), doc = "[`identity::Kind`]: #cargo-features")]
+#![cfg_attr(
+    feature = "identity",
+    doc = "[`identity::Kind`]: crate::identity::Kind"
+)]
 // Normal links to crate items:
 //! [`Quiddity`]: trait@Quiddity
 //! [`Digest`]: Digest
@@ -33,12 +38,18 @@ extern crate alloc;
 #[cfg(any(feature = "std", test))]
 extern crate std;
 
+// Lets the crate derive `Quiddity` for its own types (`identity`).
+#[cfg(feature = "identity")]
+extern crate self as quiddity;
+
 mod digest;
 #[cfg(all(doctest, feature = "derive"))]
 mod doctests;
 mod empty;
 mod encoder;
 mod features;
+#[cfg(feature = "identity")]
+pub mod identity;
 mod impls;
 mod number;
 #[cfg(feature = "serde")]

@@ -255,6 +255,7 @@ must resist deliberate collisions, as with secure signatures.
 | `uuid` | no | `Uuid` | |
 | `bytes` | no | `Bytes` and `BytesMut` | `alloc` |
 | `url` | no | `Url` | `std` |
+| `identity` | no | [Dynamic identities](#dynamic-identities): identity documents, and digests of `serde_json::Value`s under them | `derive`, `serde_json` |
 
 With `default-features = false`, `quiddity` is `no_std` and needs no
 allocator. The derive (with the `derive` feature), `Digest` and its shorter forms, numbers, `bool`,
@@ -356,8 +357,10 @@ representation:
   a number digests as it would without the feature. A number that is
   neither an integer within `i64` or `u64` nor exactly representable as an
   `f64` is rounded to the nearest `f64`.
-  serde_json's default parser can itself be off by one in the last bit of a
-  float; its `float_roundtrip` feature makes parsing exact.
+  A number is digested as the `f64` that serde_json parsed. serde_json's
+  default parser can be off by one in the last bit for some numbers, which
+  then digest differently than in other languages, whose parsers are
+  exact. serde_json's `float_roundtrip` feature makes its parser exact.
 - Arrays are ordered.
 - Strings are not Unicode-normalized, here or anywhere else: `é` as one code
   point and as `e` plus a combining accent are different strings, with
@@ -523,6 +526,46 @@ if you would like to see an implementation for another type.  Please say how
 the type's values should be digested. In the meantime, the `serde` feature
 covers most types that implement `Serialize`.
 
+## Dynamic identities
+
+An identity can also be written as data: an identity document, in JSON,
+that every implementation of quiddity can read (see
+[`QUIDDITY_SPEC.md`] section 5). The `identity` feature loads identity
+documents and digests `serde_json::Value`s under them:
+
+```rust ignore
+use quiddity::identity::Identity;
+use serde_json::json;
+
+let identity = Identity::from_json(&json!({
+    "quiddity": 1,
+    "root": {"object": {"fields": {
+        "prompt": {"kind": "string"},
+        "priority": {"kind": "integer"},
+        "asked_at": {"kind": {"instant": {}}}
+    }}}
+}))?;
+
+let a = identity.digest(&json!({
+    "prompt": "p", "priority": 1, "asked_at": "2024-01-01T00:00:00Z", "tag": "x"
+}))?;
+let b = identity.digest(&json!({
+    "prompt": "p", "priority": "1", "asked_at": "2024-01-01T01:00:00+01:00"
+}))?;
+assert_eq!(a, b);
+```
+
+Members that the identity does not list, such as `tag`, are skipped.
+Values written in other forms are converted: the text `"1"` to an
+integer, and RFC 3339 text to an instant. A value of the wrong shape is an
+error. An identity can also be built in code, from [`identity::Kind`]s.
+
+An `Identity` has a digest of its own, `identity.quiddity()`, which every
+implementation computes the same way.
+
+Exporting an identity from a type that derives `Quiddity` is not
+implemented yet.
+
 ## Alternatives to Quiddity
 
 The repository's
@@ -553,3 +596,4 @@ Licensed under the MIT license.
 [`Encoder`]: https://docs.rs/quiddity/latest/quiddity/struct.Encoder.html
 [`Encoder::bytes`]: https://docs.rs/quiddity/latest/quiddity/struct.Encoder.html#method.bytes
 [`quiddity::serde::digest`]: https://docs.rs/quiddity/latest/quiddity/serde/fn.digest.html
+[`identity::Kind`]: https://docs.rs/quiddity/latest/quiddity/identity/enum.Kind.html

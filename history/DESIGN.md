@@ -992,6 +992,69 @@ mapping moved from section 5 to section 6. Choices made in the draft:
   `{"Windows": [UTF-16 units]}` for `OsStr`) and gives the bytes the static
   encoding gives (6.2): raw on Unix, WTF-8 on Windows.
 
+### Rust implementation (first part)
+
+The `identity` feature (`derive` and `serde_json`) implements spec section
+5 for `serde_json::Value`: `quiddity::identity::{Identity, Kind, …}`,
+loading and validating documents, the canonical form, `to_json`, a small
+builder (`Kind::object`, `Kind::optional`, `Field::omit`, …), and
+`Identity::digest`. `Identity` and its parts derive `Quiddity` (the crate
+derives for itself through `extern crate self as quiddity`), and the
+vectors confirm the fixed point: every identity's derived digest equals the
+digest of its document under Appendix C's identity, including Appendix C's
+own. Export from derived types (6.8), the derive's `tag`, `content` and
+`untagged`, and value types other than `serde_json::Value` are not done
+yet.
+
+Found while implementing: serde_json's default float parser is not
+correctly rounded (`9007199254740993.0` became 2^53 + 2), which spec 2.7
+forbids. Quiddity never parses JSON itself: it digests the `Value` the
+caller parsed, whose `f64` is fixed by then. Enabling `float_roundtrip`
+through quiddity's `serde_json` feature was considered and rejected, since
+it would change how every crate in the user's build parses; the caller who
+parses chooses the parser. The README and spec 6.6 say so, and quiddity's
+own tests enable `float_roundtrip` as a dev-dependency feature. Workspace
+test runs had hidden the bug, because the `arbitrary-precision` test crate
+unifies a feature that parses exactly.
+Discriminants are limited to 64 bits, the range of JSON integers that
+serde_json reads exactly.
+
+### Authoring: a normalized format, with convenience in each language
+
+Decided 2026-10-13. The identity document keeps exactly one spelling per
+meaning; there is no syntactic sugar in the format (no `"optional": true`,
+no field written as a bare kind). Convenience belongs in each language's
+API: a builder in Rust, and zod-like helpers in JavaScript (for example
+`q.object({tags: q.optional(q.set(q.string))})`) and Python, each producing
+the canonical document. Reasons:
+
+- Sugar in the format must be desugared identically by every
+  implementation, and grows the canonical form, the vectors and every
+  loader. Avro is the precedent: its shorthand made a separate "Parsing
+  Canonical Form" necessary before schemas could be fingerprinted. OpenAPI
+  added `nullable: true` in 3.0 and removed it in 3.1 in favour of type
+  unions, because two spellings caused tooling disagreements.
+- Most identities will be exported from static types or built in code, not
+  written as JSON by hand. zod, pydantic and protobuf users do not write
+  the interchange form either.
+- If hand-authoring proves painful, the most valuable sugar would be a
+  field written as its bare kind (`"brief": "string"`). It could be added
+  later as a loading rule that rewrites to the canonical form, without
+  changing any digest.
+
+The collection kinds keep their short names (`set`, `list`); builders hide
+them.
+
+### Reference implementation
+
+`test-vectors/qident.py` implements spec section 5, and `generate.py`
+writes its vectors (`identities`, `invalid_documents`, `same_identity`,
+`identity_of_identities`), taking Appendix C and the 5.3 example from the
+spec text so that they cannot drift. The generator asserts every equality
+the spec promises (sources in a group digest the same, groups differ) and
+that every invalid document is rejected. Appendix C validates under its
+own rules and has a digest under itself.
+
 ### Open questions
 
 1. **Name of the dynamic identity type.** Decided: `Identity`. The spec
@@ -1042,6 +1105,107 @@ mapping moved from section 5 to section 6. Choices made in the draft:
     attribute given twice, conflicting encodings) become errors when an
     identity object is loaded. Which checks carry over, and which become
     impossible without types.
+
+## D20. Resolution and tolerant digests (planned)
+
+Discussed 2026-10-14; to be taken up after the dynamic identities (D19) are
+implemented. Nothing here is specified or implemented yet.
+
+### Goal
+
+Digests that are robust against numerical noise: a float parsed one bit
+off, accumulated floating-point error, a timestamp recorded a few
+milliseconds apart. This fits the crate's purpose, digesting what is
+essential about a value, and applies to every numeric kind: integers,
+numbers, instants and durations.
+
+### The limit
+
+No digest can give equal results for every pair of values within a
+tolerance: "within ε" is not transitive, and digest equality is (a chain
+a ≈ b ≈ c ≈ … would force everything to one digest). Every technique either
+has boundaries, where an arbitrarily small change flips the digest, or
+gives up a single digest. Surveyed: quantize-then-hash (deepdiff's
+`DeepHash` `significant_digits`), offset grids and multi-probe hashing
+(Lv et al. 2007), locality-sensitive hashing (probabilistic, for similarity
+search), fuzzy extractors (cryptographic, need stored helper data), and
+exact representations at the source (integer cents, spec 2.6's integer
+nanoseconds).
+
+### Part 1: resolution
+
+A declared grid step per numeric value; the value is rounded to it before
+encoding. Useful on its own, and compatible with everything that exists,
+including `If-Match`.
+
+| Kind | Option | Example |
+|---|---|---|
+| integer | `step` | `{"integer": {"step": 1000}}` |
+| number | `step` (decimal text, so `0.01` is exact) or significant `digits` | `{"number": {"step": "0.01"}}`, `{"number": {"digits": 6}}` |
+| instant | `step`, a duration | `{"instant": {"step": "PT1S"}}` |
+| duration | `step`, a duration | `{"duration": {"step": "PT1M"}}` |
+
+The derive gets a matching field attribute (for example
+`#[quiddity(resolution = "0.01")]`, `#[quiddity(resolution = "1s")]`).
+Choices:
+
+- **The rounded value is encoded in the kind's own unit**, not as a bin
+  index: an instant stays nanoseconds (a multiple of 10^9 at one-second
+  resolution), and a number rounded to 0.01 is the binary64 value nearest
+  the rounded decimal. A value already at the resolution therefore digests
+  the same with or without the option.
+- **Rounding is exact**: on the exact binary value of a float, on exact
+  decimals and on exact nanoseconds, so that every language puts a value
+  in the same bin (Python: `Decimal(float)`; Rust needs a short exact
+  routine).
+- **Rounding mode**: numbers and integers round to nearest, ties to even
+  ("to two decimal places"); instants and durations truncate toward
+  negative infinity ("to the second"). An override such as
+  `"mode": "floor"` can come later if needed.
+- Significant digits are a logarithmic grid; the mechanism is the same.
+
+### Part 2: tolerant digests (budgeted neighbor sets)
+
+A value can only change bin by crossing an edge, so only values close to an
+edge need a second digest. A record publishes a small set of digests:
+
+- **The checking side computes one ordinary digest**, quantized to the
+  declared resolution; it knows nothing about tolerance. Comparison is
+  membership (`published.contains(&digest)`), or intersection when both
+  sides publish sets.
+- **Only the publishing side handles edges**, so the two sides need not
+  agree on a tolerance, and the publisher may choose per record.
+- **The user gives only the resolution and a budget `k`** (default 3,
+  meaning at most 2^3 = 8 digests). The publisher measures each value's
+  distance to its nearest bin edge, branches on the `k` values closest to
+  an edge (both adjacent bins), and publishes the resulting at most `2^k`
+  digests. The guarantee adapts to the record: a copy matches if every
+  value moved less than the edge distance of the `(k+1)`-th closest value.
+  The publisher can report that radius. A record with nothing near an edge
+  gets one digest and a large radius.
+- **Why not a fixed tolerance:** with per-value edge probability
+  `p = 2·tolerance/step`, the expected set size is `(1 + p)^n ≈ e^(p·n)`,
+  exponential in the number of values `n` (about 7 digests for `p = 0.02`
+  and `n = 100`, about 10^8 for `n = 1000`). The budget bounds the set for
+  every record size; large numeric arrays remain out of scope, as for
+  `ndarray`.
+- **Determinism:** any superset of the correct bins is a valid published
+  set, so implementations cannot produce wrong matches by choosing
+  differently. The choice is still specified exactly (closest to an edge
+  first, ties by position in canonical order) so that vectors are
+  reproducible.
+- **Cost:** `2^k` full encodings (8 SHA-256 computations by default).
+- **API:** `quiddity()` stays the single quantized digest. A separate method
+  (for example `quiddity_near()`) returns a small `DigestSet`. HTTP's
+  `If-Match` already accepts a list of entity tags, so a set fits
+  preconditions without anything new.
+- **Still not transitive:** the published side is the reference, and other
+  copies are matched against it, not against each other.
+
+### Order of work
+
+Resolution first (Part 1), since it stands alone. Tolerant digests (Part 2)
+after export from derived types (spec 6.8) is implemented.
 
 ## To revisit
 

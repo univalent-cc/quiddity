@@ -1371,6 +1371,2794 @@
       "digest64": "sha256-64:ebdada98fd6978a7"
     }
   ],
+  "identity_of_identities": {
+    "document": {
+      "quiddity": 1,
+      "domain": "quiddity.identity",
+      "root": {
+        "ref": "Document"
+      },
+      "definitions": {
+        "Document": {
+          "object": {
+            "fields": {
+              "quiddity": {
+                "kind": "integer"
+              },
+              "domain": {
+                "kind": {
+                  "union": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "omit": [
+                  "none"
+                ]
+              },
+              "root": {
+                "kind": {
+                  "ref": "Kind"
+                }
+              },
+              "definitions": {
+                "kind": {
+                  "union": [
+                    "null",
+                    {
+                      "map": {
+                        "key": "string",
+                        "value": {
+                          "ref": "Kind"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "omit": [
+                  "none",
+                  "empty"
+                ]
+              }
+            }
+          }
+        },
+        "Kind": {
+          "tagged": {
+            "variants": {
+              "null": {},
+              "bool": {},
+              "integer": {},
+              "number": {},
+              "string": {},
+              "uuid": {},
+              "path": {},
+              "any": {},
+              "bytes": {
+                "kind": {
+                  "object": {
+                    "fields": {
+                      "text": {
+                        "kind": {
+                          "union": [
+                            "null",
+                            "string"
+                          ]
+                        },
+                        "omit": [
+                          "none"
+                        ]
+                      }
+                    }
+                  }
+                }
+              },
+              "instant": {
+                "kind": {
+                  "ref": "Time"
+                }
+              },
+              "duration": {
+                "kind": {
+                  "ref": "Time"
+                }
+              },
+              "list": {
+                "kind": {
+                  "ref": "Kind"
+                }
+              },
+              "set": {
+                "kind": {
+                  "ref": "Kind"
+                }
+              },
+              "tuple": {
+                "kind": {
+                  "list": {
+                    "ref": "Kind"
+                  }
+                }
+              },
+              "map": {
+                "kind": {
+                  "object": {
+                    "fields": {
+                      "key": {
+                        "kind": {
+                          "ref": "Kind"
+                        }
+                      },
+                      "value": {
+                        "kind": {
+                          "ref": "Kind"
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "object": {
+                "kind": {
+                  "ref": "Object"
+                }
+              },
+              "union": {
+                "kind": {
+                  "set": {
+                    "ref": "Kind"
+                  }
+                }
+              },
+              "tagged": {
+                "kind": {
+                  "ref": "Tagged"
+                }
+              },
+              "ref": {
+                "kind": "string"
+              }
+            }
+          }
+        },
+        "Time": {
+          "object": {
+            "fields": {
+              "unit": {
+                "kind": {
+                  "union": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "omit": [
+                  "none"
+                ]
+              }
+            }
+          }
+        },
+        "Object": {
+          "object": {
+            "fields": {
+              "fields": {
+                "kind": {
+                  "map": {
+                    "key": "string",
+                    "value": {
+                      "ref": "Field"
+                    }
+                  }
+                }
+              },
+              "unlisted": {
+                "kind": {
+                  "union": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "omit": [
+                  "none"
+                ]
+              },
+              "order": {
+                "kind": {
+                  "union": [
+                    "null",
+                    {
+                      "list": "string"
+                    }
+                  ]
+                },
+                "omit": [
+                  "none"
+                ]
+              }
+            }
+          }
+        },
+        "Field": {
+          "object": {
+            "fields": {
+              "kind": {
+                "kind": {
+                  "ref": "Kind"
+                }
+              },
+              "rename": {
+                "kind": {
+                  "union": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "omit": [
+                  "none"
+                ]
+              },
+              "omit": {
+                "kind": {
+                  "union": [
+                    "null",
+                    {
+                      "set": "string"
+                    }
+                  ]
+                },
+                "omit": [
+                  "none",
+                  "empty"
+                ]
+              }
+            }
+          }
+        },
+        "Tagged": {
+          "object": {
+            "fields": {
+              "variants": {
+                "kind": {
+                  "map": {
+                    "key": "string",
+                    "value": {
+                      "ref": "Variant"
+                    }
+                  }
+                }
+              },
+              "style": {
+                "kind": {
+                  "union": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "omit": [
+                  "none"
+                ]
+              },
+              "tag": {
+                "kind": {
+                  "union": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "omit": [
+                  "none"
+                ]
+              },
+              "content": {
+                "kind": {
+                  "union": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "omit": [
+                  "none"
+                ]
+              },
+              "encode_as": {
+                "kind": {
+                  "union": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "omit": [
+                  "none"
+                ]
+              }
+            }
+          }
+        },
+        "Variant": {
+          "object": {
+            "fields": {
+              "kind": {
+                "kind": {
+                  "union": [
+                    "null",
+                    {
+                      "ref": "Kind"
+                    }
+                  ]
+                },
+                "omit": [
+                  "none"
+                ]
+              },
+              "rename": {
+                "kind": {
+                  "union": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "omit": [
+                  "none"
+                ]
+              },
+              "discriminant": {
+                "kind": {
+                  "union": [
+                    "null",
+                    "integer"
+                  ]
+                },
+                "omit": [
+                  "none"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "identity_digest": "sha256:937551a2281fd6a54f32ff4a4f7bfc7f4f5653af5a43ec14b84bbc1bb612405b"
+  },
+  "identities": [
+    {
+      "name": "integer",
+      "document": {
+        "quiddity": 1,
+        "root": "integer"
+      },
+      "identity_digest": "sha256:47acef857c54f43d6bd8ab925de8dafa47ccff17f983b80584b8e9cfc53f1876",
+      "cases": [
+        {
+          "source": 5,
+          "encoding": "05000000000000000110",
+          "digest": "sha256:1decffdb6ff5598e41204e16b1ddcf634d9f9fc547a32faacaab2c11462132e4",
+          "digest128": "sha256-128:1decffdb6ff5598e41204e16b1ddcf63",
+          "digest64": "sha256-64:1decffdb6ff5598e"
+        },
+        {
+          "source": 5.0,
+          "encoding": "05000000000000000110",
+          "digest": "sha256:1decffdb6ff5598e41204e16b1ddcf634d9f9fc547a32faacaab2c11462132e4",
+          "digest128": "sha256-128:1decffdb6ff5598e41204e16b1ddcf63",
+          "digest64": "sha256-64:1decffdb6ff5598e"
+        },
+        {
+          "source": "5",
+          "encoding": "05000000000000000110",
+          "digest": "sha256:1decffdb6ff5598e41204e16b1ddcf634d9f9fc547a32faacaab2c11462132e4",
+          "digest128": "sha256-128:1decffdb6ff5598e41204e16b1ddcf63",
+          "digest64": "sha256-64:1decffdb6ff5598e"
+        },
+        {
+          "source": " +5 ",
+          "encoding": "05000000000000000110",
+          "digest": "sha256:1decffdb6ff5598e41204e16b1ddcf634d9f9fc547a32faacaab2c11462132e4",
+          "digest128": "sha256-128:1decffdb6ff5598e41204e16b1ddcf63",
+          "digest64": "sha256-64:1decffdb6ff5598e"
+        },
+        {
+          "source": "5.0",
+          "encoding": "05000000000000000110",
+          "digest": "sha256:1decffdb6ff5598e41204e16b1ddcf634d9f9fc547a32faacaab2c11462132e4",
+          "digest128": "sha256-128:1decffdb6ff5598e41204e16b1ddcf63",
+          "digest64": "sha256-64:1decffdb6ff5598e"
+        },
+        {
+          "source": "5e0",
+          "encoding": "05000000000000000110",
+          "digest": "sha256:1decffdb6ff5598e41204e16b1ddcf634d9f9fc547a32faacaab2c11462132e4",
+          "digest128": "sha256-128:1decffdb6ff5598e41204e16b1ddcf63",
+          "digest64": "sha256-64:1decffdb6ff5598e"
+        },
+        {
+          "source": "50e-1",
+          "encoding": "05000000000000000110",
+          "digest": "sha256:1decffdb6ff5598e41204e16b1ddcf634d9f9fc547a32faacaab2c11462132e4",
+          "digest128": "sha256-128:1decffdb6ff5598e41204e16b1ddcf63",
+          "digest64": "sha256-64:1decffdb6ff5598e"
+        },
+        {
+          "source": "18446744073709551617",
+          "encoding": "010000000000000001000000000000000910",
+          "digest": "sha256:884a561d9a6e646e48d4804e57a9ec8fc17f6444754dcb89718d7ebf3e0ed85c",
+          "digest128": "sha256-128:884a561d9a6e646e48d4804e57a9ec8f",
+          "digest64": "sha256-64:884a561d9a6e646e"
+        },
+        {
+          "source": -1,
+          "encoding": "ff000000000000000110",
+          "digest": "sha256:d51e197fd8fe34ec12c167f0c402bb17c0309fca56fb37e75d12cdc322f2b521",
+          "digest128": "sha256-128:d51e197fd8fe34ec12c167f0c402bb17",
+          "digest64": "sha256-64:d51e197fd8fe34ec"
+        },
+        {
+          "source": "-1",
+          "encoding": "ff000000000000000110",
+          "digest": "sha256:d51e197fd8fe34ec12c167f0c402bb17c0309fca56fb37e75d12cdc322f2b521",
+          "digest128": "sha256-128:d51e197fd8fe34ec12c167f0c402bb17",
+          "digest64": "sha256-64:d51e197fd8fe34ec"
+        },
+        {
+          "source": 5.5,
+          "error": true
+        },
+        {
+          "source": "5.5",
+          "error": true
+        },
+        {
+          "source": true,
+          "error": true
+        },
+        {
+          "source": "five",
+          "error": true
+        },
+        {
+          "source": null,
+          "error": true
+        }
+      ]
+    },
+    {
+      "name": "number",
+      "document": {
+        "quiddity": 1,
+        "root": "number"
+      },
+      "identity_digest": "sha256:0c45fa930e1a516c75af2d69084c0e251bb894956ae83ff843a38054c293707a",
+      "cases": [
+        {
+          "source": 1.5,
+          "encoding": "3ff800000000000011",
+          "digest": "sha256:abee116c081a17dae4b03f4ec6c3339cdb6134726180231494373b1c9ce377ee",
+          "digest128": "sha256-128:abee116c081a17dae4b03f4ec6c3339c",
+          "digest64": "sha256-64:abee116c081a17da"
+        },
+        {
+          "source": "1.5",
+          "encoding": "3ff800000000000011",
+          "digest": "sha256:abee116c081a17dae4b03f4ec6c3339cdb6134726180231494373b1c9ce377ee",
+          "digest128": "sha256-128:abee116c081a17dae4b03f4ec6c3339c",
+          "digest64": "sha256-64:abee116c081a17da"
+        },
+        {
+          "source": "15e-1",
+          "encoding": "3ff800000000000011",
+          "digest": "sha256:abee116c081a17dae4b03f4ec6c3339cdb6134726180231494373b1c9ce377ee",
+          "digest128": "sha256-128:abee116c081a17dae4b03f4ec6c3339c",
+          "digest64": "sha256-64:abee116c081a17da"
+        },
+        {
+          "source": 1,
+          "encoding": "01000000000000000110",
+          "digest": "sha256:2703bfd3b50d7dd6522d108837053d9af4e32055e94d0f69e63ca983bfac4f8c",
+          "digest128": "sha256-128:2703bfd3b50d7dd6522d108837053d9a",
+          "digest64": "sha256-64:2703bfd3b50d7dd6"
+        },
+        {
+          "source": 1.0,
+          "encoding": "01000000000000000110",
+          "digest": "sha256:2703bfd3b50d7dd6522d108837053d9af4e32055e94d0f69e63ca983bfac4f8c",
+          "digest128": "sha256-128:2703bfd3b50d7dd6522d108837053d9a",
+          "digest64": "sha256-64:2703bfd3b50d7dd6"
+        },
+        {
+          "source": "1",
+          "encoding": "01000000000000000110",
+          "digest": "sha256:2703bfd3b50d7dd6522d108837053d9af4e32055e94d0f69e63ca983bfac4f8c",
+          "digest128": "sha256-128:2703bfd3b50d7dd6522d108837053d9a",
+          "digest64": "sha256-64:2703bfd3b50d7dd6"
+        },
+        {
+          "source": "nan",
+          "encoding": "7ff800000000000011",
+          "digest": "sha256:bce9627bba3659dc2f1d1a3fe58f45a7397ac56f06b6bb1e0c392c21d7b86cc0",
+          "digest128": "sha256-128:bce9627bba3659dc2f1d1a3fe58f45a7",
+          "digest64": "sha256-64:bce9627bba3659dc"
+        },
+        {
+          "source": "NaN",
+          "encoding": "7ff800000000000011",
+          "digest": "sha256:bce9627bba3659dc2f1d1a3fe58f45a7397ac56f06b6bb1e0c392c21d7b86cc0",
+          "digest128": "sha256-128:bce9627bba3659dc2f1d1a3fe58f45a7",
+          "digest64": "sha256-64:bce9627bba3659dc"
+        },
+        {
+          "source": "-NAN",
+          "encoding": "7ff800000000000011",
+          "digest": "sha256:bce9627bba3659dc2f1d1a3fe58f45a7397ac56f06b6bb1e0c392c21d7b86cc0",
+          "digest128": "sha256-128:bce9627bba3659dc2f1d1a3fe58f45a7",
+          "digest64": "sha256-64:bce9627bba3659dc"
+        },
+        {
+          "source": "inf",
+          "encoding": "7ff000000000000011",
+          "digest": "sha256:d455353696a0fe2ac9b62369b6eaa512135eeab8f0684dd1a7ad3d6364ee39df",
+          "digest128": "sha256-128:d455353696a0fe2ac9b62369b6eaa512",
+          "digest64": "sha256-64:d455353696a0fe2a"
+        },
+        {
+          "source": "+Infinity",
+          "encoding": "7ff000000000000011",
+          "digest": "sha256:d455353696a0fe2ac9b62369b6eaa512135eeab8f0684dd1a7ad3d6364ee39df",
+          "digest128": "sha256-128:d455353696a0fe2ac9b62369b6eaa512",
+          "digest64": "sha256-64:d455353696a0fe2a"
+        },
+        {
+          "source": "\u221e",
+          "encoding": "7ff000000000000011",
+          "digest": "sha256:d455353696a0fe2ac9b62369b6eaa512135eeab8f0684dd1a7ad3d6364ee39df",
+          "digest128": "sha256-128:d455353696a0fe2ac9b62369b6eaa512",
+          "digest64": "sha256-64:d455353696a0fe2a"
+        },
+        {
+          "source": "-inf",
+          "encoding": "fff000000000000011",
+          "digest": "sha256:fca22aad80c2e38f04f8b28858bcc8a54a840406f82970ea48fc4946cc62039b",
+          "digest128": "sha256-128:fca22aad80c2e38f04f8b28858bcc8a5",
+          "digest64": "sha256-64:fca22aad80c2e38f"
+        },
+        {
+          "source": "-\u221e",
+          "encoding": "fff000000000000011",
+          "digest": "sha256:fca22aad80c2e38f04f8b28858bcc8a54a840406f82970ea48fc4946cc62039b",
+          "digest128": "sha256-128:fca22aad80c2e38f04f8b28858bcc8a5",
+          "digest64": "sha256-64:fca22aad80c2e38f"
+        },
+        {
+          "source": "\u2212\u221e",
+          "encoding": "fff000000000000011",
+          "digest": "sha256:fca22aad80c2e38f04f8b28858bcc8a54a840406f82970ea48fc4946cc62039b",
+          "digest128": "sha256-128:fca22aad80c2e38f04f8b28858bcc8a5",
+          "digest64": "sha256-64:fca22aad80c2e38f"
+        },
+        {
+          "source": "\u2212INF",
+          "encoding": "fff000000000000011",
+          "digest": "sha256:fca22aad80c2e38f04f8b28858bcc8a54a840406f82970ea48fc4946cc62039b",
+          "digest128": "sha256-128:fca22aad80c2e38f04f8b28858bcc8a5",
+          "digest64": "sha256-64:fca22aad80c2e38f"
+        },
+        {
+          "source": "abc",
+          "error": true
+        },
+        {
+          "source": true,
+          "error": true
+        }
+      ]
+    },
+    {
+      "name": "bool",
+      "document": {
+        "quiddity": 1,
+        "root": "bool"
+      },
+      "identity_digest": "sha256:40f92d3c072ef6514be273fe50a5b15412fc2aa9f45b7a34825e5d8d877534d8",
+      "cases": [
+        {
+          "source": true,
+          "encoding": "03",
+          "digest": "sha256:1f7cd40876216c600adafc174c5cba0920d945af797c81b05591b288c1c21741",
+          "digest128": "sha256-128:1f7cd40876216c600adafc174c5cba09",
+          "digest64": "sha256-64:1f7cd40876216c60"
+        },
+        {
+          "source": "true",
+          "encoding": "03",
+          "digest": "sha256:1f7cd40876216c600adafc174c5cba0920d945af797c81b05591b288c1c21741",
+          "digest128": "sha256-128:1f7cd40876216c600adafc174c5cba09",
+          "digest64": "sha256-64:1f7cd40876216c60"
+        },
+        {
+          "source": "T",
+          "encoding": "03",
+          "digest": "sha256:1f7cd40876216c600adafc174c5cba0920d945af797c81b05591b288c1c21741",
+          "digest128": "sha256-128:1f7cd40876216c600adafc174c5cba09",
+          "digest64": "sha256-64:1f7cd40876216c60"
+        },
+        {
+          "source": "Yes",
+          "encoding": "03",
+          "digest": "sha256:1f7cd40876216c600adafc174c5cba0920d945af797c81b05591b288c1c21741",
+          "digest128": "sha256-128:1f7cd40876216c600adafc174c5cba09",
+          "digest64": "sha256-64:1f7cd40876216c60"
+        },
+        {
+          "source": "y",
+          "encoding": "03",
+          "digest": "sha256:1f7cd40876216c600adafc174c5cba0920d945af797c81b05591b288c1c21741",
+          "digest128": "sha256-128:1f7cd40876216c600adafc174c5cba09",
+          "digest64": "sha256-64:1f7cd40876216c60"
+        },
+        {
+          "source": " on ",
+          "encoding": "03",
+          "digest": "sha256:1f7cd40876216c600adafc174c5cba0920d945af797c81b05591b288c1c21741",
+          "digest128": "sha256-128:1f7cd40876216c600adafc174c5cba09",
+          "digest64": "sha256-64:1f7cd40876216c60"
+        },
+        {
+          "source": "1",
+          "encoding": "03",
+          "digest": "sha256:1f7cd40876216c600adafc174c5cba0920d945af797c81b05591b288c1c21741",
+          "digest128": "sha256-128:1f7cd40876216c600adafc174c5cba09",
+          "digest64": "sha256-64:1f7cd40876216c60"
+        },
+        {
+          "source": false,
+          "encoding": "02",
+          "digest": "sha256:a4ed0a81c41082d0a594048e1d5d81ae85a74cfc9e5b4f2fc9d38f54b2c1aa12",
+          "digest128": "sha256-128:a4ed0a81c41082d0a594048e1d5d81ae",
+          "digest64": "sha256-64:a4ed0a81c41082d0"
+        },
+        {
+          "source": "False",
+          "encoding": "02",
+          "digest": "sha256:a4ed0a81c41082d0a594048e1d5d81ae85a74cfc9e5b4f2fc9d38f54b2c1aa12",
+          "digest128": "sha256-128:a4ed0a81c41082d0a594048e1d5d81ae",
+          "digest64": "sha256-64:a4ed0a81c41082d0"
+        },
+        {
+          "source": "f",
+          "encoding": "02",
+          "digest": "sha256:a4ed0a81c41082d0a594048e1d5d81ae85a74cfc9e5b4f2fc9d38f54b2c1aa12",
+          "digest128": "sha256-128:a4ed0a81c41082d0a594048e1d5d81ae",
+          "digest64": "sha256-64:a4ed0a81c41082d0"
+        },
+        {
+          "source": "NO",
+          "encoding": "02",
+          "digest": "sha256:a4ed0a81c41082d0a594048e1d5d81ae85a74cfc9e5b4f2fc9d38f54b2c1aa12",
+          "digest128": "sha256-128:a4ed0a81c41082d0a594048e1d5d81ae",
+          "digest64": "sha256-64:a4ed0a81c41082d0"
+        },
+        {
+          "source": "n",
+          "encoding": "02",
+          "digest": "sha256:a4ed0a81c41082d0a594048e1d5d81ae85a74cfc9e5b4f2fc9d38f54b2c1aa12",
+          "digest128": "sha256-128:a4ed0a81c41082d0a594048e1d5d81ae",
+          "digest64": "sha256-64:a4ed0a81c41082d0"
+        },
+        {
+          "source": "off",
+          "encoding": "02",
+          "digest": "sha256:a4ed0a81c41082d0a594048e1d5d81ae85a74cfc9e5b4f2fc9d38f54b2c1aa12",
+          "digest128": "sha256-128:a4ed0a81c41082d0a594048e1d5d81ae",
+          "digest64": "sha256-64:a4ed0a81c41082d0"
+        },
+        {
+          "source": "0",
+          "encoding": "02",
+          "digest": "sha256:a4ed0a81c41082d0a594048e1d5d81ae85a74cfc9e5b4f2fc9d38f54b2c1aa12",
+          "digest128": "sha256-128:a4ed0a81c41082d0a594048e1d5d81ae",
+          "digest64": "sha256-64:a4ed0a81c41082d0"
+        },
+        {
+          "source": "maybe",
+          "error": true
+        },
+        {
+          "source": 1,
+          "error": true
+        },
+        {
+          "source": null,
+          "error": true
+        }
+      ]
+    },
+    {
+      "name": "string",
+      "document": {
+        "quiddity": 1,
+        "root": "string"
+      },
+      "identity_digest": "sha256:f378c15c6873a8527a63c1b36069caef0b4f22e3f6e43546b456ae90e2c1b709",
+      "cases": [
+        {
+          "source": "x",
+          "encoding": "78000000000000000120",
+          "digest": "sha256:e2aa3ba97b9cf90d6ecf4ca2122784ce1a50f1177cc823936dc8ad136c6e5b5a",
+          "digest128": "sha256-128:e2aa3ba97b9cf90d6ecf4ca2122784ce",
+          "digest64": "sha256-64:e2aa3ba97b9cf90d"
+        },
+        {
+          "source": "X",
+          "encoding": "58000000000000000120",
+          "digest": "sha256:28480a645fd34d8dc7cb3c62ce64ff4d222c2d89e6f9a2471b628019c302b354",
+          "digest128": "sha256-128:28480a645fd34d8dc7cb3c62ce64ff4d",
+          "digest64": "sha256-64:28480a645fd34d8d"
+        },
+        {
+          "source": 5,
+          "error": true
+        },
+        {
+          "source": true,
+          "error": true
+        }
+      ]
+    },
+    {
+      "name": "uuid",
+      "document": {
+        "quiddity": 1,
+        "root": "uuid"
+      },
+      "identity_digest": "sha256:829c4899bb455a12c90bee4c31afa2ed511d475497199c4b38f2e6d8a58813a7",
+      "cases": [
+        {
+          "source": "67e55044-10b1-426f-9247-bb680e5fe0c8",
+          "encoding": "36376535353034342d313062312d343236662d393234372d626236383065356665306338000000000000002420",
+          "digest": "sha256:439d74cd2f16099cf46f031becf0bece54e83bf828008a8e4476dd2e6f5f71ee",
+          "digest128": "sha256-128:439d74cd2f16099cf46f031becf0bece",
+          "digest64": "sha256-64:439d74cd2f16099c"
+        },
+        {
+          "source": "67E55044-10B1-426F-9247-BB680E5FE0C8",
+          "encoding": "36376535353034342d313062312d343236662d393234372d626236383065356665306338000000000000002420",
+          "digest": "sha256:439d74cd2f16099cf46f031becf0bece54e83bf828008a8e4476dd2e6f5f71ee",
+          "digest128": "sha256-128:439d74cd2f16099cf46f031becf0bece",
+          "digest64": "sha256-64:439d74cd2f16099c"
+        },
+        {
+          "source": "67e5504410b1426f9247bb680e5fe0c8",
+          "encoding": "36376535353034342d313062312d343236662d393234372d626236383065356665306338000000000000002420",
+          "digest": "sha256:439d74cd2f16099cf46f031becf0bece54e83bf828008a8e4476dd2e6f5f71ee",
+          "digest128": "sha256-128:439d74cd2f16099cf46f031becf0bece",
+          "digest64": "sha256-64:439d74cd2f16099c"
+        },
+        {
+          "source": "{67e55044-10b1-426f-9247-bb680e5fe0c8}",
+          "encoding": "36376535353034342d313062312d343236662d393234372d626236383065356665306338000000000000002420",
+          "digest": "sha256:439d74cd2f16099cf46f031becf0bece54e83bf828008a8e4476dd2e6f5f71ee",
+          "digest128": "sha256-128:439d74cd2f16099cf46f031becf0bece",
+          "digest64": "sha256-64:439d74cd2f16099c"
+        },
+        {
+          "source": "urn:uuid:67e55044-10b1-426f-9247-bb680e5fe0c8",
+          "encoding": "36376535353034342d313062312d343236662d393234372d626236383065356665306338000000000000002420",
+          "digest": "sha256:439d74cd2f16099cf46f031becf0bece54e83bf828008a8e4476dd2e6f5f71ee",
+          "digest128": "sha256-128:439d74cd2f16099cf46f031becf0bece",
+          "digest64": "sha256-64:439d74cd2f16099c"
+        },
+        {
+          "source": "67e55044-10b1-426f-9247-bb680e5fe0c",
+          "error": true
+        }
+      ]
+    },
+    {
+      "name": "path",
+      "document": {
+        "quiddity": 1,
+        "root": "path"
+      },
+      "identity_digest": "sha256:8d0f162f70f2838f78cf2ba52205e0a39c07461ff44e453464ea30ba451e04f0",
+      "cases": [
+        {
+          "source": "a/b",
+          "encoding": "612f62000000000000000320",
+          "digest": "sha256:e8f9d4d30601046d312f0bfd1ece4225bee238806bd77bd9a2e377135bfc9ed7",
+          "digest128": "sha256-128:e8f9d4d30601046d312f0bfd1ece4225",
+          "digest64": "sha256-64:e8f9d4d30601046d"
+        },
+        {
+          "source": {
+            "Unix": [
+              97,
+              47,
+              98
+            ]
+          },
+          "encoding": "612f62000000000000000320",
+          "digest": "sha256:e8f9d4d30601046d312f0bfd1ece4225bee238806bd77bd9a2e377135bfc9ed7",
+          "digest128": "sha256-128:e8f9d4d30601046d312f0bfd1ece4225",
+          "digest64": "sha256-64:e8f9d4d30601046d"
+        },
+        {
+          "source": {
+            "Windows": [
+              97,
+              47,
+              98
+            ]
+          },
+          "encoding": "612f62000000000000000320",
+          "digest": "sha256:e8f9d4d30601046d312f0bfd1ece4225bee238806bd77bd9a2e377135bfc9ed7",
+          "digest128": "sha256-128:e8f9d4d30601046d312f0bfd1ece4225",
+          "digest64": "sha256-64:e8f9d4d30601046d"
+        },
+        {
+          "source": {
+            "Unix": [
+              97,
+              255
+            ]
+          },
+          "encoding": "61ff000000000000000220",
+          "digest": "sha256:a90ebd52fc4084d9c06e6a908675d1a6ee0139046389e682048b4db4ad0d5ebe",
+          "digest128": "sha256-128:a90ebd52fc4084d9c06e6a908675d1a6",
+          "digest64": "sha256-64:a90ebd52fc4084d9"
+        },
+        {
+          "source": {
+            "Windows": [
+              97,
+              55296
+            ]
+          },
+          "encoding": "61eda080000000000000000420",
+          "digest": "sha256:acac72344fe27ae24b13b207af94f987b43cd97da15ce63157f61606022e8673",
+          "digest128": "sha256-128:acac72344fe27ae24b13b207af94f987",
+          "digest64": "sha256-64:acac72344fe27ae2"
+        },
+        {
+          "source": {
+            "Windows": [
+              55357,
+              56832
+            ]
+          },
+          "encoding": "f09f9880000000000000000420",
+          "digest": "sha256:f6fe5841e8845f22f28f150d159b7bfe13f900c1ab6f5bb8aa8062cd13fd8de6",
+          "digest128": "sha256-128:f6fe5841e8845f22f28f150d159b7bfe",
+          "digest64": "sha256-64:f6fe5841e8845f22"
+        },
+        {
+          "source": "\ud83d\ude00",
+          "encoding": "f09f9880000000000000000420",
+          "digest": "sha256:f6fe5841e8845f22f28f150d159b7bfe13f900c1ab6f5bb8aa8062cd13fd8de6",
+          "digest128": "sha256-128:f6fe5841e8845f22f28f150d159b7bfe",
+          "digest64": "sha256-64:f6fe5841e8845f22"
+        },
+        {
+          "source": {
+            "Mac": [
+              97
+            ]
+          },
+          "error": true
+        },
+        {
+          "source": {
+            "Unix": [
+              256
+            ]
+          },
+          "error": true
+        }
+      ]
+    },
+    {
+      "name": "bytes",
+      "document": {
+        "quiddity": 1,
+        "root": {
+          "bytes": {}
+        }
+      },
+      "identity_digest": "sha256:0a7a2d576493f0260a9a29e8ca847c2e8713c403740cd9b01bbc24e154e5f36e",
+      "cases": [
+        {
+          "source": [
+            1,
+            2
+          ],
+          "encoding": "0102000000000000000220",
+          "digest": "sha256:cee203491d38080c54e55b59fc6328def04b53c438cd9075d71e362572b66409",
+          "digest128": "sha256-128:cee203491d38080c54e55b59fc6328de",
+          "digest64": "sha256-64:cee203491d38080c"
+        },
+        {
+          "source": "AQI=",
+          "encoding": "0102000000000000000220",
+          "digest": "sha256:cee203491d38080c54e55b59fc6328def04b53c438cd9075d71e362572b66409",
+          "digest128": "sha256-128:cee203491d38080c54e55b59fc6328de",
+          "digest64": "sha256-64:cee203491d38080c"
+        },
+        {
+          "source": "AQI",
+          "encoding": "0102000000000000000220",
+          "digest": "sha256:cee203491d38080c54e55b59fc6328def04b53c438cd9075d71e362572b66409",
+          "digest128": "sha256-128:cee203491d38080c54e55b59fc6328de",
+          "digest64": "sha256-64:cee203491d38080c"
+        },
+        {
+          "source": [
+            251,
+            255
+          ],
+          "encoding": "fbff000000000000000220",
+          "digest": "sha256:71bd9c4aeb34a9cf62c34bd7f7230f822ec773f14aedd1917ae3cd6e9285cec7",
+          "digest128": "sha256-128:71bd9c4aeb34a9cf62c34bd7f7230f82",
+          "digest64": "sha256-64:71bd9c4aeb34a9cf"
+        },
+        {
+          "source": "+/8=",
+          "encoding": "fbff000000000000000220",
+          "digest": "sha256:71bd9c4aeb34a9cf62c34bd7f7230f822ec773f14aedd1917ae3cd6e9285cec7",
+          "digest128": "sha256-128:71bd9c4aeb34a9cf62c34bd7f7230f82",
+          "digest64": "sha256-64:71bd9c4aeb34a9cf"
+        },
+        {
+          "source": "-_8",
+          "encoding": "fbff000000000000000220",
+          "digest": "sha256:71bd9c4aeb34a9cf62c34bd7f7230f822ec773f14aedd1917ae3cd6e9285cec7",
+          "digest128": "sha256-128:71bd9c4aeb34a9cf62c34bd7f7230f82",
+          "digest64": "sha256-64:71bd9c4aeb34a9cf"
+        },
+        {
+          "source": [],
+          "encoding": "000000000000000020",
+          "digest": "sha256:ccfa4dd49d648cac65707bcf15fc185e123719040e76c8821528aa740681368d",
+          "digest128": "sha256-128:ccfa4dd49d648cac65707bcf15fc185e",
+          "digest64": "sha256-64:ccfa4dd49d648cac"
+        },
+        {
+          "source": "",
+          "encoding": "000000000000000020",
+          "digest": "sha256:ccfa4dd49d648cac65707bcf15fc185e123719040e76c8821528aa740681368d",
+          "digest128": "sha256-128:ccfa4dd49d648cac65707bcf15fc185e",
+          "digest64": "sha256-64:ccfa4dd49d648cac"
+        },
+        {
+          "source": "+_8=",
+          "error": true
+        },
+        {
+          "source": "AQI==",
+          "error": true
+        },
+        {
+          "source": [
+            256
+          ],
+          "error": true
+        },
+        {
+          "source": "A",
+          "error": true
+        }
+      ]
+    },
+    {
+      "name": "bytes as hex",
+      "document": {
+        "quiddity": 1,
+        "root": {
+          "bytes": {
+            "text": "hex"
+          }
+        }
+      },
+      "identity_digest": "sha256:b12e749b18e515023207d29df1a7b97ace75a5cac815090e278376b19e0fcd76",
+      "cases": [
+        {
+          "source": "0102",
+          "encoding": "0102000000000000000220",
+          "digest": "sha256:cee203491d38080c54e55b59fc6328def04b53c438cd9075d71e362572b66409",
+          "digest128": "sha256-128:cee203491d38080c54e55b59fc6328de",
+          "digest64": "sha256-64:cee203491d38080c"
+        },
+        {
+          "source": "0102",
+          "encoding": "0102000000000000000220",
+          "digest": "sha256:cee203491d38080c54e55b59fc6328def04b53c438cd9075d71e362572b66409",
+          "digest128": "sha256-128:cee203491d38080c54e55b59fc6328de",
+          "digest64": "sha256-64:cee203491d38080c"
+        },
+        {
+          "source": [
+            1,
+            2
+          ],
+          "encoding": "0102000000000000000220",
+          "digest": "sha256:cee203491d38080c54e55b59fc6328def04b53c438cd9075d71e362572b66409",
+          "digest128": "sha256-128:cee203491d38080c54e55b59fc6328de",
+          "digest64": "sha256-64:cee203491d38080c"
+        },
+        {
+          "source": "ABcd",
+          "encoding": "abcd000000000000000220",
+          "digest": "sha256:7b125fc1784c81ab2e86357c2024fe7f0ee87dcb82e1e70ae4be2fb94124c98f",
+          "digest128": "sha256-128:7b125fc1784c81ab2e86357c2024fe7f",
+          "digest64": "sha256-64:7b125fc1784c81ab"
+        },
+        {
+          "source": [
+            171,
+            205
+          ],
+          "encoding": "abcd000000000000000220",
+          "digest": "sha256:7b125fc1784c81ab2e86357c2024fe7f0ee87dcb82e1e70ae4be2fb94124c98f",
+          "digest128": "sha256-128:7b125fc1784c81ab2e86357c2024fe7f",
+          "digest64": "sha256-64:7b125fc1784c81ab"
+        },
+        {
+          "source": "012",
+          "error": true
+        }
+      ]
+    },
+    {
+      "name": "instant",
+      "document": {
+        "quiddity": 1,
+        "root": {
+          "instant": {}
+        }
+      },
+      "identity_digest": "sha256:b7c892674fee9f46a4e473864e58212373641ba9e69ae9cab8677bde04f72ce6",
+      "cases": [
+        {
+          "source": "2024-01-01T00:00:00Z",
+          "encoding": "17a6101701650000000000000000000810",
+          "digest": "sha256:c426156b1c1b8522abc69e7b177407fd6736694c2d124a7b224a29a7e0b714ed",
+          "digest128": "sha256-128:c426156b1c1b8522abc69e7b177407fd",
+          "digest64": "sha256-64:c426156b1c1b8522"
+        },
+        {
+          "source": "2024-01-01t00:00:00z",
+          "encoding": "17a6101701650000000000000000000810",
+          "digest": "sha256:c426156b1c1b8522abc69e7b177407fd6736694c2d124a7b224a29a7e0b714ed",
+          "digest128": "sha256-128:c426156b1c1b8522abc69e7b177407fd",
+          "digest64": "sha256-64:c426156b1c1b8522"
+        },
+        {
+          "source": "2024-01-01 01:00:00+01:00",
+          "encoding": "17a6101701650000000000000000000810",
+          "digest": "sha256:c426156b1c1b8522abc69e7b177407fd6736694c2d124a7b224a29a7e0b714ed",
+          "digest128": "sha256-128:c426156b1c1b8522abc69e7b177407fd",
+          "digest64": "sha256-64:c426156b1c1b8522"
+        },
+        {
+          "source": "2023-12-31T19:00:00-0500",
+          "encoding": "17a6101701650000000000000000000810",
+          "digest": "sha256:c426156b1c1b8522abc69e7b177407fd6736694c2d124a7b224a29a7e0b714ed",
+          "digest128": "sha256-128:c426156b1c1b8522abc69e7b177407fd",
+          "digest64": "sha256-64:c426156b1c1b8522"
+        },
+        {
+          "source": "2024-01-01T02:00:00+02",
+          "encoding": "17a6101701650000000000000000000810",
+          "digest": "sha256:c426156b1c1b8522abc69e7b177407fd6736694c2d124a7b224a29a7e0b714ed",
+          "digest128": "sha256-128:c426156b1c1b8522abc69e7b177407fd",
+          "digest64": "sha256-64:c426156b1c1b8522"
+        },
+        {
+          "source": {
+            "secs_since_epoch": 1704067200,
+            "nanos_since_epoch": 0
+          },
+          "encoding": "17a6101701650000000000000000000810",
+          "digest": "sha256:c426156b1c1b8522abc69e7b177407fd6736694c2d124a7b224a29a7e0b714ed",
+          "digest128": "sha256-128:c426156b1c1b8522abc69e7b177407fd",
+          "digest64": "sha256-64:c426156b1c1b8522"
+        },
+        {
+          "source": "1969-12-31T23:59:59Z",
+          "encoding": "c4653600000000000000000410",
+          "digest": "sha256:2a276c7b260601af01fd6146d52101a8f39345e132be5049dba31d1defe4dc54",
+          "digest128": "sha256-128:2a276c7b260601af01fd6146d52101a8",
+          "digest64": "sha256-64:2a276c7b260601af"
+        },
+        {
+          "source": "2024-01-01T00:00:00.5Z",
+          "encoding": "17a610171f326500000000000000000810",
+          "digest": "sha256:81520cbfba0ef4247c4f799b0d09401cc46b6deb1f02fae5eb5a6d7efa613282",
+          "digest128": "sha256-128:81520cbfba0ef4247c4f799b0d09401c",
+          "digest64": "sha256-64:81520cbfba0ef424"
+        },
+        {
+          "source": "2024-01-01T00:00:00.500000000Z",
+          "encoding": "17a610171f326500000000000000000810",
+          "digest": "sha256:81520cbfba0ef4247c4f799b0d09401cc46b6deb1f02fae5eb5a6d7efa613282",
+          "digest128": "sha256-128:81520cbfba0ef4247c4f799b0d09401c",
+          "digest64": "sha256-64:81520cbfba0ef424"
+        },
+        {
+          "source": "2016-12-31T23:59:60Z",
+          "error": true
+        },
+        {
+          "source": "2024-01-01T00:00:00",
+          "error": true
+        },
+        {
+          "source": "2024-02-30T00:00:00Z",
+          "error": true
+        },
+        {
+          "source": "2024-01-01T00:00:00.1234567891Z",
+          "error": true
+        },
+        {
+          "source": 1704067200,
+          "error": true
+        }
+      ]
+    },
+    {
+      "name": "instant in milliseconds",
+      "document": {
+        "quiddity": 1,
+        "root": {
+          "instant": {
+            "unit": "ms"
+          }
+        }
+      },
+      "identity_digest": "sha256:3d3a040e2e3dcb72ff2a35374557d5957261f026c5197fc6c77ee3b80ec81a8e",
+      "cases": [
+        {
+          "source": 1704067200000,
+          "encoding": "17a6101701650000000000000000000810",
+          "digest": "sha256:c426156b1c1b8522abc69e7b177407fd6736694c2d124a7b224a29a7e0b714ed",
+          "digest128": "sha256-128:c426156b1c1b8522abc69e7b177407fd",
+          "digest64": "sha256-64:c426156b1c1b8522"
+        },
+        {
+          "source": "1704067200000",
+          "encoding": "17a6101701650000000000000000000810",
+          "digest": "sha256:c426156b1c1b8522abc69e7b177407fd6736694c2d124a7b224a29a7e0b714ed",
+          "digest128": "sha256-128:c426156b1c1b8522abc69e7b177407fd",
+          "digest64": "sha256-64:c426156b1c1b8522"
+        },
+        {
+          "source": "2024-01-01T00:00:00Z",
+          "encoding": "17a6101701650000000000000000000810",
+          "digest": "sha256:c426156b1c1b8522abc69e7b177407fd6736694c2d124a7b224a29a7e0b714ed",
+          "digest128": "sha256-128:c426156b1c1b8522abc69e7b177407fd",
+          "digest64": "sha256-64:c426156b1c1b8522"
+        },
+        {
+          "source": 1704067200000.5,
+          "encoding": "17a61017016ca120000000000000000810",
+          "digest": "sha256:b5f0d1a1adb6ee10834e9cc20dcf628a8b5d91a05f46b6d1abfe29ee56b9f08b",
+          "digest128": "sha256-128:b5f0d1a1adb6ee10834e9cc20dcf628a",
+          "digest64": "sha256-64:b5f0d1a1adb6ee10"
+        },
+        {
+          "source": "1704067200000.5",
+          "encoding": "17a61017016ca120000000000000000810",
+          "digest": "sha256:b5f0d1a1adb6ee10834e9cc20dcf628a8b5d91a05f46b6d1abfe29ee56b9f08b",
+          "digest128": "sha256-128:b5f0d1a1adb6ee10834e9cc20dcf628a",
+          "digest64": "sha256-64:b5f0d1a1adb6ee10"
+        },
+        {
+          "source": "1704067200000.0000005",
+          "error": true
+        }
+      ]
+    },
+    {
+      "name": "duration",
+      "document": {
+        "quiddity": 1,
+        "root": {
+          "duration": {}
+        }
+      },
+      "identity_digest": "sha256:1df726e2ff2bbd12a7734fcf9d5aafbd4b1bfe6c0c061e46306b36dfe31a29e9",
+      "cases": [
+        {
+          "source": "PT1.5S",
+          "encoding": "59682f00000000000000000410",
+          "digest": "sha256:4317c7ee805c2a7e4b8b8a2d0f5d89d1b351225e67a3ad6abc5ec0e97c023dc9",
+          "digest128": "sha256-128:4317c7ee805c2a7e4b8b8a2d0f5d89d1",
+          "digest64": "sha256-64:4317c7ee805c2a7e"
+        },
+        {
+          "source": "pt1.5s",
+          "encoding": "59682f00000000000000000410",
+          "digest": "sha256:4317c7ee805c2a7e4b8b8a2d0f5d89d1b351225e67a3ad6abc5ec0e97c023dc9",
+          "digest128": "sha256-128:4317c7ee805c2a7e4b8b8a2d0f5d89d1",
+          "digest64": "sha256-64:4317c7ee805c2a7e"
+        },
+        {
+          "source": {
+            "secs": 1,
+            "nanos": 500000000
+          },
+          "encoding": "59682f00000000000000000410",
+          "digest": "sha256:4317c7ee805c2a7e4b8b8a2d0f5d89d1b351225e67a3ad6abc5ec0e97c023dc9",
+          "digest128": "sha256-128:4317c7ee805c2a7e4b8b8a2d0f5d89d1",
+          "digest64": "sha256-64:4317c7ee805c2a7e"
+        },
+        {
+          "source": "P1W",
+          "encoding": "02260ff9290000000000000000000710",
+          "digest": "sha256:740b204633c3820db136ff4130396ae86ceb30bd1da2ce74afa65888f27f444b",
+          "digest128": "sha256-128:740b204633c3820db136ff4130396ae8",
+          "digest64": "sha256-64:740b204633c3820d"
+        },
+        {
+          "source": "P7D",
+          "encoding": "02260ff9290000000000000000000710",
+          "digest": "sha256:740b204633c3820db136ff4130396ae86ceb30bd1da2ce74afa65888f27f444b",
+          "digest128": "sha256-128:740b204633c3820db136ff4130396ae8",
+          "digest64": "sha256-64:740b204633c3820d"
+        },
+        {
+          "source": "PT168H",
+          "encoding": "02260ff9290000000000000000000710",
+          "digest": "sha256:740b204633c3820db136ff4130396ae86ceb30bd1da2ce74afa65888f27f444b",
+          "digest128": "sha256-128:740b204633c3820db136ff4130396ae8",
+          "digest64": "sha256-64:740b204633c3820d"
+        },
+        {
+          "source": {
+            "secs": 604800,
+            "nanos": 0
+          },
+          "encoding": "02260ff9290000000000000000000710",
+          "digest": "sha256:740b204633c3820db136ff4130396ae86ceb30bd1da2ce74afa65888f27f444b",
+          "digest128": "sha256-128:740b204633c3820db136ff4130396ae8",
+          "digest64": "sha256-64:740b204633c3820d"
+        },
+        {
+          "source": "-PT1M",
+          "encoding": "f207b8a800000000000000000510",
+          "digest": "sha256:36995d58a0e137a877fa7c45617f0a50938e108c9eabcf091552da16dca1b0ee",
+          "digest128": "sha256-128:36995d58a0e137a877fa7c45617f0a50",
+          "digest64": "sha256-64:36995d58a0e137a8"
+        },
+        {
+          "source": "P1Y",
+          "error": true
+        },
+        {
+          "source": "P1M",
+          "error": true
+        },
+        {
+          "source": "PT",
+          "error": true
+        },
+        {
+          "source": "P",
+          "error": true
+        },
+        {
+          "source": 60,
+          "error": true
+        }
+      ]
+    },
+    {
+      "name": "duration in seconds",
+      "document": {
+        "quiddity": 1,
+        "root": {
+          "duration": {
+            "unit": "s"
+          }
+        }
+      },
+      "identity_digest": "sha256:69b72a0ceda968f835c67115686bbefeaa4555a4d67601e933ca2f0dc7a1a43b",
+      "cases": [
+        {
+          "source": 90,
+          "encoding": "14f46b0400000000000000000510",
+          "digest": "sha256:dbb1948e33c8f2729c859a1a6af00c3ecc0b70023061a287e14063dee52d67c8",
+          "digest128": "sha256-128:dbb1948e33c8f2729c859a1a6af00c3e",
+          "digest64": "sha256-64:dbb1948e33c8f272"
+        },
+        {
+          "source": "90",
+          "encoding": "14f46b0400000000000000000510",
+          "digest": "sha256:dbb1948e33c8f2729c859a1a6af00c3ecc0b70023061a287e14063dee52d67c8",
+          "digest128": "sha256-128:dbb1948e33c8f2729c859a1a6af00c3e",
+          "digest64": "sha256-64:dbb1948e33c8f272"
+        },
+        {
+          "source": "PT1M30S",
+          "encoding": "14f46b0400000000000000000510",
+          "digest": "sha256:dbb1948e33c8f2729c859a1a6af00c3ecc0b70023061a287e14063dee52d67c8",
+          "digest128": "sha256-128:dbb1948e33c8f2729c859a1a6af00c3e",
+          "digest64": "sha256-64:dbb1948e33c8f272"
+        },
+        {
+          "source": "PT90S",
+          "encoding": "14f46b0400000000000000000510",
+          "digest": "sha256:dbb1948e33c8f2729c859a1a6af00c3ecc0b70023061a287e14063dee52d67c8",
+          "digest128": "sha256-128:dbb1948e33c8f2729c859a1a6af00c3e",
+          "digest64": "sha256-64:dbb1948e33c8f272"
+        },
+        {
+          "source": 0.25,
+          "encoding": "0ee6b280000000000000000410",
+          "digest": "sha256:e20faf9ccc739558f3853150ade2a5569f19f155c3cacb0614c99fd0777bc407",
+          "digest128": "sha256-128:e20faf9ccc739558f3853150ade2a556",
+          "digest64": "sha256-64:e20faf9ccc739558"
+        },
+        {
+          "source": "0.25",
+          "encoding": "0ee6b280000000000000000410",
+          "digest": "sha256:e20faf9ccc739558f3853150ade2a5569f19f155c3cacb0614c99fd0777bc407",
+          "digest128": "sha256-128:e20faf9ccc739558f3853150ade2a556",
+          "digest64": "sha256-64:e20faf9ccc739558"
+        },
+        {
+          "source": "PT0.25S",
+          "encoding": "0ee6b280000000000000000410",
+          "digest": "sha256:e20faf9ccc739558f3853150ade2a5569f19f155c3cacb0614c99fd0777bc407",
+          "digest128": "sha256-128:e20faf9ccc739558f3853150ade2a556",
+          "digest64": "sha256-64:e20faf9ccc739558"
+        }
+      ]
+    },
+    {
+      "name": "any",
+      "document": {
+        "quiddity": 1,
+        "root": "any"
+      },
+      "identity_digest": "sha256:fb73ecef3ab423480df27431d45d626e42592405dfe39370a1ae7b1753f84176",
+      "cases": [
+        {
+          "source": {
+            "b": [
+              1,
+              2.0,
+              null
+            ],
+            "a": "x"
+          },
+          "encoding": "610000000000000001207800000000000000012062000000000000000120010000000000000001100200000000000000011001000000000000000330000000000000000232",
+          "digest": "sha256:c30be61130c3129b70abbe645bc6d16b548631325ae2181b64dcdd8a9688cefd",
+          "digest128": "sha256-128:c30be61130c3129b70abbe645bc6d16b",
+          "digest64": "sha256-64:c30be61130c3129b"
+        },
+        {
+          "source": {
+            "a": "x",
+            "b": [
+              1,
+              2,
+              null
+            ]
+          },
+          "encoding": "610000000000000001207800000000000000012062000000000000000120010000000000000001100200000000000000011001000000000000000330000000000000000232",
+          "digest": "sha256:c30be61130c3129b70abbe645bc6d16b548631325ae2181b64dcdd8a9688cefd",
+          "digest128": "sha256-128:c30be61130c3129b70abbe645bc6d16b",
+          "digest64": "sha256-64:c30be61130c3129b"
+        },
+        {
+          "source": "5",
+          "encoding": "35000000000000000120",
+          "digest": "sha256:11979d17174b813537465cdce196aff23771c6006202a2bb60a4496f91343d3d",
+          "digest128": "sha256-128:11979d17174b813537465cdce196aff2",
+          "digest64": "sha256-64:11979d17174b8135"
+        },
+        {
+          "source": 5,
+          "encoding": "05000000000000000110",
+          "digest": "sha256:1decffdb6ff5598e41204e16b1ddcf634d9f9fc547a32faacaab2c11462132e4",
+          "digest128": "sha256-128:1decffdb6ff5598e41204e16b1ddcf63",
+          "digest64": "sha256-64:1decffdb6ff5598e"
+        }
+      ]
+    },
+    {
+      "name": "list, set and tuple",
+      "document": {
+        "quiddity": 1,
+        "root": {
+          "tuple": [
+            {
+              "list": "integer"
+            },
+            {
+              "set": "integer"
+            }
+          ]
+        }
+      },
+      "identity_digest": "sha256:320f62fb3f97d56a719a38b552fed6fcbad24e5a6bfe03bd08251aed55a7f71b",
+      "cases": [
+        {
+          "source": [
+            [
+              1,
+              "2"
+            ],
+            [
+              "2",
+              1
+            ]
+          ],
+          "encoding": "01000000000000000110020000000000000001100000000000000002300100000000000000011002000000000000000110000000000000000231000000000000000230",
+          "digest": "sha256:615149f8fcf7d328c679a36aeb339709a3474e26feb57d84573268323d121254",
+          "digest128": "sha256-128:615149f8fcf7d328c679a36aeb339709",
+          "digest64": "sha256-64:615149f8fcf7d328"
+        },
+        {
+          "source": [
+            [
+              1,
+              2
+            ],
+            [
+              1,
+              2
+            ]
+          ],
+          "encoding": "01000000000000000110020000000000000001100000000000000002300100000000000000011002000000000000000110000000000000000231000000000000000230",
+          "digest": "sha256:615149f8fcf7d328c679a36aeb339709a3474e26feb57d84573268323d121254",
+          "digest128": "sha256-128:615149f8fcf7d328c679a36aeb339709",
+          "digest64": "sha256-64:615149f8fcf7d328"
+        },
+        {
+          "source": [
+            [
+              2,
+              1
+            ],
+            [
+              1,
+              2
+            ]
+          ],
+          "encoding": "02000000000000000110010000000000000001100000000000000002300100000000000000011002000000000000000110000000000000000231000000000000000230",
+          "digest": "sha256:17fefa307c299bf12e9e34ba4ead0116faa9f72b3e5c49a9ac23fb9f97938423",
+          "digest128": "sha256-128:17fefa307c299bf12e9e34ba4ead0116",
+          "digest64": "sha256-64:17fefa307c299bf1"
+        },
+        {
+          "source": [
+            [
+              1,
+              2
+            ],
+            [
+              1,
+              2
+            ],
+            []
+          ],
+          "error": true
+        },
+        {
+          "source": [
+            [
+              1
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "encoding": "010000000000000001100000000000000001300100000000000000011001000000000000000110000000000000000231000000000000000230",
+          "digest": "sha256:874e4821e906976101bf02628cd3f54cc7ef630ec73f1ace7dca4257f50387a9",
+          "digest128": "sha256-128:874e4821e906976101bf02628cd3f54c",
+          "digest64": "sha256-64:874e4821e9069761"
+        }
+      ]
+    },
+    {
+      "name": "map with integer keys",
+      "document": {
+        "quiddity": 1,
+        "root": {
+          "map": {
+            "key": "integer",
+            "value": "string"
+          }
+        }
+      },
+      "identity_digest": "sha256:170c466afa58c747b905111b2fa9fd4e997567508287b6aedfdba8c4acd84096",
+      "cases": [
+        {
+          "source": {
+            "1": "a",
+            "02": "b"
+          },
+          "error": true
+        },
+        {
+          "source": {
+            "1": "a",
+            "2": "b"
+          },
+          "encoding": "01000000000000000110610000000000000001200200000000000000011062000000000000000120000000000000000232",
+          "digest": "sha256:dfdbabec8792143b1047cc0b399aee1bf53f277f32b9a56577ff1a732b352063",
+          "digest128": "sha256-128:dfdbabec8792143b1047cc0b399aee1b",
+          "digest64": "sha256-64:dfdbabec8792143b"
+        },
+        {
+          "source": {
+            "2": "b",
+            "1": "a"
+          },
+          "encoding": "01000000000000000110610000000000000001200200000000000000011062000000000000000120000000000000000232",
+          "digest": "sha256:dfdbabec8792143b1047cc0b399aee1bf53f277f32b9a56577ff1a732b352063",
+          "digest128": "sha256-128:dfdbabec8792143b1047cc0b399aee1b",
+          "digest64": "sha256-64:dfdbabec8792143b"
+        },
+        {
+          "source": {
+            "+1": "a",
+            " 2": "b"
+          },
+          "encoding": "01000000000000000110610000000000000001200200000000000000011062000000000000000120000000000000000232",
+          "digest": "sha256:dfdbabec8792143b1047cc0b399aee1bf53f277f32b9a56577ff1a732b352063",
+          "digest128": "sha256-128:dfdbabec8792143b1047cc0b399aee1b",
+          "digest64": "sha256-64:dfdbabec8792143b"
+        }
+      ]
+    },
+    {
+      "name": "object",
+      "document": {
+        "quiddity": 1,
+        "root": {
+          "object": {
+            "fields": {
+              "id": {
+                "kind": "integer"
+              },
+              "user_id": {
+                "kind": "integer",
+                "rename": "userId"
+              },
+              "note": {
+                "kind": {
+                  "union": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "omit": [
+                  "none"
+                ]
+              },
+              "tags": {
+                "kind": {
+                  "union": [
+                    "null",
+                    {
+                      "set": "string"
+                    }
+                  ]
+                },
+                "omit": [
+                  "none",
+                  "empty"
+                ]
+              },
+              "maybe": {
+                "kind": {
+                  "union": [
+                    "null",
+                    "integer"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "identity_digest": "sha256:2fe281bfafaf53a182ff2b40e3f121ca97dd3ceb355e49eac0b343164fceecea",
+      "cases": [
+        {
+          "source": {
+            "id": 1,
+            "user_id": 2,
+            "note": null,
+            "tags": [],
+            "maybe": null
+          },
+          "encoding": "6964000000000000000220010000000000000001106d617962650000000000000005200175736572496400000000000000062002000000000000000110000000000000000332",
+          "digest": "sha256:f4422ecbb67dbe242a147dd47614a64691ebf277775c0f3bdcc7c6d066160982",
+          "digest128": "sha256-128:f4422ecbb67dbe242a147dd47614a646",
+          "digest64": "sha256-64:f4422ecbb67dbe24"
+        },
+        {
+          "source": {
+            "id": 1,
+            "user_id": 2,
+            "tags": [],
+            "extra": true
+          },
+          "encoding": "6964000000000000000220010000000000000001106d617962650000000000000005200175736572496400000000000000062002000000000000000110000000000000000332",
+          "digest": "sha256:f4422ecbb67dbe242a147dd47614a64691ebf277775c0f3bdcc7c6d066160982",
+          "digest128": "sha256-128:f4422ecbb67dbe242a147dd47614a646",
+          "digest64": "sha256-64:f4422ecbb67dbe24"
+        },
+        {
+          "source": {
+            "id": "1",
+            "user_id": 2.0
+          },
+          "encoding": "6964000000000000000220010000000000000001106d617962650000000000000005200175736572496400000000000000062002000000000000000110000000000000000332",
+          "digest": "sha256:f4422ecbb67dbe242a147dd47614a64691ebf277775c0f3bdcc7c6d066160982",
+          "digest128": "sha256-128:f4422ecbb67dbe242a147dd47614a646",
+          "digest64": "sha256-64:f4422ecbb67dbe24"
+        },
+        {
+          "source": {
+            "id": 1,
+            "user_id": 2,
+            "note": "n",
+            "tags": [
+              "b",
+              "a"
+            ]
+          },
+          "encoding": "6964000000000000000220010000000000000001106d61796265000000000000000520016e6f74650000000000000004206e00000000000000012074616773000000000000000420610000000000000001206200000000000000012000000000000000023175736572496400000000000000062002000000000000000110000000000000000532",
+          "digest": "sha256:4f82be46b75867ac375754fceaacf7b6b090bc14e96d9f56a418b62b30376cef",
+          "digest128": "sha256-128:4f82be46b75867ac375754fceaacf7b6",
+          "digest64": "sha256-64:4f82be46b75867ac"
+        },
+        {
+          "source": {
+            "id": 1,
+            "user_id": 2,
+            "note": "n",
+            "tags": [
+              "a",
+              "b"
+            ],
+            "maybe": null
+          },
+          "encoding": "6964000000000000000220010000000000000001106d61796265000000000000000520016e6f74650000000000000004206e00000000000000012074616773000000000000000420610000000000000001206200000000000000012000000000000000023175736572496400000000000000062002000000000000000110000000000000000532",
+          "digest": "sha256:4f82be46b75867ac375754fceaacf7b6b090bc14e96d9f56a418b62b30376cef",
+          "digest128": "sha256-128:4f82be46b75867ac375754fceaacf7b6",
+          "digest64": "sha256-64:4f82be46b75867ac"
+        },
+        {
+          "source": {
+            "id": 1
+          },
+          "error": true
+        },
+        {
+          "source": {
+            "id": 1,
+            "user_id": 2,
+            "note": 5
+          },
+          "error": true
+        },
+        {
+          "source": [
+            1,
+            2
+          ],
+          "error": true
+        }
+      ]
+    },
+    {
+      "name": "object as a list",
+      "document": {
+        "quiddity": 1,
+        "root": {
+          "object": {
+            "fields": {
+              "a": {
+                "kind": "integer"
+              },
+              "b": {
+                "kind": {
+                  "union": [
+                    "null",
+                    "string"
+                  ]
+                }
+              }
+            },
+            "order": [
+              "b",
+              "a"
+            ]
+          }
+        }
+      },
+      "identity_digest": "sha256:5ef4eb26c19e5a1f8ef41f738b66e0dbb9d33175a1cea6b71815980bf736effc",
+      "cases": [
+        {
+          "source": {
+            "a": 1,
+            "b": "x"
+          },
+          "encoding": "7800000000000000012001000000000000000110000000000000000230",
+          "digest": "sha256:bfb5a5d248fa813788d157e57efdb20d89942940425cc0e056334de4edc91fec",
+          "digest128": "sha256-128:bfb5a5d248fa813788d157e57efdb20d",
+          "digest64": "sha256-64:bfb5a5d248fa8137"
+        },
+        {
+          "source": {
+            "a": 1
+          },
+          "encoding": "0101000000000000000110000000000000000230",
+          "digest": "sha256:26992deaf72b3442c916b3b1953aefd4c39a88a296ca8da422a76d35b9871ce9",
+          "digest128": "sha256-128:26992deaf72b3442c916b3b1953aefd4",
+          "digest64": "sha256-64:26992deaf72b3442"
+        },
+        {
+          "source": {
+            "a": 1,
+            "b": null
+          },
+          "encoding": "0101000000000000000110000000000000000230",
+          "digest": "sha256:26992deaf72b3442c916b3b1953aefd4c39a88a296ca8da422a76d35b9871ce9",
+          "digest128": "sha256-128:26992deaf72b3442c916b3b1953aefd4",
+          "digest64": "sha256-64:26992deaf72b3442"
+        }
+      ]
+    },
+    {
+      "name": "union of kinds",
+      "document": {
+        "quiddity": 1,
+        "root": {
+          "union": [
+            "integer",
+            "string",
+            "null"
+          ]
+        }
+      },
+      "identity_digest": "sha256:17291a326ebb365b48064eb9bb1b63c7affb8034662aac417e08cad4726cabde",
+      "cases": [
+        {
+          "source": 5,
+          "encoding": "05000000000000000110",
+          "digest": "sha256:1decffdb6ff5598e41204e16b1ddcf634d9f9fc547a32faacaab2c11462132e4",
+          "digest128": "sha256-128:1decffdb6ff5598e41204e16b1ddcf63",
+          "digest64": "sha256-64:1decffdb6ff5598e"
+        },
+        {
+          "source": 5.0,
+          "encoding": "05000000000000000110",
+          "digest": "sha256:1decffdb6ff5598e41204e16b1ddcf634d9f9fc547a32faacaab2c11462132e4",
+          "digest128": "sha256-128:1decffdb6ff5598e41204e16b1ddcf63",
+          "digest64": "sha256-64:1decffdb6ff5598e"
+        },
+        {
+          "source": "5",
+          "encoding": "35000000000000000120",
+          "digest": "sha256:11979d17174b813537465cdce196aff23771c6006202a2bb60a4496f91343d3d",
+          "digest128": "sha256-128:11979d17174b813537465cdce196aff2",
+          "digest64": "sha256-64:11979d17174b8135"
+        },
+        {
+          "source": null,
+          "encoding": "01",
+          "digest": "sha256:9b33f75d21a313761583c755e50288efa6ccb37c900dc413d3951395aada56c3",
+          "digest128": "sha256-128:9b33f75d21a313761583c755e50288ef",
+          "digest64": "sha256-64:9b33f75d21a31376"
+        },
+        {
+          "source": true,
+          "error": true
+        },
+        {
+          "source": [
+            5
+          ],
+          "error": true
+        }
+      ]
+    },
+    {
+      "name": "bool or string",
+      "document": {
+        "quiddity": 1,
+        "root": {
+          "union": [
+            "bool",
+            "string"
+          ]
+        }
+      },
+      "identity_digest": "sha256:e4c3135be1cad552bfef2f7ad2e51b4d2a636a4a425812506ee1165287cca483",
+      "cases": [
+        {
+          "source": true,
+          "encoding": "03",
+          "digest": "sha256:1f7cd40876216c600adafc174c5cba0920d945af797c81b05591b288c1c21741",
+          "digest128": "sha256-128:1f7cd40876216c600adafc174c5cba09",
+          "digest64": "sha256-64:1f7cd40876216c60"
+        },
+        {
+          "source": "yes",
+          "encoding": "796573000000000000000320",
+          "digest": "sha256:dbca85c6c103471ea897085db1d8be62f66ebf55e9a1ca7dae00dcee5c2cdc92",
+          "digest128": "sha256-128:dbca85c6c103471ea897085db1d8be62",
+          "digest64": "sha256-64:dbca85c6c103471e"
+        },
+        {
+          "source": "true",
+          "encoding": "74727565000000000000000420",
+          "digest": "sha256:32ba84b0d43c76092ef2f2f84eb99faeff57f22ed55398962fce3f876cd19ad8",
+          "digest128": "sha256-128:32ba84b0d43c76092ef2f2f84eb99fae",
+          "digest64": "sha256-64:32ba84b0d43c7609"
+        },
+        {
+          "source": "TRUE",
+          "encoding": "54525545000000000000000420",
+          "digest": "sha256:38822a595b1d73a1fd563067a15474504df37464fc9449c497cb417e3ac1a7be",
+          "digest128": "sha256-128:38822a595b1d73a1fd563067a1547450",
+          "digest64": "sha256-64:38822a595b1d73a1"
+        }
+      ]
+    },
+    {
+      "name": "externally tagged",
+      "document": {
+        "quiddity": 1,
+        "root": {
+          "tagged": {
+            "variants": {
+              "Empty": {},
+              "Circle": {
+                "kind": "number"
+              },
+              "Rect": {
+                "kind": {
+                  "object": {
+                    "fields": {
+                      "w": {
+                        "kind": "number"
+                      },
+                      "h": {
+                        "kind": "number"
+                      }
+                    }
+                  }
+                },
+                "rename": "rect"
+              }
+            }
+          }
+        }
+      },
+      "identity_digest": "sha256:6b860475a831b1891103f160e2417c87db4cf2c204922228d7b9ef0b5b611a43",
+      "cases": [
+        {
+          "source": "Empty",
+          "encoding": "456d707479000000000000000520",
+          "digest": "sha256:d24b2d5bd8881ae13059d5cb3db8d1ca3325b3a92d01d372d4a76b88da2b8efe",
+          "digest128": "sha256-128:d24b2d5bd8881ae13059d5cb3db8d1ca",
+          "digest64": "sha256-64:d24b2d5bd8881ae1"
+        },
+        {
+          "source": {
+            "Circle": 1.5
+          },
+          "encoding": "436972636c650000000000000006203ff800000000000011000000000000000132",
+          "digest": "sha256:6653c42e02c2aaf4fced6b7cc9cd0756eead80549498878b474719e888ed7252",
+          "digest128": "sha256-128:6653c42e02c2aaf4fced6b7cc9cd0756",
+          "digest64": "sha256-64:6653c42e02c2aaf4"
+        },
+        {
+          "source": {
+            "Circle": "1.5"
+          },
+          "encoding": "436972636c650000000000000006203ff800000000000011000000000000000132",
+          "digest": "sha256:6653c42e02c2aaf4fced6b7cc9cd0756eead80549498878b474719e888ed7252",
+          "digest128": "sha256-128:6653c42e02c2aaf4fced6b7cc9cd0756",
+          "digest64": "sha256-64:6653c42e02c2aaf4"
+        },
+        {
+          "source": {
+            "Rect": {
+              "w": 1,
+              "h": 2
+            }
+          },
+          "encoding": "7265637400000000000000042068000000000000000120020000000000000001107700000000000000012001000000000000000110000000000000000232000000000000000132",
+          "digest": "sha256:936c15eead18ec35703e623298939f857843c5ab787830c787fe4fcd3b89d5be",
+          "digest128": "sha256-128:936c15eead18ec35703e623298939f85",
+          "digest64": "sha256-64:936c15eead18ec35"
+        },
+        {
+          "source": "Circle",
+          "error": true
+        },
+        {
+          "source": {
+            "Empty": null
+          },
+          "error": true
+        },
+        {
+          "source": {
+            "Circle": 1,
+            "Rect": {}
+          },
+          "error": true
+        },
+        {
+          "source": "Square",
+          "error": true
+        },
+        {
+          "source": "rect",
+          "error": true
+        }
+      ]
+    },
+    {
+      "name": "externally tagged, by discriminant",
+      "document": {
+        "quiddity": 1,
+        "root": {
+          "tagged": {
+            "encode_as": "int",
+            "variants": {
+              "Empty": {
+                "discriminant": 0
+              },
+              "Circle": {
+                "kind": "number",
+                "discriminant": 7
+              }
+            }
+          }
+        }
+      },
+      "identity_digest": "sha256:902acd750ca41e421596e947419225b0ab3e981cd1dee17e549c536e4843a4f5",
+      "cases": [
+        {
+          "source": "Empty",
+          "encoding": "00000000000000000110",
+          "digest": "sha256:1c6e2c7c95d2fd9b5bb439aac67a11822e9f3b28ee12899bf743818a389672c7",
+          "digest128": "sha256-128:1c6e2c7c95d2fd9b5bb439aac67a1182",
+          "digest64": "sha256-64:1c6e2c7c95d2fd9b"
+        },
+        {
+          "source": {
+            "Circle": 1.5
+          },
+          "encoding": "070000000000000001103ff800000000000011000000000000000230",
+          "digest": "sha256:ea43694e012789cd4d76e9fee37d55b6c54c739b1956ae8c6ac3e8c53c46941d",
+          "digest128": "sha256-128:ea43694e012789cd4d76e9fee37d55b6",
+          "digest64": "sha256-64:ea43694e012789cd"
+        }
+      ]
+    },
+    {
+      "name": "internally tagged",
+      "document": {
+        "quiddity": 1,
+        "root": {
+          "tagged": {
+            "style": "internal",
+            "tag": "type",
+            "variants": {
+              "Empty": {},
+              "Rect": {
+                "kind": {
+                  "ref": "Rect"
+                }
+              }
+            }
+          }
+        },
+        "definitions": {
+          "Rect": {
+            "object": {
+              "fields": {
+                "w": {
+                  "kind": "number"
+                },
+                "h": {
+                  "kind": "number"
+                }
+              }
+            }
+          }
+        }
+      },
+      "identity_digest": "sha256:d89278686f6af497c6fe0db8120b9b17e86553f0ec767b46b382f8ec1a657727",
+      "cases": [
+        {
+          "source": {
+            "type": "Empty"
+          },
+          "encoding": "74797065000000000000000420456d707479000000000000000520000000000000000132",
+          "digest": "sha256:b23334e3381e8f8c0808c19e6dd651f25d205538c878c6c7a90697f762d0afe5",
+          "digest128": "sha256-128:b23334e3381e8f8c0808c19e6dd651f2",
+          "digest64": "sha256-64:b23334e3381e8f8c"
+        },
+        {
+          "source": {
+            "type": "Empty",
+            "other": 1
+          },
+          "encoding": "74797065000000000000000420456d707479000000000000000520000000000000000132",
+          "digest": "sha256:b23334e3381e8f8c0808c19e6dd651f25d205538c878c6c7a90697f762d0afe5",
+          "digest128": "sha256-128:b23334e3381e8f8c0808c19e6dd651f2",
+          "digest64": "sha256-64:b23334e3381e8f8c"
+        },
+        {
+          "source": {
+            "type": "Rect",
+            "w": 1,
+            "h": 2
+          },
+          "encoding": "680000000000000001200200000000000000011074797065000000000000000420526563740000000000000004207700000000000000012001000000000000000110000000000000000332",
+          "digest": "sha256:ea5b9d2270dc49d59777ee5af67782cd3f185469f92c3d317243e7f90ad9fce9",
+          "digest128": "sha256-128:ea5b9d2270dc49d59777ee5af67782cd",
+          "digest64": "sha256-64:ea5b9d2270dc49d5"
+        },
+        {
+          "source": {
+            "h": 2,
+            "w": "1",
+            "type": "Rect"
+          },
+          "encoding": "680000000000000001200200000000000000011074797065000000000000000420526563740000000000000004207700000000000000012001000000000000000110000000000000000332",
+          "digest": "sha256:ea5b9d2270dc49d59777ee5af67782cd3f185469f92c3d317243e7f90ad9fce9",
+          "digest128": "sha256-128:ea5b9d2270dc49d59777ee5af67782cd",
+          "digest64": "sha256-64:ea5b9d2270dc49d5"
+        },
+        {
+          "source": {
+            "w": 1,
+            "h": 2
+          },
+          "error": true
+        },
+        {
+          "source": {
+            "type": "Square"
+          },
+          "error": true
+        }
+      ]
+    },
+    {
+      "name": "adjacently tagged",
+      "document": {
+        "quiddity": 1,
+        "root": {
+          "tagged": {
+            "style": "adjacent",
+            "tag": "t",
+            "content": "c",
+            "variants": {
+              "Empty": {},
+              "Circle": {
+                "kind": "number"
+              }
+            }
+          }
+        }
+      },
+      "identity_digest": "sha256:63831f8838f5baafa21699aaa6917131e64990ec534e1b00407d162feff739c7",
+      "cases": [
+        {
+          "source": {
+            "t": "Empty"
+          },
+          "encoding": "74000000000000000120456d707479000000000000000520000000000000000132",
+          "digest": "sha256:9ee08f5918afa7f6e22a87bc6bf308f9b9e056423804821845eeb6a18ad9bde4",
+          "digest128": "sha256-128:9ee08f5918afa7f6e22a87bc6bf308f9",
+          "digest64": "sha256-64:9ee08f5918afa7f6"
+        },
+        {
+          "source": {
+            "t": "Circle",
+            "c": 1.5
+          },
+          "encoding": "630000000000000001203ff80000000000001174000000000000000120436972636c65000000000000000620000000000000000232",
+          "digest": "sha256:8c307617c34cd804d421595e869e8d6230af49bdcf5439977513d69ae2790f9e",
+          "digest128": "sha256-128:8c307617c34cd804d421595e869e8d62",
+          "digest64": "sha256-64:8c307617c34cd804"
+        },
+        {
+          "source": {
+            "t": "Circle",
+            "c": "1.5",
+            "x": 0
+          },
+          "encoding": "630000000000000001203ff80000000000001174000000000000000120436972636c65000000000000000620000000000000000232",
+          "digest": "sha256:8c307617c34cd804d421595e869e8d6230af49bdcf5439977513d69ae2790f9e",
+          "digest128": "sha256-128:8c307617c34cd804d421595e869e8d62",
+          "digest64": "sha256-64:8c307617c34cd804"
+        },
+        {
+          "source": {
+            "t": "Circle"
+          },
+          "error": true
+        }
+      ]
+    },
+    {
+      "name": "domain",
+      "document": {
+        "quiddity": 1,
+        "root": "string",
+        "domain": "example.label"
+      },
+      "identity_digest": "sha256:e1a6cbb63a96dd0b6f3bce05d54ec3d2ac26b775014195f4cdb32cb4edabf5d9",
+      "cases": [
+        {
+          "source": "x",
+          "encoding": "78000000000000000120",
+          "digest": "sha256:b103bb73a38aa3601a102846fecb6817eb955694e8bcb313dcb5322f8292615f",
+          "digest128": "sha256-128:b103bb73a38aa3601a102846fecb6817",
+          "digest64": "sha256-64:b103bb73a38aa360"
+        }
+      ]
+    },
+    {
+      "name": "spec example",
+      "document": {
+        "quiddity": 1,
+        "domain": "example.question",
+        "root": {
+          "ref": "Question"
+        },
+        "definitions": {
+          "Question": {
+            "object": {
+              "fields": {
+                "brief": {
+                  "kind": "string"
+                },
+                "rows": {
+                  "kind": {
+                    "list": {
+                      "ref": "Row"
+                    }
+                  }
+                },
+                "tags": {
+                  "kind": {
+                    "set": "string"
+                  },
+                  "omit": [
+                    "empty"
+                  ]
+                },
+                "note": {
+                  "kind": {
+                    "union": [
+                      "null",
+                      "string"
+                    ]
+                  },
+                  "omit": [
+                    "none"
+                  ]
+                },
+                "asked_at": {
+                  "kind": {
+                    "instant": {}
+                  }
+                },
+                "kind": {
+                  "kind": "string",
+                  "rename": "type"
+                }
+              }
+            }
+          },
+          "Row": {
+            "object": {
+              "fields": {
+                "label": {
+                  "kind": "string"
+                },
+                "value": {
+                  "kind": "number"
+                }
+              }
+            }
+          }
+        }
+      },
+      "identity_digest": "sha256:0bfc183c3e5d6b2b5a34fa92d1d112b54ab97bdcbea567df7752375ba2adaeb9",
+      "cases": [
+        {
+          "source": {
+            "brief": "b",
+            "rows": [
+              {
+                "label": "x",
+                "value": 1
+              }
+            ],
+            "tags": [],
+            "note": null,
+            "asked_at": "2024-01-01T00:00:00Z",
+            "kind": "q"
+          },
+          "encoding": "61736b65645f617400000000000000082017a6101701650000000000000000000810627269656600000000000000052062000000000000000120726f77730000000000000004206c6162656c0000000000000005207800000000000000012076616c7565000000000000000520010000000000000001100000000000000002320000000000000001307479706500000000000000042071000000000000000120000000000000000432",
+          "digest": "sha256:7ac0fa10fce4bce66a2040e503bbda14ae6e081f7d58998f98b3b53080974de9",
+          "digest128": "sha256-128:7ac0fa10fce4bce66a2040e503bbda14",
+          "digest64": "sha256-64:7ac0fa10fce4bce6"
+        },
+        {
+          "source": {
+            "brief": "b",
+            "rows": [
+              {
+                "label": "x",
+                "value": "1.0",
+                "extra": true
+              }
+            ],
+            "tags": [],
+            "asked_at": {
+              "secs_since_epoch": 1704067200,
+              "nanos_since_epoch": 0
+            },
+            "kind": "q",
+            "unlisted": 5
+          },
+          "encoding": "61736b65645f617400000000000000082017a6101701650000000000000000000810627269656600000000000000052062000000000000000120726f77730000000000000004206c6162656c0000000000000005207800000000000000012076616c7565000000000000000520010000000000000001100000000000000002320000000000000001307479706500000000000000042071000000000000000120000000000000000432",
+          "digest": "sha256:7ac0fa10fce4bce66a2040e503bbda14ae6e081f7d58998f98b3b53080974de9",
+          "digest128": "sha256-128:7ac0fa10fce4bce66a2040e503bbda14",
+          "digest64": "sha256-64:7ac0fa10fce4bce6"
+        },
+        {
+          "source": {
+            "brief": "b",
+            "rows": [],
+            "asked_at": "2024-01-01T00:00:00Z",
+            "kind": "q"
+          },
+          "error": true
+        }
+      ]
+    }
+  ],
+  "invalid_documents": [
+    {
+      "name": "unknown member",
+      "document": {
+        "quiddity": 1,
+        "root": "string",
+        "extra": 1
+      }
+    },
+    {
+      "name": "unknown kind",
+      "document": {
+        "quiddity": 1,
+        "root": "text"
+      }
+    },
+    {
+      "name": "unknown option",
+      "document": {
+        "quiddity": 1,
+        "root": {
+          "bytes": {
+            "text": "base32"
+          }
+        }
+      }
+    },
+    {
+      "name": "missing root",
+      "document": {
+        "quiddity": 1
+      }
+    },
+    {
+      "name": "wrong version",
+      "document": {
+        "quiddity": 2,
+        "root": "string"
+      }
+    },
+    {
+      "name": "empty domain",
+      "document": {
+        "quiddity": 1,
+        "root": "string",
+        "domain": ""
+      }
+    },
+    {
+      "name": "undefined ref",
+      "document": {
+        "quiddity": 1,
+        "root": {
+          "ref": "Row"
+        }
+      }
+    },
+    {
+      "name": "cycle of refs",
+      "document": {
+        "quiddity": 1,
+        "root": {
+          "ref": "A"
+        },
+        "definitions": {
+          "A": {
+            "ref": "B"
+          },
+          "B": {
+            "union": [
+              "null",
+              {
+                "ref": "A"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "union of two numbers",
+      "document": {
+        "quiddity": 1,
+        "root": {
+          "union": [
+            "integer",
+            "number"
+          ]
+        }
+      }
+    },
+    {
+      "name": "union of two objects",
+      "document": {
+        "quiddity": 1,
+        "root": {
+          "union": [
+            {
+              "object": {
+                "fields": {}
+              }
+            },
+            {
+              "map": {
+                "key": "string",
+                "value": "any"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "union of string and uuid",
+      "document": {
+        "quiddity": 1,
+        "root": {
+          "union": [
+            "string",
+            "uuid"
+          ]
+        }
+      }
+    },
+    {
+      "name": "union with any",
+      "document": {
+        "quiddity": 1,
+        "root": {
+          "union": [
+            "any",
+            "null"
+          ]
+        }
+      }
+    },
+    {
+      "name": "union of two conversions",
+      "document": {
+        "quiddity": 1,
+        "root": {
+          "union": [
+            "integer",
+            "bool"
+          ]
+        }
+      }
+    },
+    {
+      "name": "map key not from strings",
+      "document": {
+        "quiddity": 1,
+        "root": {
+          "map": {
+            "key": "null",
+            "value": "any"
+          }
+        }
+      }
+    },
+    {
+      "name": "map key union",
+      "document": {
+        "quiddity": 1,
+        "root": {
+          "map": {
+            "key": {
+              "union": [
+                "integer",
+                "string"
+              ]
+            },
+            "value": "any"
+          }
+        }
+      }
+    },
+    {
+      "name": "duplicate key",
+      "document": {
+        "quiddity": 1,
+        "root": {
+          "object": {
+            "fields": {
+              "a": {
+                "kind": "string"
+              },
+              "b": {
+                "kind": "string",
+                "rename": "a"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "order with omit",
+      "document": {
+        "quiddity": 1,
+        "root": {
+          "object": {
+            "fields": {
+              "a": {
+                "kind": "string",
+                "omit": [
+                  "none"
+                ]
+              }
+            },
+            "order": [
+              "a"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "order incomplete",
+      "document": {
+        "quiddity": 1,
+        "root": {
+          "object": {
+            "fields": {
+              "a": {
+                "kind": "string"
+              },
+              "b": {
+                "kind": "string"
+              }
+            },
+            "order": [
+              "a"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "unknown unlisted rule",
+      "document": {
+        "quiddity": 1,
+        "root": {
+          "object": {
+            "fields": {},
+            "unlisted": "include"
+          }
+        }
+      }
+    },
+    {
+      "name": "unknown omit condition",
+      "document": {
+        "quiddity": 1,
+        "root": {
+          "object": {
+            "fields": {
+              "a": {
+                "kind": "string",
+                "omit": [
+                  "zero"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "empty tuple",
+      "document": {
+        "quiddity": 1,
+        "root": {
+          "tuple": []
+        }
+      }
+    },
+    {
+      "name": "no variants",
+      "document": {
+        "quiddity": 1,
+        "root": {
+          "tagged": {
+            "variants": {}
+          }
+        }
+      }
+    },
+    {
+      "name": "internal without tag",
+      "document": {
+        "quiddity": 1,
+        "root": {
+          "tagged": {
+            "style": "internal",
+            "variants": {
+              "A": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "adjacent without content",
+      "document": {
+        "quiddity": 1,
+        "root": {
+          "tagged": {
+            "style": "adjacent",
+            "tag": "t",
+            "variants": {
+              "A": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "tag with external",
+      "document": {
+        "quiddity": 1,
+        "root": {
+          "tagged": {
+            "tag": "t",
+            "variants": {
+              "A": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "internal variant not an object",
+      "document": {
+        "quiddity": 1,
+        "root": {
+          "tagged": {
+            "style": "internal",
+            "tag": "t",
+            "variants": {
+              "A": {
+                "kind": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "internal variant with the tag field",
+      "document": {
+        "quiddity": 1,
+        "root": {
+          "tagged": {
+            "style": "internal",
+            "tag": "t",
+            "variants": {
+              "A": {
+                "kind": {
+                  "object": {
+                    "fields": {
+                      "t": {
+                        "kind": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "duplicate label",
+      "document": {
+        "quiddity": 1,
+        "root": {
+          "tagged": {
+            "variants": {
+              "A": {},
+              "B": {
+                "rename": "A"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "missing discriminant",
+      "document": {
+        "quiddity": 1,
+        "root": {
+          "tagged": {
+            "encode_as": "int",
+            "variants": {
+              "A": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "discriminant beyond 64 bits",
+      "document": {
+        "quiddity": 1,
+        "root": {
+          "tagged": {
+            "encode_as": "int",
+            "variants": {
+              "A": {
+                "discriminant": 18446744073709551616
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "discriminant without int",
+      "document": {
+        "quiddity": 1,
+        "root": {
+          "tagged": {
+            "variants": {
+              "A": {
+                "discriminant": 1
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "same_identity": [
+    {
+      "name": "defaults, order and nesting",
+      "documents": [
+        {
+          "quiddity": 1,
+          "root": {
+            "object": {
+              "fields": {
+                "a": {
+                  "kind": {
+                    "union": [
+                      "null",
+                      "string"
+                    ]
+                  },
+                  "omit": [
+                    "none",
+                    "empty"
+                  ]
+                },
+                "b": {
+                  "kind": {
+                    "bytes": {}
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "definitions": {},
+          "quiddity": 1,
+          "root": {
+            "object": {
+              "unlisted": "skip",
+              "fields": {
+                "b": {
+                  "kind": {
+                    "bytes": {
+                      "text": "base64"
+                    }
+                  },
+                  "rename": "b"
+                },
+                "a": {
+                  "omit": [
+                    "empty",
+                    "none"
+                  ],
+                  "kind": {
+                    "union": [
+                      "string",
+                      {
+                        "union": [
+                          "null",
+                          "string"
+                        ]
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      ],
+      "identity_digest": "sha256:4e9123d759c4105a38ec77c3035d46b07a1ec35a8a21b68903dd8c8b493e25e5"
+    },
+    {
+      "name": "a union of one",
+      "documents": [
+        {
+          "quiddity": 1,
+          "root": {
+            "union": [
+              "null",
+              "null"
+            ]
+          }
+        },
+        {
+          "quiddity": 1,
+          "root": "null"
+        }
+      ],
+      "identity_digest": "sha256:c83f05022b47a0921d44bc3f5266322a8183f9416b0bf3609ec3911da7713d2d"
+    }
+  ],
   "text_forms": [
     {
       "text": "sha256:9b33f75d21a313761583c755e50288efa6ccb37c900dc413d3951395aada56c3",

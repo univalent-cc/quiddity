@@ -21,12 +21,28 @@ distinct from an integer:
 
 import json
 import pathlib
+import re
 import struct
 import sys
 
+import qident
 from qref import Map, Set, digest, enc, from_json, in_domain, text
 
 OUT = pathlib.Path(__file__).resolve().parent / "quiddity-v1.json"
+SPEC = pathlib.Path(__file__).resolve().parent.parent / "QUIDDITY_SPEC.md"
+
+
+def spec_json(marker):
+    """The JSON example in the spec that contains `marker`."""
+    blocks = re.findall(r"```json\n(.*?)```", SPEC.read_text(), re.S)
+    (block,) = [b for b in blocks if marker in b]
+    return json.loads(block)
+
+
+# The identity of identity documents (spec Appendix C), and the example of
+# spec 5.3, taken from the spec itself.
+META = spec_json('"quiddity.identity"')
+EXAMPLE = spec_json('"example.question"')
 
 
 # Constructors for the typed notation. Each returns (python value, json form).
@@ -212,6 +228,210 @@ JSON = [
     ('{"to":"bob","amount":100}', '{"amount":1e2,"to":"bob"}'),
 ]
 
+def doc(root, **extra):
+    return {"quiddity": 1, "root": root, **extra}
+
+
+ERR = object()
+
+# Identities (spec 5). Each entry: a name, a document, and source values.
+# A source is a JSON value; `ERR` marks one that MUST fail. Sources in a
+# group (a tuple) MUST have the same digest; different groups MUST NOT.
+IDENTITIES = [
+    ("integer", doc("integer"), [
+        (5, 5.0, "5", " +5 ", "5.0", "5e0", "50e-1"),
+        ("18446744073709551617",),
+        (-1, "-1"),
+        (5.5, ERR), ("5.5", ERR), (True, ERR), ("five", ERR), (None, ERR),
+    ]),
+    ("number", doc("number"), [
+        (1.5, "1.5", "15e-1"),
+        (1, 1.0, "1"),
+        ("nan", "NaN", "-NAN"),
+        ("inf", "+Infinity", "\u221e"),
+        ("-inf", "-\u221e", "\u2212\u221e", "\u2212INF"),
+        ("abc", ERR), (True, ERR),
+    ]),
+    ("bool", doc("bool"), [
+        (True, "true", "T", "Yes", "y", " on ", "1"),
+        (False, "False", "f", "NO", "n", "off", "0"),
+        ("maybe", ERR), (1, ERR), (None, ERR),
+    ]),
+    ("string", doc("string"), [("x",), ("X",), (5, ERR), (True, ERR)]),
+    ("uuid", doc("uuid"), [
+        ("67e55044-10b1-426f-9247-bb680e5fe0c8", "67E55044-10B1-426F-9247-BB680E5FE0C8",
+         "67e5504410b1426f9247bb680e5fe0c8", "{67e55044-10b1-426f-9247-bb680e5fe0c8}",
+         "urn:uuid:67e55044-10b1-426f-9247-bb680e5fe0c8"),
+        ("67e55044-10b1-426f-9247-bb680e5fe0c", ERR),
+    ]),
+    ("path", doc("path"), [
+        ("a/b", {"Unix": [97, 47, 98]}, {"Windows": [97, 47, 98]}),
+        ({"Unix": [97, 255]},),
+        ({"Windows": [97, 0xD800]},),
+        ({"Windows": [0xD83D, 0xDE00]}, "\U0001F600"),
+        ({"Mac": [97]}, ERR), ({"Unix": [256]}, ERR),
+    ]),
+    ("bytes", doc({"bytes": {}}), [
+        ([1, 2], "AQI=", "AQI"),
+        ([251, 255], "+/8=", "-_8"),
+        ([],  ""),
+        ("+_8=", ERR), ("AQI==", ERR), ([256], ERR), ("A", ERR),
+    ]),
+    ("bytes as hex", doc({"bytes": {"text": "hex"}}), [
+        ("0102", "0102", [1, 2]),
+        ("ABcd", [0xAB, 0xCD]),
+        ("012", ERR),
+    ]),
+    ("instant", doc({"instant": {}}), [
+        ("2024-01-01T00:00:00Z", "2024-01-01t00:00:00z", "2024-01-01 01:00:00+01:00",
+         "2023-12-31T19:00:00-0500", "2024-01-01T02:00:00+02",
+         {"secs_since_epoch": 1704067200, "nanos_since_epoch": 0}),
+        ("1969-12-31T23:59:59Z",),
+        ("2024-01-01T00:00:00.5Z", "2024-01-01T00:00:00.500000000Z"),
+        ("2016-12-31T23:59:60Z", ERR), ("2024-01-01T00:00:00", ERR),
+        ("2024-02-30T00:00:00Z", ERR), ("2024-01-01T00:00:00.1234567891Z", ERR),
+        (1704067200, ERR),
+    ]),
+    ("instant in milliseconds", doc({"instant": {"unit": "ms"}}), [
+        (1704067200000, "1704067200000", "2024-01-01T00:00:00Z"),
+        (1704067200000.5, "1704067200000.5"),
+        ("1704067200000.0000005", ERR),
+    ]),
+    ("duration", doc({"duration": {}}), [
+        ("PT1.5S", "pt1.5s", {"secs": 1, "nanos": 500000000}),
+        ("P1W", "P7D", "PT168H", {"secs": 604800, "nanos": 0}),
+        ("-PT1M",),
+        ("P1Y", ERR), ("P1M", ERR), ("PT", ERR), ("P", ERR), (60, ERR),
+    ]),
+    ("duration in seconds", doc({"duration": {"unit": "s"}}), [
+        (90, "90", "PT1M30S", "PT90S"),
+        (0.25, "0.25", "PT0.25S"),
+    ]),
+    ("any", doc("any"), [
+        ({"b": [1, 2.0, None], "a": "x"}, {"a": "x", "b": [1, 2, None]}),
+        ("5",), (5,),
+    ]),
+    ("list, set and tuple", doc({"tuple": [{"list": "integer"}, {"set": "integer"}]}), [
+        ([[1, "2"], ["2", 1]], [[1, 2], [1, 2]]),
+        ([[2, 1], [1, 2]],),
+        ([[1, 2], [1, 2], []], ERR), ([[1], [1, 1]],),
+    ]),
+    ("map with integer keys", doc({"map": {"key": "integer", "value": "string"}}), [
+        ({"1": "a", "02": "b"}, ERR),
+        ({"1": "a", "2": "b"}, {"2": "b", "1": "a"}, {"+1": "a", " 2": "b"}),
+    ]),
+    ("object", doc({"object": {"fields": {
+        "id": {"kind": "integer"},
+        "user_id": {"kind": "integer", "rename": "userId"},
+        "note": {"kind": {"union": ["null", "string"]}, "omit": ["none"]},
+        "tags": {"kind": {"union": ["null", {"set": "string"}]}, "omit": ["none", "empty"]},
+        "maybe": {"kind": {"union": ["null", "integer"]}},
+    }}}), [
+        ({"id": 1, "user_id": 2, "note": None, "tags": [], "maybe": None},
+         {"id": 1, "user_id": 2, "tags": [], "extra": True},
+         {"id": "1", "user_id": 2.0}),
+        ({"id": 1, "user_id": 2, "note": "n", "tags": ["b", "a"]},
+         {"id": 1, "user_id": 2, "note": "n", "tags": ["a", "b"], "maybe": None}),
+        ({"id": 1},  ERR), ({"id": 1, "user_id": 2, "note": 5}, ERR), ([1, 2], ERR),
+    ]),
+    ("object as a list", doc({"object": {"fields": {
+        "a": {"kind": "integer"}, "b": {"kind": {"union": ["null", "string"]}},
+    }, "order": ["b", "a"]}}), [
+        ({"a": 1, "b": "x"},), ({"a": 1},  {"a": 1, "b": None}),
+    ]),
+    ("union of kinds", doc({"union": ["integer", "string", "null"]}), [
+        (5, 5.0), ("5",), (None,), (True, ERR), ([5], ERR),
+    ]),
+    ("bool or string", doc({"union": ["bool", "string"]}), [
+        (True,), ("yes",), ("true",), ("TRUE",),
+    ]),
+    ("externally tagged", doc({"tagged": {"variants": {
+        "Empty": {}, "Circle": {"kind": "number"},
+        "Rect": {"kind": {"object": {"fields": {"w": {"kind": "number"}, "h": {"kind": "number"}}}},
+                 "rename": "rect"},
+    }}}), [
+        ("Empty",), ({"Circle": 1.5}, {"Circle": "1.5"}),
+        ({"Rect": {"w": 1, "h": 2}},),
+        ("Circle", ERR), ({"Empty": None}, ERR), ({"Circle": 1, "Rect": {}}, ERR),
+        ("Square", ERR), ("rect", ERR),
+    ]),
+    ("externally tagged, by discriminant", doc({"tagged": {"encode_as": "int", "variants": {
+        "Empty": {"discriminant": 0}, "Circle": {"kind": "number", "discriminant": 7},
+    }}}), [
+        ("Empty",), ({"Circle": 1.5},),
+    ]),
+    ("internally tagged", doc({"tagged": {"style": "internal", "tag": "type", "variants": {
+        "Empty": {}, "Rect": {"kind": {"ref": "Rect"}},
+    }}}, definitions={"Rect": {"object": {"fields": {
+        "w": {"kind": "number"}, "h": {"kind": "number"}}}}}), [
+        ({"type": "Empty"}, {"type": "Empty", "other": 1}),
+        ({"type": "Rect", "w": 1, "h": 2}, {"h": 2, "w": "1", "type": "Rect"}),
+        ({"w": 1, "h": 2}, ERR), ({"type": "Square"}, ERR),
+    ]),
+    ("adjacently tagged", doc({"tagged": {"style": "adjacent", "tag": "t", "content": "c", "variants": {
+        "Empty": {}, "Circle": {"kind": "number"},
+    }}}), [
+        ({"t": "Empty"},), ({"t": "Circle", "c": 1.5}, {"t": "Circle", "c": "1.5", "x": 0}),
+        ({"t": "Circle"}, ERR),
+    ]),
+    ("domain", doc("string", domain="example.label"), [("x",)]),
+    ("spec example", EXAMPLE, [
+        ({"brief": "b", "rows": [{"label": "x", "value": 1}], "tags": [], "note": None,
+          "asked_at": "2024-01-01T00:00:00Z", "kind": "q"},
+         {"brief": "b", "rows": [{"label": "x", "value": "1.0", "extra": True}], "tags": [],
+          "asked_at": {"secs_since_epoch": 1704067200, "nanos_since_epoch": 0},
+          "kind": "q", "unlisted": 5}),
+        ({"brief": "b", "rows": [], "asked_at": "2024-01-01T00:00:00Z", "kind": "q"}, ERR),
+    ]),
+]
+
+# Documents that MUST be rejected (spec 5.9).
+INVALID_DOCUMENTS = [
+    ("unknown member", {"quiddity": 1, "root": "string", "extra": 1}),
+    ("unknown kind", doc("text")),
+    ("unknown option", doc({"bytes": {"text": "base32"}})),
+    ("missing root", {"quiddity": 1}),
+    ("wrong version", {"quiddity": 2, "root": "string"}),
+    ("empty domain", doc("string", domain="")),
+    ("undefined ref", doc({"ref": "Row"})),
+    ("cycle of refs", doc({"ref": "A"}, definitions={"A": {"ref": "B"}, "B": {"union": ["null", {"ref": "A"}]}})),
+    ("union of two numbers", doc({"union": ["integer", "number"]})),
+    ("union of two objects", doc({"union": [{"object": {"fields": {}}}, {"map": {"key": "string", "value": "any"}}]})),
+    ("union of string and uuid", doc({"union": ["string", "uuid"]})),
+    ("union with any", doc({"union": ["any", "null"]})),
+    ("union of two conversions", doc({"union": ["integer", "bool"]})),
+    ("map key not from strings", doc({"map": {"key": "null", "value": "any"}})),
+    ("map key union", doc({"map": {"key": {"union": ["integer", "string"]}, "value": "any"}})),
+    ("duplicate key", doc({"object": {"fields": {"a": {"kind": "string"}, "b": {"kind": "string", "rename": "a"}}}})),
+    ("order with omit", doc({"object": {"fields": {"a": {"kind": "string", "omit": ["none"]}}, "order": ["a"]}})),
+    ("order incomplete", doc({"object": {"fields": {"a": {"kind": "string"}, "b": {"kind": "string"}}, "order": ["a"]}})),
+    ("unknown unlisted rule", doc({"object": {"fields": {}, "unlisted": "include"}})),
+    ("unknown omit condition", doc({"object": {"fields": {"a": {"kind": "string", "omit": ["zero"]}}}})),
+    ("empty tuple", doc({"tuple": []})),
+    ("no variants", doc({"tagged": {"variants": {}}})),
+    ("internal without tag", doc({"tagged": {"style": "internal", "variants": {"A": {}}}})),
+    ("adjacent without content", doc({"tagged": {"style": "adjacent", "tag": "t", "variants": {"A": {}}}})),
+    ("tag with external", doc({"tagged": {"tag": "t", "variants": {"A": {}}}})),
+    ("internal variant not an object", doc({"tagged": {"style": "internal", "tag": "t", "variants": {"A": {"kind": "string"}}}})),
+    ("internal variant with the tag field", doc({"tagged": {"style": "internal", "tag": "t", "variants": {"A": {"kind": {"object": {"fields": {"t": {"kind": "string"}}}}}}}})),
+    ("duplicate label", doc({"tagged": {"variants": {"A": {}, "B": {"rename": "A"}}}})),
+    ("missing discriminant", doc({"tagged": {"encode_as": "int", "variants": {"A": {}}}})),
+    ("discriminant beyond 64 bits", doc({"tagged": {"encode_as": "int", "variants": {"A": {"discriminant": 2**64}}}})),
+    ("discriminant without int", doc({"tagged": {"variants": {"A": {"discriminant": 1}}}})),
+]
+
+# Pairs of documents with the same digest (spec 5.10).
+SAME_IDENTITY = [
+    ("defaults, order and nesting",
+     doc({"object": {"fields": {
+         "a": {"kind": {"union": ["null", "string"]}, "omit": ["none", "empty"]},
+         "b": {"kind": {"bytes": {}}}}}}),
+     {"definitions": {}, "quiddity": 1, "root": {"object": {"unlisted": "skip", "fields": {
+         "b": {"kind": {"bytes": {"text": "base64"}}, "rename": "b"},
+         "a": {"omit": ["empty", "none"], "kind": {"union": ["string", {"union": ["null", "string"]}]}}}}}}),
+    ("a union of one", doc({"union": ["null", "null"]}), doc("null")),
+]
+
 d0 = digest(None)
 TEXT_FORMS = [
     (text(d0), True, "MUST"),
@@ -244,6 +464,51 @@ def build():
             "structural": text(s), **digests(in_domain(s, label)),
         })
     texts = [{"text": t, "valid": ok, "requirement": req} for t, ok, req in TEXT_FORMS]
+    identities = []
+    for name, document, groups in IDENTITIES:
+        identity = qident.load(document)
+        cases, seen = [], {}
+
+        def read(source):
+            # As an implementation reads it: JSON text, mapped by spec 2.7.
+            return qident.parse_json(json.dumps(source))
+
+        for g, group in enumerate(groups):
+            for source in group:
+                if source is ERR:
+                    continue
+                if ERR in group:
+                    try:
+                        qident.apply(identity, read(source))
+                    except qident.ApplyError:
+                        cases.append({"source": source, "error": True})
+                        continue
+                    raise AssertionError(f"{name}: {source!r} must fail")
+                value = qident.apply(identity, read(source))
+                d = qident.digest(identity, read(source))
+                assert seen.setdefault(d, g) == g, f"{name}: {source!r} collides with group {seen[d]}"
+                first = qident.digest(identity, read(group[0]))
+                assert d == first, f"{name}: {source!r} differs from {group[0]!r}"
+                cases.append({"source": source, "encoding": enc(value).hex(), **digests(d)})
+        identities.append({
+            "name": name, "document": document,
+            "identity_digest": text(qident.identity_digest(document, META)),
+            "cases": cases,
+        })
+    invalid_documents = []
+    for name, document in INVALID_DOCUMENTS:
+        try:
+            qident.load(document)
+        except qident.InvalidDocument:
+            invalid_documents.append({"name": name, "document": document})
+        else:
+            raise AssertionError(f"{name} must be rejected")
+    same_identity = []
+    for name, a, b in SAME_IDENTITY:
+        da, db = qident.identity_digest(a, META), qident.identity_digest(b, META)
+        assert da == db, name
+        same_identity.append({"name": name, "documents": [a, b], "identity_digest": text(da)})
+    meta_digest = text(qident.identity_digest(META, META))
     json_cases = []
     seen = {}
     for group, members in enumerate(JSON):
@@ -258,6 +523,10 @@ def build():
         "values": values,
         "domains": domains,
         "json": json_cases,
+        "identity_of_identities": {"document": META, "identity_digest": meta_digest},
+        "identities": identities,
+        "invalid_documents": invalid_documents,
+        "same_identity": same_identity,
         "text_forms": texts,
     }
 
