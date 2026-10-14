@@ -11,6 +11,8 @@ mod serde_json_impls {
 
     /// JSON semantics: objects are unordered, numbers are compared by value.
     impl<I: IdentityMarker> Quiddity<I> for Value {
+        describe!(|cx| Kd::Any);
+
         fn encode(&self, e: &mut Encoder) {
             match self {
                 Value::Null => e.null(),
@@ -24,6 +26,8 @@ mod serde_json_impls {
     }
 
     impl<I: IdentityMarker> Quiddity<I> for Map<String, Value> {
+        describe!(|cx| Kd::map(Kd::String, Kd::Any));
+
         fn encode(&self, e: &mut Encoder) {
             map::<I, String, Value>(e, self);
         }
@@ -33,6 +37,8 @@ mod serde_json_impls {
     /// `arbitrary_precision` feature (spec 6.6): an integer within `i64` or
     /// `u64`, or else the nearest `f64`.
     impl<I: IdentityMarker> Quiddity<I> for Number {
+        describe!(|cx| Kd::Number);
+
         fn encode(&self, e: &mut Encoder) {
             if let Some(i) = self.as_i64() {
                 e.int(i);
@@ -57,12 +63,16 @@ mod indexmap_impls {
     use crate::{Encoder, IdentityMarker, Quiddity};
 
     impl<I: IdentityMarker, K: Quiddity<I>, V: Quiddity<I>, S> Quiddity<I> for IndexMap<K, V, S> {
+        describe!(|cx| Kd::map(cx.describe::<K, I>()?, cx.describe::<V, I>()?));
+
         fn encode(&self, e: &mut Encoder) {
             map::<I, K, V>(e, self);
         }
     }
 
     impl<I: IdentityMarker, T: Quiddity<I>, S> Quiddity<I> for IndexSet<T, S> {
+        describe!(|cx| Kd::set(cx.describe::<T, I>()?));
+
         fn encode(&self, e: &mut Encoder) {
             set::<I, T>(e, self);
         }
@@ -72,6 +82,8 @@ mod indexmap_impls {
 /// The hyphenated lowercase string, as serde writes it in JSON.
 #[cfg(feature = "uuid")]
 impl<I: crate::IdentityMarker> crate::Quiddity<I> for uuid::Uuid {
+    describe!(|cx| Kd::Uuid);
+
     fn encode(&self, e: &mut crate::Encoder) {
         e.str(
             self.hyphenated()
@@ -87,12 +99,16 @@ mod bytes_impls {
     use crate::{Encoder, IdentityMarker, Quiddity};
 
     impl<I: IdentityMarker> Quiddity<I> for Bytes {
+        describe!(|cx| Kd::Bytes(Default::default()));
+
         fn encode(&self, e: &mut Encoder) {
             e.bytes(self);
         }
     }
 
     impl<I: IdentityMarker> Quiddity<I> for BytesMut {
+        describe!(|cx| Kd::Bytes(Default::default()));
+
         fn encode(&self, e: &mut Encoder) {
             e.bytes(self);
         }
@@ -101,6 +117,8 @@ mod bytes_impls {
 
 #[cfg(feature = "url")]
 impl<I: crate::IdentityMarker> crate::Quiddity<I> for url::Url {
+    describe!(|cx| Kd::String);
+
     fn encode(&self, e: &mut crate::Encoder) {
         e.str(self.as_str());
     }

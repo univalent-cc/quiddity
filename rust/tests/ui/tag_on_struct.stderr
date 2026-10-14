@@ -1,0 +1,7 @@
+error: `tag`, `content` and `untagged` apply to enums only
+ --> tests/ui/tag_on_struct.rs:3:10
+  |
+3 | #[derive(Quiddity)]
+  |          ^^^^^^^^
+  |
+  = note: this error originates in the derive macro `Quiddity` (in Nightly builds, run with -Z macro-backtrace for more info)

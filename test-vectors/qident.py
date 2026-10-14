@@ -392,15 +392,54 @@ def claims(k, defs, visiting=()):
 def union_claims(alts, defs, visiting=()):
     """A union's claims, checking that it is valid (spec 5.7)."""
     native, conv = set(), set()
+    objects = []
     for a in alts:
         n, c = claims(a, defs, visiting)
-        if native & n:
-            raise InvalidDocument(f"two union alternatives accept {sorted(native & n)} natively")
+        overlap = native & n
+        if overlap == {"object"} and object_alternatives(alts, defs) is not None:
+            overlap = set()  # told apart by their keys; checked below
+        if overlap:
+            raise InvalidDocument(f"two union alternatives accept {sorted(overlap)} natively")
         if conv & c:
             raise InvalidDocument(f"two union alternatives accept {sorted(conv & c)} by conversion")
         native |= n
         conv |= c
+    objs = object_alternatives(alts, defs)
+    if objs is not None and len(objs) > 1:
+        for i, a in enumerate(objs):
+            for b in objs[i + 1:]:
+                if required(a, defs) <= set(a_fields(b)) and required(b, defs) <= set(a_fields(a)):
+                    raise InvalidDocument(
+                        "two object alternatives of a union could both fit one object: "
+                        f"{sorted(a_fields(a))} and {sorted(a_fields(b))}")
     return native, conv
+
+
+def object_alternatives(alts, defs):
+    """The object kinds among a union's alternatives that accept objects
+    natively, if they are all object kinds (or refs to them); else None."""
+    objs = []
+    for a in alts:
+        r = resolve(a, defs)
+        if isinstance(r, dict) and "object" in r:
+            objs.append(r["object"])
+        elif "object" in claims(a, defs)[0]:
+            return None
+    return objs
+
+
+def a_fields(o):
+    return list(o["fields"])
+
+
+def required(o, defs):
+    """The fields of object kind o whose kinds do not accept null."""
+    return {n for n, f in o["fields"].items() if "null" not in claims(f["kind"], defs)[0]}
+
+
+def fits(o, s, defs):
+    """Whether source object s fits object kind o (spec 5.7)."""
+    return set(s) <= set(o["fields"]) and required(o, defs) <= set(s)
 
 
 # --- Applying an identity (spec 5.4 to 5.8) --------------------------------
@@ -558,6 +597,15 @@ def apply_kind(k, s, defs):
         return apply_kind(defs[k["ref"]], s, defs)
     if name == "union":
         alts = k["union"]
+        objs = [a for a in alts if isinstance(resolve(a, defs), dict) and "object" in resolve(a, defs)]
+        if t == "object" and len(objs) > 1:
+            for a in objs:
+                if fits(resolve(a, defs)["object"], s, defs):
+                    return apply_kind(a, s, defs)
+            for a in alts:
+                if "object" in claims(a, defs)[1]:
+                    return apply_kind(a, s, defs)
+            raise ApplyError("the object fits none of the union's object alternatives")
         for pick in (0, 1):  # natively, then by conversion
             for a in alts:
                 if t in claims(a, defs)[pick]:

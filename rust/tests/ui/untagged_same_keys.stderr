@@ -1,0 +1,5 @@
+error: an untagged enum cannot tell this variant from `Int`: both are objects with the keys {"x", "y"}
+ --> tests/ui/untagged_same_keys.rs:7:5
+  |
+7 |     Float { x: f64, y: f64 },
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^

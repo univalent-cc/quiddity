@@ -3168,6 +3168,176 @@
       ]
     },
     {
+      "name": "objects told apart by keys",
+      "document": {
+        "quiddity": 1,
+        "root": {
+          "union": [
+            {
+              "ref": "Point"
+            },
+            {
+              "ref": "Point3"
+            },
+            {
+              "ref": "Rect"
+            },
+            "string"
+          ]
+        },
+        "definitions": {
+          "Point": {
+            "object": {
+              "fields": {
+                "x": {
+                  "kind": "integer"
+                },
+                "y": {
+                  "kind": "integer"
+                }
+              }
+            }
+          },
+          "Point3": {
+            "object": {
+              "fields": {
+                "x": {
+                  "kind": "integer"
+                },
+                "y": {
+                  "kind": "integer"
+                },
+                "z": {
+                  "kind": "integer"
+                }
+              }
+            }
+          },
+          "Rect": {
+            "object": {
+              "fields": {
+                "w": {
+                  "kind": "integer"
+                },
+                "h": {
+                  "kind": "integer"
+                },
+                "label": {
+                  "kind": {
+                    "union": [
+                      "null",
+                      "string"
+                    ]
+                  },
+                  "omit": [
+                    "none"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "identity_digest": "sha256:0677b949b49370a9d7f8292c16f77f2a39e3e29116549da715a13a39435821e8",
+      "cases": [
+        {
+          "source": {
+            "x": 1,
+            "y": 2
+          },
+          "encoding": "78000000000000000120010000000000000001107900000000000000012002000000000000000110000000000000000232",
+          "digest": "sha256:a79c593359141e8523fcd839de1243756535f40508ed7d09e753627b173efb89",
+          "digest128": "sha256-128:a79c593359141e8523fcd839de124375",
+          "digest64": "sha256-64:a79c593359141e85"
+        },
+        {
+          "source": {
+            "y": "2",
+            "x": 1
+          },
+          "encoding": "78000000000000000120010000000000000001107900000000000000012002000000000000000110000000000000000232",
+          "digest": "sha256:a79c593359141e8523fcd839de1243756535f40508ed7d09e753627b173efb89",
+          "digest128": "sha256-128:a79c593359141e8523fcd839de124375",
+          "digest64": "sha256-64:a79c593359141e85"
+        },
+        {
+          "source": {
+            "x": 1,
+            "y": 2,
+            "z": 3
+          },
+          "encoding": "780000000000000001200100000000000000011079000000000000000120020000000000000001107a00000000000000012003000000000000000110000000000000000332",
+          "digest": "sha256:5d2e9b12a7c0342d87f6ac30a20b702b6a37c9b1ff3f0191c7479e24e05b1609",
+          "digest128": "sha256-128:5d2e9b12a7c0342d87f6ac30a20b702b",
+          "digest64": "sha256-64:5d2e9b12a7c0342d"
+        },
+        {
+          "source": {
+            "w": 1,
+            "h": 2
+          },
+          "encoding": "68000000000000000120020000000000000001107700000000000000012001000000000000000110000000000000000232",
+          "digest": "sha256:7335cccc11835f7f1ac173e46206d38399988fe40fca3646bb01bd60bce523bf",
+          "digest128": "sha256-128:7335cccc11835f7f1ac173e46206d383",
+          "digest64": "sha256-64:7335cccc11835f7f"
+        },
+        {
+          "source": {
+            "w": 1,
+            "h": 2,
+            "label": null
+          },
+          "encoding": "68000000000000000120020000000000000001107700000000000000012001000000000000000110000000000000000232",
+          "digest": "sha256:7335cccc11835f7f1ac173e46206d38399988fe40fca3646bb01bd60bce523bf",
+          "digest128": "sha256-128:7335cccc11835f7f1ac173e46206d383",
+          "digest64": "sha256-64:7335cccc11835f7f"
+        },
+        {
+          "source": {
+            "w": 1,
+            "h": 2,
+            "label": "r"
+          },
+          "encoding": "68000000000000000120020000000000000001106c6162656c000000000000000520720000000000000001207700000000000000012001000000000000000110000000000000000332",
+          "digest": "sha256:67857304fa30dd493bab9e053a9dbcef6766d9999d27634e73d9163f732ffa2f",
+          "digest128": "sha256-128:67857304fa30dd493bab9e053a9dbcef",
+          "digest64": "sha256-64:67857304fa30dd49"
+        },
+        {
+          "source": "x",
+          "encoding": "78000000000000000120",
+          "digest": "sha256:e2aa3ba97b9cf90d6ecf4ca2122784ce1a50f1177cc823936dc8ad136c6e5b5a",
+          "digest128": "sha256-128:e2aa3ba97b9cf90d6ecf4ca2122784ce",
+          "digest64": "sha256-64:e2aa3ba97b9cf90d"
+        },
+        {
+          "source": {
+            "x": 1
+          },
+          "error": true
+        },
+        {
+          "source": {
+            "x": 1,
+            "y": 2,
+            "q": 0
+          },
+          "error": true
+        },
+        {
+          "source": {
+            "w": 1,
+            "label": "r"
+          },
+          "error": true
+        },
+        {
+          "source": {},
+          "error": true
+        }
+      ]
+    },
+    {
       "name": "bool or string",
       "document": {
         "quiddity": 1,
@@ -3741,6 +3911,98 @@
               "map": {
                 "key": "string",
                 "value": "any"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "union of objects with the same fields",
+      "document": {
+        "quiddity": 1,
+        "root": {
+          "union": [
+            {
+              "object": {
+                "fields": {
+                  "x": {
+                    "kind": "integer"
+                  }
+                }
+              }
+            },
+            {
+              "object": {
+                "fields": {
+                  "x": {
+                    "kind": "string"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "union of objects one fits both",
+      "document": {
+        "quiddity": 1,
+        "root": {
+          "union": [
+            {
+              "object": {
+                "fields": {
+                  "x": {
+                    "kind": "integer"
+                  }
+                }
+              }
+            },
+            {
+              "object": {
+                "fields": {
+                  "x": {
+                    "kind": "integer"
+                  },
+                  "z": {
+                    "kind": {
+                      "union": [
+                        "null",
+                        "integer"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "union of an object and a tagged union",
+      "document": {
+        "quiddity": 1,
+        "root": {
+          "union": [
+            {
+              "object": {
+                "fields": {
+                  "x": {
+                    "kind": "integer"
+                  }
+                }
+              }
+            },
+            {
+              "tagged": {
+                "style": "internal",
+                "tag": "t",
+                "variants": {
+                  "A": {}
+                }
               }
             }
           ]

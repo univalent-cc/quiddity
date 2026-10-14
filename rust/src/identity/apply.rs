@@ -8,7 +8,7 @@ use alloc::vec::Vec;
 
 use serde_json::{Map, Number, Value};
 
-use super::load::{Claims, Types, claims, resolve};
+use super::load::{Claims, Types, claims, object_alternatives, required, resolve};
 use super::text;
 use super::value::{Decimal, Val, scaled_float};
 use super::{ApplyError, BytesText, Identity, Kind, Omit, Style, TagEncoding, TaggedKind, Unit};
@@ -113,6 +113,30 @@ impl Cx<'_> {
         let k = resolve(k, self.defs);
         if let Kind::Union(alts) = k {
             let t = source_type(v);
+            if let (Value::Object(o), Some(objects)) = (v, object_alternatives(alts, self.defs)) {
+                if objects.len() > 1 {
+                    // Told apart by their keys (spec 5.7).
+                    for a in alts {
+                        if let Kind::Object(obj) = resolve(a, self.defs) {
+                            let required = required(obj, self.defs).expect("a valid identity");
+                            if o.keys().all(|key| obj.fields.contains_key(key))
+                                && required.iter().all(|r| o.contains_key(*r))
+                            {
+                                return self.read(a, v, path);
+                            }
+                        }
+                    }
+                    for a in alts {
+                        if self.claims(a).conversion.contains(Types::OBJECT) {
+                            return self.read(a, v, path);
+                        }
+                    }
+                    return Err(err(
+                        path,
+                        "the object fits none of the union's object alternatives",
+                    ));
+                }
+            }
             for natively in [true, false] {
                 for a in alts {
                     let c = self.claims(a);

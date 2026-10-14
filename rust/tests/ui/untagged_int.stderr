@@ -1,0 +1,7 @@
+error: an untagged enum has no tag for `encode_as = int` to apply to
+ --> tests/ui/untagged_int.rs:3:10
+  |
+3 | #[derive(Quiddity)]
+  |          ^^^^^^^^
+  |
+  = note: this error originates in the derive macro `Quiddity` (in Nightly builds, run with -Z macro-backtrace for more info)

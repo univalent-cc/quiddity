@@ -342,6 +342,23 @@ IDENTITIES = [
     ("union of kinds", doc({"union": ["integer", "string", "null"]}), [
         (5, 5.0), ("5",), (None,), (True, ERR), ([5], ERR),
     ]),
+    ("objects told apart by keys", doc({"union": [
+        {"ref": "Point"}, {"ref": "Point3"}, {"ref": "Rect"}, "string",
+    ]}, definitions={
+        "Point": {"object": {"fields": {"x": {"kind": "integer"}, "y": {"kind": "integer"}}}},
+        "Point3": {"object": {"fields": {
+            "x": {"kind": "integer"}, "y": {"kind": "integer"}, "z": {"kind": "integer"}}}},
+        "Rect": {"object": {"fields": {
+            "w": {"kind": "integer"}, "h": {"kind": "integer"},
+            "label": {"kind": {"union": ["null", "string"]}, "omit": ["none"]}}}},
+    }), [
+        ({"x": 1, "y": 2}, {"y": "2", "x": 1}),
+        ({"x": 1, "y": 2, "z": 3},),
+        ({"w": 1, "h": 2}, {"w": 1, "h": 2, "label": None}),
+        ({"w": 1, "h": 2, "label": "r"},),
+        ("x",),
+        ({"x": 1}, ERR), ({"x": 1, "y": 2, "q": 0}, ERR), ({"w": 1, "label": "r"}, ERR), ({}, ERR),
+    ]),
     ("bool or string", doc({"union": ["bool", "string"]}), [
         (True,), ("yes",), ("true",), ("TRUE",),
     ]),
@@ -397,6 +414,15 @@ INVALID_DOCUMENTS = [
     ("cycle of refs", doc({"ref": "A"}, definitions={"A": {"ref": "B"}, "B": {"union": ["null", {"ref": "A"}]}})),
     ("union of two numbers", doc({"union": ["integer", "number"]})),
     ("union of two objects", doc({"union": [{"object": {"fields": {}}}, {"map": {"key": "string", "value": "any"}}]})),
+    ("union of objects with the same fields", doc({"union": [
+        {"object": {"fields": {"x": {"kind": "integer"}}}},
+        {"object": {"fields": {"x": {"kind": "string"}}}}]})),
+    ("union of objects one fits both", doc({"union": [
+        {"object": {"fields": {"x": {"kind": "integer"}}}},
+        {"object": {"fields": {"x": {"kind": "integer"}, "z": {"kind": {"union": ["null", "integer"]}}}}}]})),
+    ("union of an object and a tagged union", doc({"union": [
+        {"object": {"fields": {"x": {"kind": "integer"}}}},
+        {"tagged": {"style": "internal", "tag": "t", "variants": {"A": {}}}}]})),
     ("union of string and uuid", doc({"union": ["string", "uuid"]})),
     ("union with any", doc({"union": ["any", "null"]})),
     ("union of two conversions", doc({"union": ["integer", "bool"]})),

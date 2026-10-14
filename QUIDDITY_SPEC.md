@@ -652,11 +652,30 @@ the string `"yes"` is the string `"yes"`, while under `"bool"` alone it is
 `true`. A conversion applies only where no alternative accepts the value
 as it is.
 
+**Objects told apart by their keys.** As an exception to the rule above,
+several alternatives may accept objects natively if each of them is an
+object kind (5.6) or a `ref` to one, and no other alternative accepts
+objects natively. A field of such an alternative is **required** if its
+kind does not accept null. A source object **fits** an alternative if each
+of its members' names is the name of one of the alternative's fields, and
+each of the alternative's required fields is a member. The union is valid
+only if no source object can fit two of these alternatives: for every two
+of them, `A` and `B`, some required field of `A` is not a field of `B`, or
+some required field of `B` is not a field of `A`. A source object is read
+with the alternative it fits; if it fits none, it is read with the
+alternative that accepts objects by conversion, if there is one, and is
+otherwise an error. This is how an untagged union of object types, common
+in TypeScript, is told apart: by which keys are present, never by trying
+alternatives in order.
+
 Valid: `["bool", "string"]`, `["integer", "string"]`, `["null", k]` for
 any `k` that does not accept null, `["string", {"ref": "Row"}]` where `Row`
-is an object. Not valid: two objects or references to objects, two lists,
-`"string"` and `"uuid"`, or `"any"` with anything. A union that needs to
-tell objects apart is a tagged union (5.8).
+is an object, and objects with the fields `{x, y}` and `{w, h}`. Not
+valid: two lists, `"string"` and `"uuid"`, `"any"` with anything, an object
+and a map, objects with the same fields, and objects with the fields
+`{x, y}` and `{x, y, z}` where `z` accepts null (an object with `x` and `y`
+fits both). An object that names its variant in a member is a tagged union
+(5.8).
 
 ### 5.8 Tagged unions
 
@@ -709,8 +728,9 @@ When an implementation loads a document, it MUST reject it if:
 - a `ref` names no definition, or a chain of `ref`s leads back to its start
   without passing through a `list`, `set`, `tuple`, `map`, `object` or
   `tagged` kind;
-- a union is not valid (5.7), or a map's `key` does not accept strings
-  (5.4);
+- a union is not valid (5.7), including object alternatives that a
+  source object could fit two of, or a map's `key` does not accept
+  strings (5.4);
 - two fields of an object have the same key, an object has both `order` and
   a field with `omit`, or `order` does not name every field exactly once;
 - two variants have the same label, `tag` or `content` is missing or given
@@ -881,6 +901,29 @@ fields, is null.
 - A struct variant's fields are encoded as a struct's (6.3), with the same
   field attributes.
 
+**Tagging.** Without `tag`, `content` or `untagged`, an enum is externally
+tagged, as in the table above. The other styles are serde's, and an enum
+with the same serde attributes has the same digest through the `serde`
+feature (6.7). The **label** of a variant is its name, or with
+`encode_as = int` its discriminant.
+
+| Attributes | Unit variant | Struct variant | Newtype and tuple variants |
+|---|---|---|---|
+| `tag = "t"` (internal) | map `{t: label}` | the map of its fields, with the entry `t: label` added | compile error |
+| `tag = "t", content = "c"` (adjacent) | map `{t: label}` | map `{t: label, c: {fields}}` | map `{t: label, c: value}`, the value as in the table above |
+| `untagged` | null | map `{fields}` | the value as in the table above |
+
+It is a compile error if: `content` is given without `tag`, or equals it;
+`untagged` is combined with `tag`, `content` or `encode_as = int`; under
+internal tagging, a field's key equals the tag; or, under `untagged`, two
+variants are unit variants, struct variants with the same keys, tuple
+variants with the same number of fields, or newtype variants of the same
+type, since nothing would tell them apart. Struct variants with different
+keys are told apart by their keys, as objects in a union are (5.7);
+variants that the syntax does not show to overlap are checked when the
+identity is exported (6.8).
+
+
 ### 6.5 Attributes
 
 All attributes are written `#[quiddity(…)]`.
@@ -906,6 +949,9 @@ Type attributes:
 | `rename_all = "c"` | On a struct, each field's key is its name in the case convention `c`; on an enum, each variant's name is. The conventions and their rules are serde's: `lowercase`, `UPPERCASE`, `PascalCase`, `camelCase`, `snake_case`, `SCREAMING_SNAKE_CASE`, `kebab-case` and `SCREAMING-KEBAB-CASE`, applied to field names as snake_case and to variant names as PascalCase. A field's or variant's `rename` takes precedence. It does not apply to the fields of struct variants. |
 | `encode_as = map \| list` | Structs with named fields (6.3). `encode_as = set` applies to fields only. |
 | `encode_as = string \| int` | Enums (6.4). |
+| `tag = "t"` | Enums: internally tagged, or with `content` adjacently tagged (6.4). |
+| `content = "c"` | Enums: adjacently tagged, with `tag` (6.4). |
+| `untagged` | Enums: untagged (6.4). |
 | `encode_as = display` | The value is the string produced by the type's `Display` impl. |
 | `encode_as = serde` | The value is produced from the type's `Serialize` impl (6.7). Requires the `serde` feature. |
 
@@ -1008,7 +1054,7 @@ the error causes a panic.
 
 ### 6.8 Exported identities
 
-*Draft. Not yet implemented.*
+*Implemented with the `identity` feature.*
 
 `Quiddity<I>` has a provided method, `construct_identity()`, that returns
 the identity document (section 5) describing the type's encoding under `I`,
@@ -1049,6 +1095,12 @@ exported identity.
 | `serde_json::Map` | `{"map": {"key": "string", "value": "any"}}` |
 | `serde_json::Number` | `"number"` |
 | a derived struct or enum | `{"ref": name}`, with the type's kind under the field's identity added to `definitions` |
+
+A field with `omit_none` exports with the condition `"none"`. A field with
+`omit_empty` exports as `{"union": ["null", k]}` with the conditions
+`"none"` and `"empty"`: serde leaves such a field out when told to skip
+empty values (`skip_serializing_if`), and a missing member reads as null
+(5.6), which is then omitted as the empty value would have been.
 
 A derived struct with named fields exports as an object kind, with
 `order` if it is encoded as a list; a newtype or transparent struct as the
@@ -1253,6 +1305,9 @@ computed under itself.
 }
 ```
 
-A Rust type for identity documents that derives `Quiddity` with portable
-attributes only exports this document (6.8), and its digests equal those
-computed with it.
+The Rust crate's `Identity` type derives `Quiddity` with portable
+attributes only. The identity it exports (6.8) is not this document word
+for word: it describes the members that take a fixed set of strings
+(styles, units, omit conditions) as tagged unions of those strings rather
+than as `"string"`. Applied to any identity document in canonical form, it
+gives the same digest as this document does.

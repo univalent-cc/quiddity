@@ -1,0 +1,5 @@
+error: an untagged enum cannot tell this variant from `Unknown`: both are a unit variant (null)
+ --> tests/ui/untagged_two_units.rs:7:5
+  |
+7 |     Missing,
+  |     ^^^^^^^

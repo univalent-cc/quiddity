@@ -184,6 +184,7 @@ of another kind.
 | `identities(A, B, …)` | The named identities this type implements, in addition to the primary one. Each is a type deriving `IdentityMarker`. |
 | `transparent` | The type digests as its single field. Exactly one field must remain, after skips, for every identity it applies to, or it is a compile error. |
 | `rename_all = "…"` | Rename every field (on a struct) or every variant (on an enum) to a case convention, as serde's `rename_all` does: `"lowercase"`, `"UPPERCASE"`, `"PascalCase"`, `"camelCase"`, `"snake_case"`, `"SCREAMING_SNAKE_CASE"`, `"kebab-case"` or `"SCREAMING-KEBAB-CASE"`. A field's or variant's own `rename` takes precedence. Use the same convention as the type's serde attributes so that its digest keys match its JSON keys. |
+| `tag = "…"`, `content = "…"`, `untagged` | How an enum's variants are tagged, as serde's attributes of the same names do: `tag` alone for internal tagging (`{"type": "Rect", "w": 1}`), `tag` and `content` for adjacent tagging (`{"t": "Rect", "c": …}`), `untagged` for the variant's value alone. Without them, `{"Rect": …}`, as serde's default. |
 | `encode_as = …` | `map` or `list` for a struct with named fields (default = `map`), `string` or `int` for an enum (default = `string`). `display` for any type that implements `Display`, encode the output. `serde` (with the `serde` feature) for any type that implements `Serialize`, encode it through serde; panics if serialization fails (see [Direct from `serde`](#direct-from-serde)). |
 
 ### On a field
@@ -563,8 +564,20 @@ error. An identity can also be built in code, from [`identity::Kind`]s.
 An `Identity` has a digest of its own, `identity.quiddity()`, which every
 implementation computes the same way.
 
-Exporting an identity from a type that derives `Quiddity` is not
-implemented yet.
+A type that implements `Quiddity` exports its identity with
+`construct_identity()`, ready to be written out and used in another
+language:
+
+```rust ignore
+let identity = <Question as Quiddity>::construct_identity()?;
+let document = identity.to_json();
+```
+
+A value's digest then equals the digest of its serde JSON form under the
+exported identity, provided the type's serde and quiddity attributes name
+fields and variants the same way (for example, with the same
+`rename_all`). Export fails for what an identity document cannot express,
+such as a `with` function or `encode_as = display`.
 
 ## Alternatives to Quiddity
 

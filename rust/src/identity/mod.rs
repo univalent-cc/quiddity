@@ -17,10 +17,13 @@ use core::fmt;
 use crate::{Digest, Quiddity};
 
 mod apply;
+#[doc(hidden)]
+pub mod export;
 mod load;
 mod text;
 mod value;
 
+pub use export::ExportError;
 pub use load::InvalidIdentity;
 
 /// An identity (spec 5): the kind of the value being digested, the named

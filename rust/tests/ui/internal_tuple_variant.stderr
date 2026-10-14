@@ -1,0 +1,5 @@
+error: an internally tagged enum's variants must be unit or struct variants
+ --> tests/ui/internal_tuple_variant.rs:7:5
+  |
+7 |     Circle(f64),
+  |     ^^^^^^^^^^^

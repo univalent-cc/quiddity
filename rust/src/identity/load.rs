@@ -530,7 +530,7 @@ pub(crate) fn build(
 
 /// The source types a kind accepts.
 #[derive(Clone, Copy, Default, PartialEq, Eq, Debug)]
-pub(crate) struct Types(u16);
+pub(crate) struct Types(pub(crate) u16);
 
 impl Types {
     pub(crate) const NULL: Types = Types(1);
@@ -632,9 +632,17 @@ pub(crate) fn claims(
                 native: T::NONE,
                 conversion: T::NONE,
             };
+            let mut objects_overlap = false;
             for a in alts {
                 let ca = claims(a, defs, visiting)?;
-                if all.native.overlaps(ca.native) {
+                let mut overlap = Types(all.native.0 & ca.native.0);
+                if overlap == T::OBJECT {
+                    // Objects may be told apart by their keys; checked below,
+                    // once the alternatives are known to have no cycles.
+                    objects_overlap = true;
+                    overlap = T::NONE;
+                }
+                if overlap != T::NONE {
                     return Err("two union alternatives accept the same type natively".into());
                 }
                 if all.conversion.overlaps(ca.conversion) {
@@ -643,9 +651,72 @@ pub(crate) fn claims(
                 all.native = all.native.union(ca.native);
                 all.conversion = all.conversion.union(ca.conversion);
             }
+            if objects_overlap {
+                let Some(objects) = object_alternatives(alts, defs) else {
+                    return Err("two union alternatives accept objects natively, \
+                                and not all are object kinds"
+                        .into());
+                };
+                for (i, a) in objects.iter().enumerate() {
+                    for b in &objects[i + 1..] {
+                        if fits_keys(&required(a, defs)?, b) && fits_keys(&required(b, defs)?, a) {
+                            return Err(format!(
+                                "two object alternatives of a union could both fit one object: {:?} and {:?}",
+                                a.fields.keys().collect::<Vec<_>>(),
+                                b.fields.keys().collect::<Vec<_>>()
+                            ));
+                        }
+                    }
+                }
+            }
             Ok(all)
         }
     }
+}
+
+/// The object kinds among a union's alternatives that accept objects
+/// natively, if every such alternative is an object kind or a reference to
+/// one (spec 5.7); `None` otherwise.
+pub(crate) fn object_alternatives<'k>(
+    alts: &'k [Kind],
+    defs: &'k BTreeMap<String, Kind>,
+) -> Option<Vec<&'k ObjectKind>> {
+    let mut objects = Vec::new();
+    for a in alts {
+        match resolve(a, defs) {
+            Kind::Object(o) => objects.push(o),
+            other => {
+                let accepts_objects = claims(other, defs, &mut Vec::new())
+                    .is_ok_and(|c| c.native.contains(Types::OBJECT));
+                if accepts_objects {
+                    return None;
+                }
+            }
+        }
+    }
+    Some(objects)
+}
+
+/// The fields of an object kind whose kinds do not accept null.
+pub(crate) fn required<'k>(
+    o: &'k ObjectKind,
+    defs: &BTreeMap<String, Kind>,
+) -> core::result::Result<Vec<&'k str>, String> {
+    let mut out = Vec::new();
+    for (name, f) in &o.fields {
+        if !claims(&f.kind, defs, &mut Vec::new())?
+            .native
+            .contains(Types::NULL)
+        {
+            out.push(name.as_str());
+        }
+    }
+    Ok(out)
+}
+
+/// Whether every name in `names` is a field of `o`.
+fn fits_keys(names: &[&str], o: &ObjectKind) -> bool {
+    names.iter().all(|n| o.fields.contains_key(*n))
 }
 
 /// A kind with references followed.

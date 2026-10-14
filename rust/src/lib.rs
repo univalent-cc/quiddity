@@ -42,6 +42,24 @@ extern crate std;
 #[cfg(feature = "identity")]
 extern crate self as quiddity;
 
+/// Implements `Quiddity::__describe` (spec 6.8) with the `identity`
+/// feature: `describe!(|cx| kind)`, with `Kd` naming `identity::Kind` and
+/// `X` the module `identity::export`.
+macro_rules! describe {
+    (|$cx:ident| $body:expr) => {
+        #[cfg(feature = "identity")]
+        fn __describe(
+            $cx: &mut crate::identity::export::Exporter,
+        ) -> ::core::result::Result<crate::identity::Kind, crate::identity::ExportError> {
+            #[allow(unused_imports)]
+            use crate::identity::{Kind as Kd, export as X};
+            #[allow(unused_variables)]
+            let $cx = $cx;
+            ::core::result::Result::Ok($body)
+        }
+    };
+}
+
 mod digest;
 #[cfg(all(doctest, feature = "derive"))]
 mod doctests;
@@ -91,6 +109,29 @@ pub trait Quiddity<I: IdentityMarker = Primary> {
     /// encoding, as if skipped. `true` only for `PhantomData`.
     #[doc(hidden)]
     const ABSENT_AS_FIELD: bool = false;
+
+    /// The identity document (spec 5) describing this type's encoding
+    /// under `I`, for values in the JSON form serde writes (spec 6.8).
+    ///
+    /// The name says that this builds a structure rather than returning
+    /// one. It fails if the encoding uses something an identity document
+    /// cannot express, such as a `with` function, or reaches a type whose
+    /// implementation does not describe itself.
+    #[cfg(feature = "identity")]
+    fn construct_identity() -> Result<identity::Identity, identity::ExportError> {
+        identity::export::construct::<Self, I>()
+    }
+
+    /// Describes this type's encoding under `I` as a kind (spec 6.8). Used
+    /// by [`Quiddity::construct_identity`]; implementations that do not
+    /// override it cannot be exported.
+    #[cfg(feature = "identity")]
+    #[doc(hidden)]
+    fn __describe(
+        cx: &mut identity::export::Exporter,
+    ) -> Result<identity::Kind, identity::ExportError> {
+        Err(cx.unsupported_type(core::any::type_name::<Self>()))
+    }
 }
 
 /// The methods that compute digests. Implemented for every type; available
@@ -126,11 +167,32 @@ impl<T: ?Sized> QuiddityExt for T {}
 pub mod __private {
     pub use crate::empty::{IsEmpty, Nullable};
 
+    #[cfg(feature = "identity")]
+    pub use alloc::vec;
+
     #[cfg(feature = "alloc")]
     pub use crate::impls::alloc_impls::encode_set;
 
     #[cfg(feature = "serde")]
     pub use crate::serde::encode_or_panic as encode_serde;
+}
+
+/// Used by the derive's expansion: its contents with the `identity`
+/// feature, and nothing without it.
+#[doc(hidden)]
+#[cfg(feature = "identity")]
+#[macro_export]
+macro_rules! __if_identity {
+    ($($tokens:tt)*) => { $($tokens)* };
+}
+
+/// Used by the derive's expansion: its contents with the `identity`
+/// feature, and nothing without it.
+#[doc(hidden)]
+#[cfg(not(feature = "identity"))]
+#[macro_export]
+macro_rules! __if_identity {
+    ($($tokens:tt)*) => {};
 }
 
 /// Used by the derive's expansion for `encode_as = set`.

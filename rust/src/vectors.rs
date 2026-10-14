@@ -356,14 +356,23 @@ fn identity_of_identities() {
         expected,
         "applied to itself"
     );
+    // The identity exported from the `Identity` type (spec 6.8) agrees.
+    let exported = <Identity as crate::Quiddity>::construct_identity().unwrap();
+    assert_eq!(
+        exported.digest(&meta.to_json()).unwrap().to_string(),
+        expected,
+        "exported"
+    );
     // And for every identity in the vectors.
     for c in vectors["identities"].as_array().unwrap() {
         let identity = Identity::from_json(&c["document"]).unwrap();
-        assert_eq!(
-            meta.digest(&identity.to_json()).unwrap(),
-            identity.quiddity(),
-            "{}",
-            str_of(c, "name")
-        );
+        for m in [&meta, &exported] {
+            assert_eq!(
+                m.digest(&identity.to_json()).unwrap(),
+                identity.quiddity(),
+                "{}",
+                str_of(c, "name")
+            );
+        }
     }
 }

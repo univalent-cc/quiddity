@@ -159,7 +159,7 @@ fn implement(
         (_, Body::Struct(fields, form)) => {
             let shape = struct_shape(attrs, key, form, type_shape)?;
             let rename_all = attrs.rename_all.get(key).copied();
-            let write = write_fields(fields, shape, key, rename_all, &mut bounds)?;
+            let write = write_fields(fields, shape, key, rename_all, None, &mut bounds)?;
             let pattern = pattern(quote!(Self), fields, form);
             quote! {
                 let #pattern = self;
@@ -167,20 +167,21 @@ fn implement(
             }
         }
         (_, Body::Enum(variants)) => {
-            let int = match type_shape {
-                None | Some((EncodeAs::String, _)) => false,
-                Some((EncodeAs::Int, _)) => true,
-                Some((_, span)) => {
-                    return Err(syn::Error::new(
-                        span,
-                        "on an enum, `encode_as` must be `string`, `int`, `display` or `serde`",
-                    ));
-                }
-            };
+            let int = enum_int(type_shape)?;
             let rename_all = attrs.rename_all.get(key).copied();
-            write_enum(variants, int, key, rename_all, &mut bounds)?
+            let style = enum_style(attrs, key, int)?;
+            write_enum(variants, int, &style, key, rename_all, &mut bounds)?
         }
     };
+    if matches!(body, Body::Struct(..))
+        && (attrs.tag.is_set() || attrs.content.is_set() || attrs.untagged.is_set())
+    {
+        return Err(syn::Error::new(
+            Span::call_site(),
+            "`tag`, `content` and `untagged` apply to enums only",
+        ));
+    }
+    let describe = describe(attrs, body, key, id_ty)?;
 
     let domain = match attrs.domain.get(key) {
         Some(label) => {
@@ -198,6 +199,15 @@ fn implement(
             #[allow(unused_variables, clippy::needless_borrow)]
             fn encode(&self, __e: &mut ::quiddity::Encoder) {
                 #encode
+            }
+
+            ::quiddity::__if_identity! {
+                #[allow(unused_variables, unreachable_code, clippy::needless_question_mark)]
+                fn __describe(
+                    __cx: &mut ::quiddity::identity::export::Exporter,
+                ) -> ::core::result::Result<::quiddity::identity::Kind, ::quiddity::identity::ExportError> {
+                    __cx.define::<Self, #id_ty>(|__cx| ::core::result::Result::Ok(#describe))
+                }
             }
         }
     })
@@ -325,12 +335,44 @@ impl Field {
     }
 }
 
-/// Statements writing `fields` in `shape` under the identity `key`.
+/// The participating fields of a struct with named fields, with their keys
+/// under the identity `key`, in canonical order.
+fn map_entries<'f>(
+    fields: &'f [Field],
+    key: &str,
+    rename_all: Option<RenameRule>,
+) -> syn::Result<Vec<(String, &'f Field)>> {
+    let mut entries = Vec::new();
+    for f in fields.iter().filter(|f| f.participates(key)) {
+        let name = match (f.attrs.rename.get(key), rename_all) {
+            (Some(lit), _) => lit.value(),
+            (None, Some(rule)) => rule.apply_to_field(&unraw(f.name.as_ref().unwrap())),
+            (None, None) => unraw(f.name.as_ref().unwrap()),
+        };
+        entries.push((name, f));
+    }
+    entries.sort_by(|a, b| cmp_key_encodings(&a.0, &b.0));
+    if let Some(w) = entries.windows(2).find(|w| w[0].0 == w[1].0) {
+        return Err(syn::Error::new_spanned(
+            &w[1].1.ty,
+            format!(
+                "two fields have the key {:?} under identity `{key}`",
+                w[1].0
+            ),
+        ));
+    }
+    Ok(entries)
+}
+
+/// Statements writing `fields` in `shape` under the identity `key`. With
+/// `extra`, a further map entry (an internally tagged enum's tag) is
+/// written among the fields, in canonical order.
 fn write_fields(
     fields: &[Field],
     shape: Shape,
     key: &str,
     rename_all: Option<RenameRule>,
+    extra: Option<(String, TokenStream)>,
     bounds: &mut Bounds,
 ) -> syn::Result<TokenStream> {
     let participating: Vec<&Field> = fields.iter().filter(|f| f.participates(key)).collect();
@@ -404,32 +446,29 @@ fn write_fields(
             })
         }
         Shape::Map => {
-            let mut entries = Vec::new();
-            for f in participating {
-                let name = match (f.attrs.rename.get(key), rename_all) {
-                    (Some(lit), _) => lit.value(),
-                    (None, Some(rule)) => rule.apply_to_field(&unraw(f.name.as_ref().unwrap())),
-                    (None, None) => unraw(f.name.as_ref().unwrap()),
-                };
-                entries.push((name, f));
-            }
-            entries.sort_by(|a, b| cmp_key_encodings(&a.0, &b.0));
-            if let Some(w) = entries.windows(2).find(|w| w[0].0 == w[1].0) {
-                return Err(syn::Error::new_spanned(
-                    &w[1].1.ty,
-                    format!(
-                        "two fields have the key {:?} under identity `{key}`",
-                        w[1].0
-                    ),
-                ));
-            }
-            let mut writes = TokenStream::new();
+            let entries = map_entries(fields, key, rename_all)?;
+            let mut writes = Vec::new();
             for (name, f) in entries {
                 let cond = f.condition(key, shape)?;
                 let value = f.write_value(key, bounds)?;
-                let name = LitStr::new(&name, Span::call_site());
-                writes.extend(quote!(if #cond { __m.field_with(#name, |__e| { #value }); }));
+                let lit = LitStr::new(&name, Span::call_site());
+                writes.push((
+                    name,
+                    quote!(if #cond { __m.field_with(#lit, |__e| { #value }); }),
+                ));
             }
+            if let Some((tag, value)) = extra {
+                if writes.iter().any(|(n, _)| *n == tag) {
+                    return Err(syn::Error::new(
+                        Span::call_site(),
+                        format!("a field has the key {tag:?}, which is the enum's tag"),
+                    ));
+                }
+                let lit = LitStr::new(&tag, Span::call_site());
+                writes.push((tag, quote!(__m.field_with(#lit, |__e| { #value });)));
+            }
+            writes.sort_by(|a, b| cmp_key_encodings(&a.0, &b.0));
+            let writes: TokenStream = writes.into_iter().map(|(_, w)| w).collect();
             Ok(quote! {
                 let mut __m = __e.fields();
                 #writes
@@ -454,35 +493,84 @@ fn cmp_key_encodings(a: &str, b: &str) -> std::cmp::Ordering {
     encoding(a).cmp(encoding(b))
 }
 
-/// Writes an enum. `rename_all` applies to variant names, not to the fields
-/// of struct variants, as in serde.
-fn write_enum(
-    variants: &[(&Variant, VariantAttrs, Vec<Field>)],
-    int: bool,
+/// How an enum's variants are tagged (spec 6.4).
+enum Style {
+    External,
+    Internal(LitStr),
+    Adjacent(LitStr, LitStr),
+    Untagged,
+}
+
+fn enum_int(type_shape: Option<(EncodeAs, Span)>) -> syn::Result<bool> {
+    match type_shape {
+        None | Some((EncodeAs::String, _)) => Ok(false),
+        Some((EncodeAs::Int, _)) => Ok(true),
+        Some((_, span)) => Err(syn::Error::new(
+            span,
+            "on an enum, `encode_as` must be `string`, `int`, `display` or `serde`",
+        )),
+    }
+}
+
+fn enum_style(attrs: &TypeAttrs, key: &str, int: bool) -> syn::Result<Style> {
+    let untagged = attrs.untagged.get(key).copied().unwrap_or(false);
+    let tag = attrs.tag.get(key).cloned();
+    let content = attrs.content.get(key).cloned();
+    match (untagged, tag, content) {
+        (true, None, None) if int => Err(syn::Error::new(
+            Span::call_site(),
+            "an untagged enum has no tag for `encode_as = int` to apply to",
+        )),
+        (true, None, None) => Ok(Style::Untagged),
+        (true, ..) => Err(syn::Error::new(
+            Span::call_site(),
+            "`untagged` cannot be combined with `tag` or `content`",
+        )),
+        (false, None, None) => Ok(Style::External),
+        (false, None, Some(c)) => Err(syn::Error::new_spanned(c, "`content` needs `tag`")),
+        (false, Some(t), None) => Ok(Style::Internal(t)),
+        (false, Some(t), Some(c)) if t.value() == c.value() => Err(syn::Error::new_spanned(
+            c,
+            "`content` must differ from `tag`",
+        )),
+        (false, Some(t), Some(c)) => Ok(Style::Adjacent(t, c)),
+    }
+}
+
+/// A variant's name under identity `key`: its `rename`, or its identifier
+/// with `rename_all` applied.
+fn variant_name(
+    v: &Variant,
+    attrs: &VariantAttrs,
     key: &str,
     rename_all: Option<RenameRule>,
-    bounds: &mut Bounds,
-) -> syn::Result<TokenStream> {
+) -> String {
+    match (attrs.rename.get(key), rename_all) {
+        (Some(lit), _) => lit.value(),
+        (None, Some(rule)) => rule.apply_to_variant(&unraw(&v.ident)),
+        (None, None) => unraw(&v.ident),
+    }
+}
+
+/// The shape a variant's fields are written in.
+fn variant_shape(form: &Fields) -> Shape {
+    match form {
+        Fields::Named(_) => Shape::Map,
+        Fields::Unnamed(f) if f.unnamed.len() == 1 => Shape::Single,
+        _ => Shape::List,
+    }
+}
+
+/// Each variant's discriminant, as an `i128` expression.
+fn discriminants(variants: &[(&Variant, VariantAttrs, Vec<Field>)]) -> Vec<TokenStream> {
     let unit_only = variants
         .iter()
         .all(|(v, ..)| matches!(v.fields, Fields::Unit));
-    let mut names = BTreeSet::new();
     let mut previous: Option<TokenStream> = None;
-    let mut arms = TokenStream::new();
-    for (v, attrs, fields) in variants {
+    let mut out = Vec::new();
+    for (v, ..) in variants {
         let ident = &v.ident;
-        let name = match (attrs.rename.get(key), rename_all) {
-            (Some(lit), _) => lit.value(),
-            (None, Some(rule)) => rule.apply_to_variant(&unraw(ident)),
-            (None, None) => unraw(ident),
-        };
-        if !names.insert(name.clone()) {
-            return Err(syn::Error::new_spanned(
-                v,
-                format!("two variants have the name {name:?} under identity `{key}`"),
-            ));
-        }
-        let discriminant = if unit_only {
+        let d = if unit_only {
             quote!((Self::#ident as i128))
         } else {
             match (&v.discriminant, &previous) {
@@ -491,36 +579,169 @@ fn write_enum(
                 (None, None) => quote!(0i128),
             }
         };
-        previous = Some(discriminant.clone());
+        previous = Some(d.clone());
+        out.push(d);
+    }
+    out
+}
 
+/// Rejects untagged and internally tagged enums whose variants their
+/// styles cannot represent or tell apart, as far as the syntax shows; the
+/// full check is made by `construct_identity` (spec 6.8).
+fn check_style(
+    variants: &[(&Variant, VariantAttrs, Vec<Field>)],
+    style: &Style,
+) -> syn::Result<()> {
+    match style {
+        Style::Internal(_) => {
+            for (v, ..) in variants {
+                if matches!(v.fields, Fields::Unnamed(_)) {
+                    return Err(syn::Error::new_spanned(
+                        v,
+                        "an internally tagged enum's variants must be unit or struct variants",
+                    ));
+                }
+            }
+            Ok(())
+        }
+        Style::Untagged => {
+            let mut seen: Vec<(String, &Variant)> = Vec::new();
+            for (v, ..) in variants {
+                let class = match &v.fields {
+                    Fields::Unit => "a unit variant (null)".to_owned(),
+                    // Struct variants are told apart by their keys (spec
+                    // 5.7); identical key sets are rejected in `write_enum`,
+                    // the rest when the identity is exported.
+                    Fields::Named(_) => continue,
+                    Fields::Unnamed(f) if f.unnamed.len() == 1 => {
+                        let ty = &f.unnamed[0].ty;
+                        format!("a newtype variant of `{}`", quote!(#ty))
+                    }
+                    Fields::Unnamed(f) => format!("a tuple variant of {} fields", f.unnamed.len()),
+                };
+                if let Some((_, first)) = seen.iter().find(|(c, _)| *c == class) {
+                    return Err(syn::Error::new_spanned(
+                        v,
+                        format!(
+                            "an untagged enum cannot tell this variant from `{}`: both are {class}",
+                            first.ident
+                        ),
+                    ));
+                }
+                seen.push((class, v));
+            }
+            Ok(())
+        }
+        Style::External | Style::Adjacent(..) => Ok(()),
+    }
+}
+
+/// Writes an enum. `rename_all` applies to variant names, not to the fields
+/// of struct variants, as in serde.
+fn write_enum(
+    variants: &[(&Variant, VariantAttrs, Vec<Field>)],
+    int: bool,
+    style: &Style,
+    key: &str,
+    rename_all: Option<RenameRule>,
+    bounds: &mut Bounds,
+) -> syn::Result<TokenStream> {
+    check_style(variants, style)?;
+    if let Style::Untagged = style {
+        let mut key_sets: Vec<(BTreeSet<String>, &Variant)> = Vec::new();
+        for (v, _, fields) in variants {
+            if !matches!(v.fields, Fields::Named(_)) {
+                continue;
+            }
+            let keys: BTreeSet<String> = map_entries(fields, key, None)?
+                .into_iter()
+                .map(|(k, _)| k)
+                .collect();
+            if let Some((_, first)) = key_sets.iter().find(|(k, _)| *k == keys) {
+                return Err(syn::Error::new_spanned(
+                    v,
+                    format!(
+                        "an untagged enum cannot tell this variant from `{}`: \
+                         both are objects with the keys {keys:?}",
+                        first.ident
+                    ),
+                ));
+            }
+            key_sets.push((keys, v));
+        }
+    }
+    let mut names = BTreeSet::new();
+    let mut arms = TokenStream::new();
+    for ((v, attrs, fields), disc) in variants.iter().zip(discriminants(variants)) {
+        let ident = &v.ident;
+        let name = variant_name(v, attrs, key, rename_all);
+        if !names.insert(name.clone()) {
+            return Err(syn::Error::new_spanned(
+                v,
+                format!("two variants have the name {name:?} under identity `{key}`"),
+            ));
+        }
         let form = &v.fields;
         let pattern = pattern(quote!(Self::#ident), fields, form);
-        let shape = match form {
-            Fields::Named(_) => Shape::Map,
-            Fields::Unnamed(f) if f.unnamed.len() == 1 => Shape::Single,
-            _ => Shape::List,
+        let shape = variant_shape(form);
+        let lit = LitStr::new(&name, Span::call_site());
+        let label = if int {
+            quote!(__e.int(#disc);)
+        } else {
+            quote!(__e.str(#lit);)
         };
-        let name = LitStr::new(&name, Span::call_site());
-        let write = match (form, int) {
-            (Fields::Unit, false) => quote!(__e.str(#name);),
-            (Fields::Unit, true) => quote!(__e.int(#discriminant);),
-            (_, false) => {
-                let data = write_fields(fields, shape, key, None, bounds)?;
+        let unit = matches!(form, Fields::Unit);
+        let write = match style {
+            Style::External if unit => label,
+            Style::External => {
+                let data = write_fields(fields, shape, key, None, None, bounds)?;
+                if int {
+                    quote! {
+                        let mut __l = __e.list();
+                        __l.item_with(|__e| { #label });
+                        __l.item_with(|__e| { #data });
+                        __l.finish();
+                    }
+                } else {
+                    quote! {
+                        let mut __m = __e.fields();
+                        __m.field_with(#lit, |__e| { #data });
+                        __m.finish();
+                    }
+                }
+            }
+            Style::Internal(tag) if unit => quote! {
+                let mut __m = __e.fields();
+                __m.field_with(#tag, |__e| { #label });
+                __m.finish();
+            },
+            Style::Internal(tag) => {
+                write_fields(fields, shape, key, None, Some((tag.value(), label)), bounds)?
+            }
+            Style::Adjacent(tag, _) if unit => quote! {
+                let mut __m = __e.fields();
+                __m.field_with(#tag, |__e| { #label });
+                __m.finish();
+            },
+            Style::Adjacent(tag, content) => {
+                let data = write_fields(fields, shape, key, None, None, bounds)?;
+                let mut entries = vec![
+                    (tag.value(), quote!(__m.field_with(#tag, |__e| { #label });)),
+                    (
+                        content.value(),
+                        quote!(__m.field_with(#content, |__e| { #data });),
+                    ),
+                ];
+                entries.sort_by(|a, b| cmp_key_encodings(&a.0, &b.0));
+                let writes = entries.into_iter().map(|(_, w)| w);
                 quote! {
                     let mut __m = __e.fields();
-                    __m.field_with(#name, |__e| { #data });
+                    #(#writes)*
                     __m.finish();
                 }
             }
-            (_, true) => {
-                let data = write_fields(fields, shape, key, None, bounds)?;
-                quote! {
-                    let mut __l = __e.list();
-                    __l.item_with(|__e| __e.int(#discriminant));
-                    __l.item_with(|__e| { #data });
-                    __l.finish();
-                }
-            }
+            Style::Untagged if unit => quote!(__e.null();),
+            Style::Untagged => write_fields(fields, shape, key, None, None, bounds)?,
         };
         arms.extend(quote!(#pattern => { #write }));
     }
@@ -529,6 +750,187 @@ fn write_enum(
             #arms
         }
     })
+}
+
+// --- Export (spec 6.8) ---------------------------------------------------------
+
+/// An expression giving the kind of a type under identity `key`, inside
+/// `Exporter::define`'s closure, where `__cx` is the exporter.
+fn describe(
+    attrs: &TypeAttrs,
+    body: &Body,
+    key: &str,
+    _id_ty: &TokenStream,
+) -> syn::Result<TokenStream> {
+    let unsupported = |what: &str| {
+        quote!(return ::core::result::Result::Err(
+            __cx.unsupported_attribute(::core::any::type_name::<Self>(), #what)
+        ))
+    };
+    let type_shape = attrs.encode_as.get(key).copied();
+    match (type_shape, body) {
+        (Some((EncodeAs::Display, _)), _) => Ok(unsupported("encode_as = display")),
+        (Some((EncodeAs::Serde, _)), _) => Ok(unsupported("encode_as = serde")),
+        (_, Body::Struct(fields, form)) => {
+            let shape = struct_shape(attrs, key, form, type_shape)?;
+            let rename_all = attrs.rename_all.get(key).copied();
+            describe_fields(fields, form, shape, key, rename_all)
+        }
+        (_, Body::Enum(variants)) => {
+            let int = enum_int(type_shape)?;
+            let rename_all = attrs.rename_all.get(key).copied();
+            let style = enum_style(attrs, key, int)?;
+            let mut alternatives = Vec::new();
+            for ((v, vattrs, fields), disc) in variants.iter().zip(discriminants(variants)) {
+                let name = variant_name(v, vattrs, key, rename_all);
+                let kind = match &v.fields {
+                    Fields::Unit => None,
+                    form => Some(describe_fields(
+                        fields,
+                        form,
+                        variant_shape(form),
+                        key,
+                        None,
+                    )?),
+                };
+                alternatives.push((name, kind, disc));
+            }
+            if let Style::Untagged = style {
+                let kinds = alternatives.into_iter().map(|(_, kind, _)| match kind {
+                    Some(k) => k,
+                    None => quote!(::quiddity::identity::Kind::Null),
+                });
+                return Ok(quote!(::quiddity::identity::Kind::Union(
+                    ::quiddity::__private::vec![#(#kinds),*]
+                )));
+            }
+            let variants = alternatives.into_iter().map(|(name, kind, disc)| {
+                let kind = match kind {
+                    Some(k) => quote!(::core::option::Option::Some(#k)),
+                    None => quote!(::core::option::Option::None),
+                };
+                let disc = if int {
+                    quote!(::core::option::Option::Some(#disc))
+                } else {
+                    quote!(::core::option::Option::None)
+                };
+                quote!(::quiddity::identity::export::variant(#name, #kind, #disc))
+            });
+            let none = quote!(::core::option::Option::None);
+            let (style, tag, content) = match &style {
+                Style::External => (none.clone(), none.clone(), none),
+                Style::Internal(t) => (
+                    quote!(::core::option::Option::Some(
+                        ::quiddity::identity::Style::Internal
+                    )),
+                    quote!(::core::option::Option::Some(#t)),
+                    none,
+                ),
+                Style::Adjacent(t, c) => (
+                    quote!(::core::option::Option::Some(
+                        ::quiddity::identity::Style::Adjacent
+                    )),
+                    quote!(::core::option::Option::Some(#t)),
+                    quote!(::core::option::Option::Some(#c)),
+                ),
+                Style::Untagged => unreachable!(),
+            };
+            Ok(quote!(::quiddity::identity::export::tagged(
+                ::quiddity::__private::vec![#(#variants),*], #style, #tag, #content, #int
+            )))
+        }
+    }
+}
+
+/// An expression giving the kind of a struct's or variant's fields.
+fn describe_fields(
+    fields: &[Field],
+    form: &Fields,
+    shape: Shape,
+    key: &str,
+    rename_all: Option<RenameRule>,
+) -> syn::Result<TokenStream> {
+    let participating: Vec<&Field> = fields.iter().filter(|f| f.participates(key)).collect();
+    let null = quote!(::quiddity::identity::Kind::Null);
+    match shape {
+        Shape::Single | Shape::Transparent => match participating.as_slice() {
+            [f] => f.describe_value(key),
+            _ => Ok(null),
+        },
+        Shape::List if matches!(form, Fields::Named(_)) => {
+            let entries = map_entries(fields, key, rename_all)?;
+            let mut items = Vec::new();
+            // A list-encoded struct lists its fields in declaration order.
+            for f in &participating {
+                let name = entries
+                    .iter()
+                    .find(|(_, e)| std::ptr::eq(*e, *f))
+                    .unwrap()
+                    .0
+                    .clone();
+                let kind = f.describe_value(key)?;
+                items.push(
+                    quote!((#name, ::quiddity::identity::export::field(#kind, false, false))),
+                );
+            }
+            Ok(quote!(::quiddity::identity::export::object(
+                ::quiddity::__private::vec![#(#items),*],
+                true
+            )))
+        }
+        Shape::List if fields.is_empty() => Ok(null),
+        Shape::List => {
+            let kinds = participating
+                .iter()
+                .map(|f| f.describe_value(key))
+                .collect::<syn::Result<Vec<_>>>()?;
+            Ok(quote!(::quiddity::identity::Kind::Tuple(
+                ::quiddity::__private::vec![#(#kinds),*]
+            )))
+        }
+        Shape::Map => {
+            let mut items = Vec::new();
+            for (name, f) in map_entries(fields, key, rename_all)? {
+                let kind = f.describe_value(key)?;
+                let omit_none = f.attrs.omit_none.get(key).copied().unwrap_or(false);
+                let omit_empty = f.attrs.omit_empty.get(key).copied().unwrap_or(false);
+                if f.attrs.omit_if.get(key).is_some() {
+                    return Ok(quote!(
+                        return ::core::result::Result::Err(
+                            __cx.unsupported_attribute(::core::any::type_name::<Self>(), "omit_if")
+                        )
+                    ));
+                }
+                items.push(quote!((#name, ::quiddity::identity::export::field(#kind, #omit_none, #omit_empty))));
+            }
+            Ok(quote!(::quiddity::identity::export::object(
+                ::quiddity::__private::vec![#(#items),*],
+                false
+            )))
+        }
+    }
+}
+
+impl Field {
+    /// An expression giving the kind of the field's value.
+    fn describe_value(&self, key: &str) -> syn::Result<TokenStream> {
+        let ty = &self.ty;
+        let unsupported = |what: &str| {
+            quote!(return ::core::result::Result::Err(
+                __cx.unsupported_attribute(::core::any::type_name::<Self>(), #what)
+            ))
+        };
+        Ok(match self.encoding(key)? {
+            ValueEncoding::Own(j) => quote!(__cx.describe::<#ty, #j>()?),
+            ValueEncoding::Set => quote!(::quiddity::identity::export::as_set(
+                __cx.describe::<#ty, ::quiddity::Primary>()?,
+                ::core::any::type_name::<#ty>(),
+            )?),
+            ValueEncoding::With(_) => unsupported("with"),
+            ValueEncoding::Display => unsupported("encode_as = display"),
+            ValueEncoding::Serde => unsupported("encode_as = serde"),
+        })
+    }
 }
 
 /// An explicit discriminant as an `i128` expression.

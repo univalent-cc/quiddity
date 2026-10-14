@@ -1002,9 +1002,8 @@ builder (`Kind::object`, `Kind::optional`, `Field::omit`, …), and
 derives for itself through `extern crate self as quiddity`), and the
 vectors confirm the fixed point: every identity's derived digest equals the
 digest of its document under Appendix C's identity, including Appendix C's
-own. Export from derived types (6.8), the derive's `tag`, `content` and
-`untagged`, and value types other than `serde_json::Value` are not done
-yet.
+own. Value types other than `serde_json::Value` are not done yet; export
+is described below.
 
 Found while implementing: serde_json's default float parser is not
 correctly rounded (`9007199254740993.0` became 2^53 + 2), which spec 2.7
@@ -1018,6 +1017,56 @@ test runs had hidden the bug, because the `arbitrary-precision` test crate
 unifies a feature that parses exactly.
 Discriminants are limited to 64 bits, the range of JSON integers that
 serde_json reads exactly.
+
+### Objects told apart by their keys
+
+Decided 2026-10-14, implemented in spec 5.7, `qident.py`, the vectors and
+the Rust crate. A union may have several object alternatives (object kinds
+or references to them) if a source object can fit at most one of them. An
+object fits an alternative if all its member names are the alternative's
+fields and all the alternative's required fields (those whose kinds do not
+accept null) are members. Two alternatives `A` and `B` are ambiguous, and
+the union invalid, exactly when `required(A) ⊆ fields(B)` and
+`required(B) ⊆ fields(A)`, which is checked when the identity is loaded.
+
+serde's `untagged` tries variants in order and takes the first that
+deserializes; with structs ignoring unknown fields, a variant with optional
+fields can match data another variant wrote. For a digest that would be a
+silent mismatch, and order-dependent. Fitting by key sets is
+order-independent and decided at load time, while still covering
+TypeScript's common `{x, y} | {w, h}` unions. Objects that name their
+variant in a member (`"type": "Rect"`) are internally tagged unions, which
+needed nothing new.
+
+The derive allows untagged struct variants with different keys, rejects
+identical key sets at compile time, and leaves the rest to export.
+
+### Rust implementation (second part): export
+
+`Quiddity::construct_identity()` (with the `identity` feature) and a hidden
+`__describe` method, implemented for the std and feature types and by the
+derive; the derive wraps its `__describe` in `__if_identity!`, which
+expands to nothing without the feature, since a derive cannot see the
+features of the crate it targets. `Exporter::define` gives every derived
+type (and identity) a definition, which also handles recursive types. The
+derive gained `tag`, `content` and `untagged` (serde's forms, checked
+against serde's own output through the serde bridge), with syntactic
+overlap checks for untagged enums; internally tagged enums support unit
+and struct variants only, since a newtype variant would need its inner
+map merged with the tag.
+
+Findings:
+
+- A field with `omit_empty` exports as `null | k` with `omit: [none,
+  empty]`: serde's `skip_serializing_if` leaves the member out, which reads
+  as null.
+- `untagged` variants whose values coincide (`Small(u8)`, `Large(u64)`)
+  export successfully: their union merges to `integer`, faithfully, since
+  `Small(5)` and `Large(5)` already share a digest. Real overlaps (two
+  objects) fail at export.
+- The `Identity` type's exported identity differs from Appendix C in
+  wording (fixed sets of strings become tagged unions) but gives the same
+  digests on every canonical document; tested on all the vectors.
 
 ### Authoring: a normalized format, with convenience in each language
 

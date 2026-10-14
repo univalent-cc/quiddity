@@ -315,6 +315,11 @@ pub struct TypeAttrs {
     pub transparent: Scoped<bool>,
     pub encode_as: Scoped<(EncodeAs, Span)>,
     pub rename_all: Scoped<RenameRule>,
+    /// Internal or adjacent tagging of an enum: the tag member's name.
+    pub tag: Scoped<LitStr>,
+    /// Adjacent tagging of an enum: the content member's name.
+    pub content: Scoped<LitStr>,
+    pub untagged: Scoped<bool>,
 }
 
 impl TypeAttrs {
@@ -381,6 +386,24 @@ impl TypeAttrs {
                     let rule = RenameRule::parse(&string(item)?)?;
                     out.rename_all.set(item, rule, &ids)?;
                 }
+                "tag" => {
+                    let s = string(item)?;
+                    if s.value().is_empty() {
+                        return Err(syn::Error::new_spanned(s, "a tag must not be empty"));
+                    }
+                    out.tag.set(item, s, &ids)?;
+                }
+                "content" => {
+                    let s = string(item)?;
+                    if s.value().is_empty() {
+                        return Err(syn::Error::new_spanned(
+                            s,
+                            "a content name must not be empty",
+                        ));
+                    }
+                    out.content.set(item, s, &ids)?;
+                }
+                "untagged" => out.untagged.set(item, flag(item)?, &ids)?,
                 _ => return Err(unknown(item, "type")),
             }
         }
