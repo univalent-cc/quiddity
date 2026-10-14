@@ -36,7 +36,7 @@ Notation:
 - `0x1F` is a single byte. `[0x01, 0x02]` is a byte string.
 - `u64be(n)` is the unsigned integer `n`, `0 ≤ n < 2^64`, as 8 bytes,
   most significant first.
-- `utf8(s)` is the UTF-8 encoding of the string `s`.
+- `utf8(s)` is the UTF-8 encoding of the text `s`.
 - `ascii(s)` is the ASCII encoding of the string `s`.
 - `SHA-256(x)` is the SHA-256 hash (FIPS 180-4) of the byte string `x`, a
   32-byte string.
@@ -54,8 +54,7 @@ A **value** is one of the following kinds:
 | boolean | `false`, `true` |
 | integer | any mathematical integer, of unbounded magnitude |
 | float | any IEEE 754 binary64 value that is not a finite integer: a finite non-integral number, `+∞`, `−∞` or NaN |
-| string | any finite sequence of Unicode scalar values |
-| bytes | any finite sequence of bytes |
+| string | any finite sequence of bytes; text is placed in the data model as bytes (2.3) |
 | list | any finite sequence of values |
 | set | any finite multiset of values |
 | map | any finite multiset of entries, each entry an ordered pair (key, value) of values |
@@ -92,15 +91,23 @@ one data-model value for each number.
 
 ### 2.3 Strings
 
-A string is a sequence of Unicode scalar values (code points U+0000 to
-U+D7FF and U+E000 to U+10FFFF). An implementation MUST NOT produce a string
-containing a surrogate code point. Where a source string may contain one (for
-example, an ill-formed UTF-16 string), the implementation MUST reject it
-rather than replace or drop the code point.
+A string is a sequence of bytes. There is no separate kind for text: text
+and binary data are both strings, and are equal when their bytes are equal.
 
-Strings are not normalized. Two strings that differ in their code points
-are different values even if they are canonically equivalent under
-Unicode normalization.
+- Binary data is its bytes.
+- Text that is a sequence of Unicode scalar values (code points U+0000 to
+  U+D7FF and U+E000 to U+10FFFF) is its UTF-8 encoding.
+- Text that may contain surrogate code points, such as an ill-formed UTF-16
+  string, is its WTF-8 encoding: each high surrogate immediately followed
+  by a low surrogate is first combined into the scalar value the pair
+  represents, and each remaining surrogate code point is written as the
+  three bytes that UTF-8's encoding scheme gives that code point (for
+  U+D800, `[0xED, 0xA0, 0x80]`). For text without surrogates, this is the
+  same as UTF-8.
+
+Text is not normalized. Two texts that differ in their code points are
+different strings even if they are canonically equivalent under Unicode
+normalization.
 
 ### 2.4 Equality
 
@@ -125,8 +132,33 @@ entries in the **canonical order**, which is defined on encodings:
 The canonical order depends only on the values, never on the type of
 container holding them or its iteration order. It is not, in general,
 numeric or alphabetical order: `-1` follows `1`, because the encoding of
-`-1` begins with `0xFF`. (Informative: for strings that do not contain
-U+0000, it coincides with code-point order.)
+`-1` begins with `0xFF`. (Informative: for strings that do not contain the
+byte `0x00`, it coincides with byte order, which for UTF-8 text is
+code-point order.)
+
+### 2.6 Times and durations
+
+The data model has no kind for times or durations. So that digests agree
+across languages, an implementation that maps times or durations onto the
+data model SHOULD map them as follows:
+
+- An **instant** is the integer number of nanoseconds since
+  1970-01-01T00:00:00 UTC (the Unix epoch), negative for an instant before
+  it. Time is counted as in POSIX: every day has 86 400 seconds, and leap
+  seconds are not counted.
+- A **duration** is the integer number of nanoseconds, negative for a
+  negative duration.
+
+The conversion MUST be exact. It MUST NOT pass through binary floating
+point, which cannot hold a current instant to the nanosecond. A source
+value of coarser precision, such as microseconds, is multiplied exactly by
+its unit, so an instant has the same integer whatever precision its source
+keeps. For example, 2024-01-01T00:00:00Z is `1704067200000000000`, and
+1969-12-31T23:59:59Z is `-1000000000`.
+
+A date and time without a time zone or UTC offset (a "local" or "naive"
+date and time) is not an instant, and a duration in calendar units, such as
+months, has no fixed number of nanoseconds. Neither has a mapping here.
 
 ## 3. Encoding
 
@@ -149,7 +181,6 @@ makes the encoding injective: distinct values have distinct encodings.
 | integer | `0x10` |
 | float | `0x11` |
 | string | `0x20` |
-| bytes | `0x21` |
 | list | `0x30` |
 | set | `0x31` |
 | map | `0x32` |
@@ -186,11 +217,10 @@ E(x) = F(x) ‖ [0x11]
 
 A float is never a finite integer (2.2), so `F` is never applied to one.
 
-### 3.5 Strings and bytes
+### 3.5 Strings
 
 ```
-E(s) = utf8(s) ‖ u64be(len(utf8(s))) ‖ [0x20]
-E(b) = b ‖ u64be(len(b)) ‖ [0x21]
+E(s) = s ‖ u64be(len(s)) ‖ [0x20]
 ```
 
 `len` is the length in bytes. Content MAY be produced incrementally (a
@@ -242,11 +272,11 @@ version of the specification.
 
 ### 4.2 Domains
 
-A **domain label** is a non-empty string. The digest of a structural digest
-`d` (32 bytes) in the domain labelled `L` is:
+A **domain label** is a non-empty string (2.3), usually text. The digest of
+a structural digest `d` (32 bytes) in the domain labelled `L` is:
 
 ```
-D(d, L) = SHA-256( ascii("quiddity/1/domain") ‖ utf8(L) ‖ u64be(len(utf8(L))) ‖ d )
+D(d, L) = SHA-256( ascii("quiddity/1/domain") ‖ L ‖ u64be(len(L)) ‖ d )
 ```
 
 The prefix `ascii("quiddity/1/domain")` is 17 bytes. The structural and
@@ -336,15 +366,52 @@ encoding its elements or fields, if any, under the same `I`.
 | `str`, `String`, `Box<str>`, `Rc<str>`, `Arc<str>`, `Cow<'_, str>` | string |
 | `()` | null |
 | `Option<T>` | `None`: null; `Some(x)`: the value of `x` |
-| `[T; N]`, `[T]`, `Vec<T>`, `VecDeque<T>`, `Box<[T]>` | list, in order |
+| `[T; N]`, `[T]`, `Vec<T>`, `VecDeque<T>`, `LinkedList<T>`, `Box<[T]>` | list, in order |
 | tuples `(T1, …, Tn)`, `n ≥ 1` | list, in order |
 | `BTreeSet<T>`, `HashSet<T, S>` | set |
 | `BTreeMap<K, V>`, `HashMap<K, V, S>` | map |
-| `&T`, `&mut T`, `Box<T>`, `Rc<T>`, `Arc<T>`, `Cow<'_, T>` | the value of `T`; at the top level, in `T`'s domain, if any |
+| `&T`, `&mut T`, `Box<T>`, `Rc<T>`, `Arc<T>`, `Cow<'_, T>`, `Pin<P>` | the value of `T` (for `Pin<P>`, of `P`'s target); at the top level, in its domain, if any |
+| `Wrapping<T>`, `Saturating<T>`, `Reverse<T>`, `Cell<T>` (`T: Copy`) | the value of `T` |
+| `AtomicBool`, `AtomicI8` … `AtomicI64`, `AtomicIsize`, `AtomicU8` … `AtomicU64`, `AtomicUsize` | the loaded value |
 | `PhantomData<T>` | null; as a field of a derived type, absent (5.3) |
+| `Result<T, E>` | `Ok(x)`: map `{"Ok": x}`; `Err(e)`: map `{"Err": e}` |
+| `Infallible` | (has no values) |
+| `Range<T>`, `RangeInclusive<T>` | map `{"start": a, "end": b}` |
+| `RangeFrom<T>` | map `{"start": a}` |
+| `RangeTo<T>`, `RangeToInclusive<T>` | map `{"end": b}` |
+| `Bound<T>` | `Included(x)`: map `{"Included": x}`; `Excluded(x)`: map `{"Excluded": x}`; `Unbounded`: string `Unbounded` |
+| `Duration` | integer: nanoseconds (2.6) |
+| `SystemTime` | integer: nanoseconds since the Unix epoch, negative before it (2.6) |
+| `IpAddr`, `Ipv4Addr`, `Ipv6Addr` | string: the address as text, as below |
+| `SocketAddr`, `SocketAddrV4`, `SocketAddrV6` | string: the socket address as text, as below |
+| `OsStr`, `OsString`, `Path`, `PathBuf` | string: the platform's bytes, as below |
+| `CStr`, `CString` | string: the bytes before the terminating NUL |
 
-`Vec<u8>` and `[u8; N]` are lists of integers, not bytes. The bytes kind is
-produced by `Encoder::bytes` and the `bytes` feature (5.6).
+`Vec<u8>` and `[u8; N]` are lists of integers, as they are in serde's JSON.
+Binary data is written as a string by `Encoder::bytes` and the `bytes`
+feature (5.6).
+
+Through the `serde` feature (5.7), a value is encoded as its `Serialize`
+impl writes it, which can differ from this table. For example, serde
+writes a `Duration` as the map `{"secs": s, "nanos": n}`.
+
+**Addresses.** An IPv4 address is in dotted decimal, such as `192.0.2.1`.
+An IPv6 address is in the text form of RFC 5952, section 4: lowercase hex
+digits without leading zeros, the longest run of two or more zero groups
+written `::` (the first, among equally long runs), and no other
+compression. An IPv4-mapped address (`::ffff:0:0/96`) has its last 32 bits
+in dotted decimal, such as `::ffff:192.0.2.1`; no other address does, so
+`::192.0.2.1` is `::c000:201`. A socket address is `a:p` for an IPv4
+address `a` and port `p`, and `[a]:p` for an IPv6 address, or `[a%s]:p`
+with its scope ID `s` in decimal if that is not 0. The IPv6 flow label is
+not encoded.
+
+**Platform strings.** On Unix, an `OsStr` is its bytes. On Windows, it is
+the WTF-8 encoding (2.3) of its UTF-16 code units. On other platforms, it
+is the bytes of `OsStr::as_encoded_bytes`. On every platform, a path that
+is valid Unicode text is therefore its UTF-8 bytes, the same string as a
+`str` holding the same text. Paths are not normalized: `a/b`, `a//b`,
+`./a/b` and `a\b` are different strings.
 
 Known collapses, which follow from this table and match serde's JSON
 representation:
@@ -355,9 +422,12 @@ representation:
 A `quiddity::Digest`, `Digest128` or `Digest64` used as a value is the
 string of its text form (4.4).
 
-Types requiring the `alloc` feature: everything above except primitives,
-`char`, `str`, `()`, `Option`, arrays, slices, tuples, references and
-`PhantomData`. Types requiring the `std` feature: `HashSet`, `HashMap`.
+Types requiring the `std` feature: `HashSet`, `HashMap`, `SystemTime`,
+`OsStr`, `OsString`, `Path` and `PathBuf`. Types requiring the `alloc`
+feature: `String`, `Box`, `Rc`, `Arc`, `Cow`, `Vec`, `VecDeque`,
+`LinkedList`, `BTreeSet`, `BTreeMap` and `CString`. The other types need
+neither. An atomic type is implemented on targets that support atomic
+operations of its width.
 
 Every set and map type is encoded with its members or entries in canonical
 order (2.5), whatever its own iteration order.
@@ -474,7 +544,7 @@ the same identity; a scope list naming an identity not declared in
 | `serde_json` | `Value`, `Map`, `Number` | see below |
 | `indexmap` | `IndexMap<K, V, S>`, `IndexSet<T, S>` | map, set |
 | `uuid` | `Uuid` | string: hyphenated, lowercase, e.g. `67e55044-10b1-426f-9247-bb680e5fe0c8` |
-| `bytes` | `Bytes`, `BytesMut` | bytes |
+| `bytes` | `Bytes`, `BytesMut` | string: the bytes |
 | `url` | `Url` | string: `Url::as_str()` |
 
 `serde_json::Value`:
@@ -511,8 +581,8 @@ model as follows. The serializer reports `is_human_readable() == true`.
 | `bool` | boolean |
 | `i8` … `i128`, `u8` … `u128` | integer |
 | `f32`, `f64` | normalized by 2.2 |
-| `char`, `str` | string |
-| `bytes` | bytes |
+| `char`, `str` | string: the text's UTF-8 bytes |
+| `bytes` | string: the bytes |
 | `none` | null |
 | `some(v)` | the value of `v` |
 | `unit`, `unit_struct` | null |
@@ -538,15 +608,15 @@ produces the encoding of section 3 and the digests of section 4.
 The normative test vectors are in `test-vectors/quiddity-v1.json`. The file
 is generated by `test-vectors/generate.py`, using the Python implementation
 of sections 2 to 4 in `test-vectors/qref.py`; the generator's header
-describes the typed JSON notation for values. The file has four sections:
+describes the typed JSON notation for values. The file has three sections:
 
 - `values`: a value, its encoding `E(v)` in hex, and its structural digest
   in each text form (4.4). Floats are given as binary64 bits before
-  normalization, so they also test 2.2.
+  normalization, so they also test 2.2. Text that contains surrogates is
+  given as a list of code points, since JSON cannot hold it, so it also
+  tests 2.3.
 - `domains`: a value, a domain label, and the digest in that domain in each
   text form.
-- `invalid_strings`: strings, given as lists of code points, that an
-  implementation MUST reject (2.3).
 - `text_forms`: strings to be parsed as digest text, whether each is valid,
   and whether accepting or rejecting it is required (`MUST`) or recommended
   (`SHOULD`).
@@ -576,7 +646,7 @@ digest `S(v)`.
 | `+∞` | `7ff0000000000000 11` | `d455353696a0fe2ac9b62369b6eaa512135eeab8f0684dd1a7ad3d6364ee39df` |
 | NaN | `7ff8000000000000 11` | `bce9627bba3659dc2f1d1a3fe58f45a7397ac56f06b6bb1e0c392c21d7b86cc0` |
 | `"a"` | `61 0000000000000001 20` | `0c5e6442aeba354df983cdeb8d149971d02caa5e542a84f929c3dd7faa0d14a6` |
-| bytes `0102` | `0102 0000000000000002 21` | `7991d5d6d37fb8a576ea776dc2fad7c9562867a447a84b9986093ced1210581b` |
+| bytes `0102` | `0102 0000000000000002 20` | `cee203491d38080c54e55b59fc6328def04b53c438cd9075d71e362572b66409` |
 | `[1, "a"]` | `01 0000000000000001 10 61 0000000000000001 20 0000000000000002 30` | `6d359306fa0b11cbc527ad722b2ad1a84ee1ff8e8da24d442e1778271cd0bd5e` |
 | set `{2, 1}` | `01 0000000000000001 10 02 0000000000000001 10 0000000000000002 31` | `64406ae97b773d0d58df470287202a49cea075a3bd13fa3a7cd500b329d0bb08` |
 | `{"start": 10, "end": 15}` | `656e64 0000000000000003 20 0f 0000000000000001 10 7374617274 0000000000000005 20 0a 0000000000000001 10 0000000000000002 32` | `ce5c58de07557be10cb78541577e3812bdb0b96b8af3aa17c4224753841bd989` |

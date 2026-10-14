@@ -24,6 +24,8 @@ enum Value {
     Int(Vec<u8>),
     Float(f64),
     String(String),
+    /// Text that may contain surrogates.
+    CodePoints(Vec<u32>),
     Bytes(Vec<u8>),
     List(Vec<Value>),
     Set(Vec<Value>),
@@ -38,6 +40,7 @@ impl Quiddity for Value {
             Value::Int(bytes) => e.int_twos_complement(bytes),
             Value::Float(x) => e.float(*x),
             Value::String(s) => e.str(s),
+            Value::CodePoints(cps) => e.utf16(cps.iter().flat_map(|&cp| utf16_units(cp))),
             Value::Bytes(b) => e.bytes(b),
             Value::List(items) => {
                 let mut l = e.list();
@@ -74,6 +77,13 @@ fn parse(json: &Json) -> Value {
             Value::Float(f64::from_bits(bits))
         }
         "string" => Value::String(v.as_str().unwrap().to_string()),
+        "code_points" => Value::CodePoints(
+            v.as_array()
+                .unwrap()
+                .iter()
+                .map(|cp| cp.as_u64().unwrap() as u32)
+                .collect(),
+        ),
         "bytes" => Value::Bytes(from_hex(v.as_str().unwrap())),
         "list" => Value::List(v.as_array().unwrap().iter().map(parse).collect()),
         "set" => Value::Set(v.as_array().unwrap().iter().map(parse).collect()),
@@ -85,6 +95,15 @@ fn parse(json: &Json) -> Value {
                 .collect(),
         ),
         other => panic!("unknown kind {other:?}"),
+    }
+}
+
+/// A code point as UTF-16 code units: a surrogate as itself, so that
+/// surrogates given separately can still form a pair.
+fn utf16_units(cp: u32) -> Vec<u16> {
+    match char::from_u32(cp) {
+        Some(c) => c.encode_utf16(&mut [0; 2]).to_vec(),
+        None => vec![cp as u16],
     }
 }
 
@@ -205,21 +224,6 @@ fn domains() {
             str_of(case, "digest64"),
             "{name}"
         );
-    }
-}
-
-#[test]
-fn invalid_strings() {
-    // A Rust `str` cannot hold a surrogate, so these cannot reach the
-    // encoder; check that they are indeed not representable.
-    let Some(vectors) = vectors() else { return };
-    for case in vectors["invalid_strings"].as_array().unwrap() {
-        let code_points = case["code_points"].as_array().unwrap();
-        let chars: Option<String> = code_points
-            .iter()
-            .map(|c| char::from_u32(c.as_u64().unwrap() as u32))
-            .collect();
-        assert!(chars.is_none(), "{}", str_of(case, "name"));
     }
 }
 

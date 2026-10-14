@@ -241,8 +241,8 @@ must resist deliberate collisions, as with secure signatures.
 | Feature | Default | Provides | Requires |
 |---|---|---|---|
 | `derive` | yes | `#[derive(Quiddity)]` and `#[derive(IdentityMarker)]` | |
-| `std` | yes | `HashMap` and `HashSet` | `alloc` |
-| `alloc` | yes | `String`, `Vec`, `VecDeque`, `Box`, `Rc`, `Arc`, `Cow`, `BTreeMap` and `BTreeSet` | |
+| `std` | yes | `HashMap`, `HashSet`, `SystemTime`, `Path`, `PathBuf`, `OsStr` and `OsString` | `alloc` |
+| `alloc` | yes | `String`, `Vec`, `VecDeque`, `LinkedList`, `Box`, `Rc`, `Arc`, `Cow`, `BTreeMap`, `BTreeSet` and `CString` | |
 | `serde_json` | no | `Value`, `Map` and `Number` | `alloc` |
 | `serde` | no | `encode_as = serde` and `quiddity::serde::digest`; `Serialize` and `Deserialize` for `Digest`, `Digest128` and `Digest64` | `alloc` |
 | `indexmap` | no | `IndexMap` and `IndexSet` | `alloc` |
@@ -270,6 +270,20 @@ quiddity = { version = "0.1", default-features = false, features = ["derive"] }
 - `char` is digested as a one-character string.
 - `bool` is digested as `true` or `false`.
 - `()` is digested as null.
+- Text and binary data are both strings. Text is digested as its UTF-8
+  bytes, so `"ab"` and the bytes `[0x61, 0x62]` written with
+  [`Encoder::bytes`] have the same digest.
+- `Duration` is digested as an integer number of nanoseconds, and
+  `SystemTime` as the integer number of nanoseconds since the Unix epoch.
+- IP and socket addresses are digested as their text form, such as
+  `"192.0.2.1"` or `"[2001:db8::1]:80"`.
+- `Path`, `PathBuf`, `OsStr` and `OsString` are digested as the platform's
+  bytes for the path. A path that is valid UTF-8 has the same digest as the
+  same `str`. Paths are not normalized.
+- `Result` is digested as `{"Ok": x}` or `{"Err": e}`, and ranges as
+  `{"start": a, "end": b}`, the forms serde writes in JSON.
+- `Wrapping`, `Saturating`, `Reverse`, `Cell` and the atomic integers are
+  digested as the value they hold.
 
 ### Number Primitives
 
@@ -314,7 +328,7 @@ in order. `vec![1, 2]`, `[1u8, 2]` and `(1u32, 2i64)` have the same digest as
 the JSON array `[1, 2]`. Reordering the items changes the digest.
 
 `Vec<u8>` and `[u8; N]` are lists of numbers too, as they are in serde's
-JSON. To digest a field as raw bytes instead, use `with` and
+JSON. To digest a field as a string of bytes instead, use `with` and
 [`Encoder::bytes`], as in the UUID example below.
 
 ### `serde_json`
@@ -354,8 +368,8 @@ Each of these features implements `Quiddity` for the named crate's types:
   so it has the same digest as that JSON string. To digest it as 16 bytes
   instead, see below.
 - `bytes`: `Bytes` and `BytesMut` (from the `bytes` crate) are digested as
-  bytes. Unlike a `Vec<u8>`, they do not have the same digest as a JSON
-  array of numbers.
+  strings of their bytes. Unlike a `Vec<u8>`, they do not have the same
+  digest as a JSON array of numbers.
 - `url`: a `Url` is digested as its string form.
 
 ### Direct from `serde`
@@ -378,7 +392,12 @@ Values are digested in the shapes serde gives them: a struct as a map, a
 sequence as a list, a unit variant as its name, and so on. So a `Serialize`
 value has the same digest as the equivalent `Quiddity` value. This feature
 is separate from `serde_json`, and does not go through `serde_json::Value`:
-bytes stay bytes, and integers wider than 64 bits are kept.
+bytes are strings rather than arrays of numbers, and integers wider than 64
+bits are kept.
+
+A type's `Serialize` impl may give it a different digest from its
+`Quiddity` impl. For example, serde writes a `Duration` as
+`{"secs": s, "nanos": n}`, not as nanoseconds.
 
 It is slower than a native implementation, and may allocate. If a
 `Serialize` impl returns an error, [`quiddity::serde::digest`] can propagate
@@ -395,9 +414,9 @@ another crate. A type that implements `Display` can be digested as its
 use quiddity::Quiddity;
 
 #[derive(Quiddity)]
-struct Host {
+struct Project {
     #[quiddity(encode_as = display)]
-    address: std::net::IpAddr,
+    homepage: url::Url,
 }
 ```
 
@@ -421,8 +440,8 @@ fn digest_uuid(id: &uuid::Uuid, e: &mut quiddity::Encoder) {
 }
 ```
 
-[`Encoder`] writes the primitive kinds (`null`, `bool`, `int`, `float`, `str`,
-`bytes`) and the composite ones (`list`, `set`, `map`, `fields`). A manual
+[`Encoder`] writes the primitive kinds (`null`, `bool`, `int`, `float`, and
+strings with `str` or `bytes`) and the composite ones (`list`, `set`, `map`, `fields`). A manual
 `Quiddity` impl uses the same API.
 
 ### Manually implementing the Quiddity trait
@@ -492,7 +511,7 @@ assert_eq!(ring.quiddity(), vec![1, 2, 3].quiddity());
 ### Requesting other implementations
 
 Support for more crates and formats is welcome, for example `smallvec`,
-`arrayvec`, `chrono`, `time`, `rust_decimal`, `bson`, Amazon Ion, CBOR,
+`arrayvec`, `chrono`, `time`, `jiff`, `rust_decimal`, `bson`, Amazon Ion, CBOR,
 MessagePack, TOML or YAML values. Please open an issue and / or a pull request,
 if you would like to see an implementation for another type.  Please say how
 the type's values should be digested. In the meantime, the `serde` feature

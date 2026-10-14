@@ -21,7 +21,6 @@ pub(crate) mod tag {
     pub const INT: u8 = 0x10;
     pub const FLOAT: u8 = 0x11;
     pub const STRING: u8 = 0x20;
-    pub const BYTES: u8 = 0x21;
     pub const LIST: u8 = 0x30;
     #[cfg(feature = "alloc")]
     pub const SET: u8 = 0x31;
@@ -34,8 +33,8 @@ const VALUE_PREFIX: &[u8] = b"quiddity/1/value";
 /// Writes a value's encoding.
 ///
 /// An `Encoder` is handed to [`Quiddity::encode`] and to `with` functions.
-/// It writes one value: a primitive (`null`, `bool`, `int`, `float`, `str`,
-/// `bytes`), or a composite (`list`, `set`, `map`, `fields`) whose writer
+/// It writes one value: a primitive (`null`, `bool`, `int`, `float`, and a
+/// string with `str` or `bytes`), or a composite (`list`, `set`, `map`, `fields`) whose writer
 /// encodes the items.
 pub struct Encoder {
     sink: Sink,
@@ -139,17 +138,18 @@ impl Encoder {
         }
     }
 
-    /// Writes a string.
+    /// Writes a string of text, as its UTF-8 bytes.
     pub fn str(&mut self, value: &str) {
-        self.write(value.as_bytes());
-        self.write_len_tag(value.len(), tag::STRING);
+        self.bytes(value.as_bytes());
     }
 
-    /// Writes a byte string. (`Vec<u8>` and `[u8]` as values are lists of
-    /// integers, not byte strings; this is the way to write the bytes kind.)
+    /// Writes a string of bytes. Text and bytes are the same kind (spec
+    /// 2.3): `bytes(b"abc")` writes the same as `str("abc")`. (`Vec<u8>` and
+    /// `[u8]` as values are lists of integers; this is the way to write
+    /// binary data as a string.)
     pub fn bytes(&mut self, value: &[u8]) {
         self.write(value);
-        self.write_len_tag(value.len(), tag::BYTES);
+        self.write_len_tag(value.len(), tag::STRING);
     }
 
     /// Writes a string supplied in pieces, through [`core::fmt::Write`].
@@ -159,10 +159,31 @@ impl Encoder {
         StrStream { e: self, len: 0 }
     }
 
-    /// Writes a byte string supplied in pieces. The digest is the same as
-    /// for the whole byte string written with [`bytes`](Self::bytes).
+    /// Writes a string of bytes supplied in pieces. The digest is the same
+    /// as for the whole string written with [`bytes`](Self::bytes).
     pub fn bytes_stream(&mut self) -> BytesStream<'_> {
         BytesStream { e: self, len: 0 }
+    }
+
+    /// Writes text given as UTF-16 code units, which may be ill-formed, as
+    /// its WTF-8 bytes (spec 2.3).
+    #[cfg(any(all(windows, feature = "std"), all(test, feature = "alloc")))]
+    pub(crate) fn utf16(&mut self, units: impl IntoIterator<Item = u16>) {
+        let mut s = self.bytes_stream();
+        for unit in char::decode_utf16(units) {
+            match unit {
+                Ok(c) => s.push(c.encode_utf8(&mut [0; 4]).as_bytes()),
+                Err(err) => {
+                    // The three bytes UTF-8's scheme gives the code point.
+                    let u = err.unpaired_surrogate();
+                    s.push(&[
+                        0xE0 | (u >> 12) as u8,
+                        0x80 | ((u >> 6) & 0x3F) as u8,
+                        0x80 | (u & 0x3F) as u8,
+                    ]);
+                }
+            }
+        }
     }
 
     /// Writes the string produced by `value`'s `Display` impl.
@@ -249,21 +270,21 @@ impl Drop for StrStream<'_> {
     }
 }
 
-/// Writes a byte string in pieces. Created by [`Encoder::bytes_stream`];
-/// the byte string ends when this is finished or dropped.
+/// Writes a string of bytes in pieces. Created by [`Encoder::bytes_stream`];
+/// the string ends when this is finished or dropped.
 pub struct BytesStream<'e> {
     e: &'e mut Encoder,
     len: usize,
 }
 
 impl BytesStream<'_> {
-    /// Appends `bytes` to the byte string.
+    /// Appends `bytes` to the string.
     pub fn push(&mut self, bytes: &[u8]) {
         self.e.write(bytes);
         self.len += bytes.len();
     }
 
-    /// Ends the byte string. Dropping the writer does the same.
+    /// Ends the string. Dropping the writer does the same.
     pub fn finish(self) {}
 }
 
@@ -281,7 +302,7 @@ impl std::io::Write for BytesStream<'_> {
 
 impl Drop for BytesStream<'_> {
     fn drop(&mut self) {
-        self.e.write_len_tag(self.len, tag::BYTES);
+        self.e.write_len_tag(self.len, tag::STRING);
     }
 }
 
@@ -593,6 +614,7 @@ mod tests {
             encoding(|e| e.bytes(&[1, 2, 3])),
         );
         assert_eq!(encoding(|e| e.display(&42u8)), encoding(|e| e.str("42")));
+        assert_eq!(encoding(|e| e.bytes(b"abc")), encoding(|e| e.str("abc")));
     }
 
     #[cfg(feature = "alloc")]

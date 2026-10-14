@@ -4,14 +4,16 @@
     python3 test-vectors/generate.py --check  # fail if the file is stale
 
 Values are written in a typed JSON notation, since JSON alone cannot express
-bytes, sets, non-string map keys, or a float distinct from an integer:
+binary strings, text with surrogates, sets, non-string map keys, or a float
+distinct from an integer:
 
     {"null": null}
     {"bool": true}
     {"int": "-129"}                       decimal, any size
     {"float": "3ff8000000000000"}         binary64 bits, before normalization
-    {"string": "a"}
-    {"bytes": "0102"}                     hex
+    {"string": "a"}                       text
+    {"code_points": [97, 55296]}          text, which may contain surrogates
+    {"bytes": "0102"}                     a string given as hex
     {"list": [v, ...]}
     {"set": [v, ...]}                     in no particular order
     {"map": [[k, v], ...]}                in no particular order
@@ -51,6 +53,10 @@ def float_(x):
 
 def string(s):
     return s, {"string": s}
+
+
+def code_points(*cps):
+    return "".join(map(chr, cps)), {"code_points": list(cps)}
 
 
 def bytes_(hexs):
@@ -121,9 +127,17 @@ VALUES = [
     ("string e-acute decomposed", string("é")),
     ("string astral", string("\U0001F600")),
     ("string nul", string("\u0000")),
-    # Bytes.
-    ("bytes empty", bytes_("")),
+    # Text with surrogates, as WTF-8; JSON cannot hold it as a string.
+    ("text lone high surrogate", code_points(0xD800)),
+    ("text lone low surrogate", code_points(0xDC00)),
+    ("text surrogate after a scalar value", code_points(0x61, 0xDFFF)),
+    ("text surrogate pair (is U+1F600)", code_points(0xD83D, 0xDE00)),
+    ("text low then high surrogate", code_points(0xDC00, 0xD800)),
+    # Binary strings: the same kind as text.
+    ("bytes empty (is string empty)", bytes_("")),
     ("bytes 0102", bytes_("0102")),
+    ("bytes 61 (is string a)", bytes_("61")),
+    ("bytes ff (not UTF-8)", bytes_("ff")),
     # Lists.
     ("list empty", list_()),
     ("list [1, a]", list_(int_(1), string("a"))),
@@ -137,12 +151,13 @@ VALUES = [
     ("set {1, 1}", set_(int_(1), int_(1))),
     ("set {1, 1.0}", set_(int_(1), float_(1.0))),
     ("set of every kind", set_(
-        obj(), set_(), list_(), bytes_(""), string(""), float_bits("7ff8000000000000"),
+        obj(), set_(), list_(), string(""), float_bits("7ff8000000000000"),
         float_(float("inf")), float_(1.5), int_(1), float_(float("-inf")),
         boolean(True), boolean(False), null(),
     )),
     ("set {b, aa}", set_(string("b"), string("aa"))),
     ("set {ab, a}", set_(string("ab"), string("a"))),
+    ("set {a, bytes 61}", set_(string("a"), bytes_("61"))),
     ("set {-1, 1} (1 first)", set_(int_(-1), int_(1))),
     ("set {1.5, 1} (1 first)", set_(float_(1.5), int_(1))),
     ("set {[1,2], [1]}", set_(list_(int_(1), int_(2)), list_(int_(1)))),
@@ -169,14 +184,6 @@ DOMAINS = [
     ("refund", obj(to=string("bob"), amount=int_(100)), "example.refund"),
     ("null in domain", null(), "a"),
     ("non-ascii label", null(), "café"),
-]
-
-# Strings that MUST be rejected, given as code points: many JSON parsers
-# refuse lone surrogate escapes, so they cannot be written as JSON strings.
-INVALID_STRINGS = [
-    ("lone high surrogate", [0xD800]),
-    ("lone low surrogate", [0xDC00]),
-    ("surrogate after a scalar value", [0x61, 0xDFFF]),
 ]
 
 d0 = digest(None)
@@ -210,21 +217,12 @@ def build():
             "name": name, "value": js, "label": label,
             "structural": text(s), **digests(in_domain(s, label)),
         })
-    invalid = []
-    for name, code_points in INVALID_STRINGS:
-        try:
-            enc("".join(map(chr, code_points)))
-        except UnicodeEncodeError:
-            invalid.append({"name": name, "code_points": code_points})
-        else:
-            raise AssertionError(name)
     texts = [{"text": t, "valid": ok, "requirement": req} for t, ok, req in TEXT_FORMS]
     return {
         "spec": "QUIDDITY_SPEC.md, version 1 (draft)",
         "generator": "test-vectors/generate.py",
         "values": values,
         "domains": domains,
-        "invalid_strings": invalid,
         "text_forms": texts,
     }
 

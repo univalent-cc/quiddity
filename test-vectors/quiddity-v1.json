@@ -403,24 +403,107 @@
       "digest64": "sha256-64:a7db543aef16e8ab"
     },
     {
-      "name": "bytes empty",
+      "name": "text lone high surrogate",
+      "value": {
+        "code_points": [
+          55296
+        ]
+      },
+      "encoding": "eda080000000000000000320",
+      "digest": "sha256:09909f4268716c49fb7346940132082a21c5ac92322badeefa123a2ebca9d8af",
+      "digest128": "sha256-128:09909f4268716c49fb7346940132082a",
+      "digest64": "sha256-64:09909f4268716c49"
+    },
+    {
+      "name": "text lone low surrogate",
+      "value": {
+        "code_points": [
+          56320
+        ]
+      },
+      "encoding": "edb080000000000000000320",
+      "digest": "sha256:a74da72ad6b45963575c40c5473910cfc4e913c5c599fb6403f1f6e794951748",
+      "digest128": "sha256-128:a74da72ad6b45963575c40c5473910cf",
+      "digest64": "sha256-64:a74da72ad6b45963"
+    },
+    {
+      "name": "text surrogate after a scalar value",
+      "value": {
+        "code_points": [
+          97,
+          57343
+        ]
+      },
+      "encoding": "61edbfbf000000000000000420",
+      "digest": "sha256:64062769ef9c59888d762ddccd8f3a2efc4d8b08132e09c508e55485b5557507",
+      "digest128": "sha256-128:64062769ef9c59888d762ddccd8f3a2e",
+      "digest64": "sha256-64:64062769ef9c5988"
+    },
+    {
+      "name": "text surrogate pair (is U+1F600)",
+      "value": {
+        "code_points": [
+          55357,
+          56832
+        ]
+      },
+      "encoding": "f09f9880000000000000000420",
+      "digest": "sha256:f6fe5841e8845f22f28f150d159b7bfe13f900c1ab6f5bb8aa8062cd13fd8de6",
+      "digest128": "sha256-128:f6fe5841e8845f22f28f150d159b7bfe",
+      "digest64": "sha256-64:f6fe5841e8845f22"
+    },
+    {
+      "name": "text low then high surrogate",
+      "value": {
+        "code_points": [
+          56320,
+          55296
+        ]
+      },
+      "encoding": "edb080eda080000000000000000620",
+      "digest": "sha256:b63f59ab7b41092f88715f2304a6711c9231b850559bd52eb5ca4040fae7d4af",
+      "digest128": "sha256-128:b63f59ab7b41092f88715f2304a6711c",
+      "digest64": "sha256-64:b63f59ab7b41092f"
+    },
+    {
+      "name": "bytes empty (is string empty)",
       "value": {
         "bytes": ""
       },
-      "encoding": "000000000000000021",
-      "digest": "sha256:309807ca7a398f19398f87f15c27c20dafdc3e7674a812e4061fd0deb8cda2dc",
-      "digest128": "sha256-128:309807ca7a398f19398f87f15c27c20d",
-      "digest64": "sha256-64:309807ca7a398f19"
+      "encoding": "000000000000000020",
+      "digest": "sha256:ccfa4dd49d648cac65707bcf15fc185e123719040e76c8821528aa740681368d",
+      "digest128": "sha256-128:ccfa4dd49d648cac65707bcf15fc185e",
+      "digest64": "sha256-64:ccfa4dd49d648cac"
     },
     {
       "name": "bytes 0102",
       "value": {
         "bytes": "0102"
       },
-      "encoding": "0102000000000000000221",
-      "digest": "sha256:7991d5d6d37fb8a576ea776dc2fad7c9562867a447a84b9986093ced1210581b",
-      "digest128": "sha256-128:7991d5d6d37fb8a576ea776dc2fad7c9",
-      "digest64": "sha256-64:7991d5d6d37fb8a5"
+      "encoding": "0102000000000000000220",
+      "digest": "sha256:cee203491d38080c54e55b59fc6328def04b53c438cd9075d71e362572b66409",
+      "digest128": "sha256-128:cee203491d38080c54e55b59fc6328de",
+      "digest64": "sha256-64:cee203491d38080c"
+    },
+    {
+      "name": "bytes 61 (is string a)",
+      "value": {
+        "bytes": "61"
+      },
+      "encoding": "61000000000000000120",
+      "digest": "sha256:0c5e6442aeba354df983cdeb8d149971d02caa5e542a84f929c3dd7faa0d14a6",
+      "digest128": "sha256-128:0c5e6442aeba354df983cdeb8d149971",
+      "digest64": "sha256-64:0c5e6442aeba354d"
+    },
+    {
+      "name": "bytes ff (not UTF-8)",
+      "value": {
+        "bytes": "ff"
+      },
+      "encoding": "ff000000000000000120",
+      "digest": "sha256:a47eb2c80827478bf05de14d3d460aaec7ff805c8f5ae6c8ac7307e5bbd46b7b",
+      "digest128": "sha256-128:a47eb2c80827478bf05de14d3d460aae",
+      "digest64": "sha256-64:a47eb2c80827478b"
     },
     {
       "name": "list empty",
@@ -596,9 +679,6 @@
             "list": []
           },
           {
-            "bytes": ""
-          },
-          {
             "string": ""
           },
           {
@@ -627,10 +707,10 @@
           }
         ]
       },
-      "encoding": "000000000000000020000000000000000021000000000000000030000000000000000031000000000000000032010100000000000000011002033ff8000000000000117ff0000000000000117ff800000000000011fff000000000000011000000000000000d31",
-      "digest": "sha256:d5e1c80fde131f0bb34c0328f6f27c6fd21ef3eaf1319832e7fe555dfb7bb17f",
-      "digest128": "sha256-128:d5e1c80fde131f0bb34c0328f6f27c6f",
-      "digest64": "sha256-64:d5e1c80fde131f0b"
+      "encoding": "000000000000000020000000000000000030000000000000000031000000000000000032010100000000000000011002033ff8000000000000117ff0000000000000117ff800000000000011fff000000000000011000000000000000c31",
+      "digest": "sha256:8869cc732fd1c4c90cc2224c016d066f998b9329134d6729ba37ea15206cdbdb",
+      "digest128": "sha256-128:8869cc732fd1c4c90cc2224c016d066f",
+      "digest64": "sha256-64:8869cc732fd1c4c9"
     },
     {
       "name": "set {b, aa}",
@@ -665,6 +745,23 @@
       "digest": "sha256:a6475f529c1c3d202d15da35a50c697c6c29591ebb6cfde8b8131967b2ddb27c",
       "digest128": "sha256-128:a6475f529c1c3d202d15da35a50c697c",
       "digest64": "sha256-64:a6475f529c1c3d20"
+    },
+    {
+      "name": "set {a, bytes 61}",
+      "value": {
+        "set": [
+          {
+            "string": "a"
+          },
+          {
+            "bytes": "61"
+          }
+        ]
+      },
+      "encoding": "6100000000000000012061000000000000000120000000000000000231",
+      "digest": "sha256:7ee54e08bfc6f610db1688d16802f0f38fcfba37d42dfcc9d9733adb9f42ad27",
+      "digest128": "sha256-128:7ee54e08bfc6f610db1688d16802f0f3",
+      "digest64": "sha256-64:7ee54e08bfc6f610"
     },
     {
       "name": "set {-1, 1} (1 first)",
@@ -1053,27 +1150,6 @@
       "digest": "sha256:9e6551475cebcd8f0f067e3a7887569d6caef92a39557492af2fea5bc8137b35",
       "digest128": "sha256-128:9e6551475cebcd8f0f067e3a7887569d",
       "digest64": "sha256-64:9e6551475cebcd8f"
-    }
-  ],
-  "invalid_strings": [
-    {
-      "name": "lone high surrogate",
-      "code_points": [
-        55296
-      ]
-    },
-    {
-      "name": "lone low surrogate",
-      "code_points": [
-        56320
-      ]
-    },
-    {
-      "name": "surrogate after a scalar value",
-      "code_points": [
-        97,
-        57343
-      ]
     }
   ],
   "text_forms": [

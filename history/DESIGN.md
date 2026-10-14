@@ -493,9 +493,10 @@ serializer writes for it.
 Deferred until requested (the README invites issues and pull requests;
 meanwhile the `serde` feature, D11, covers most of them):
 
-- Time types (`chrono`, `time`, `jiff`): each needs a representation choice
-  (RFC 3339 string or epoch number, precision, time zones). Following each
-  crate's serde representation is the natural rule.
+- Time types (`chrono`, `time`, `jiff`): instants and durations would use
+  the integer nanoseconds of spec 2.6 (D18), so that they digest the same
+  as `SystemTime` and `Duration`. Dates and times without an offset need a
+  separate choice.
 - `rust_decimal`: exact decimals are neither integers nor floats in the
   data model.
 - Other formats' value types (`toml::Value`, `serde_yaml::Value`,
@@ -708,6 +709,50 @@ Recorded for later:
 - **Exact decimals** (R4): Ion's decimal kind, where precision is
   significant (`1.0` and `1.00` differ), is the model.
 - **Redaction** (R5), from objecthash.
+
+## D17. One string kind for text and bytes
+
+Decided after implementation, before publication. The data model had
+separate string (text) and bytes kinds, tags `0x20` and `0x21`. They are
+now one kind, a sequence of bytes, with tag `0x20`; text is its UTF-8
+bytes.
+
+- A digest is never decoded, so the distinction served only to tell text
+  from binary data with the same bytes. Types are not hashed elsewhere
+  either (D4), and `1.0` and `1` are already equal.
+- Elixir and Erlang do not distinguish text from binaries. With two kinds,
+  their implementations would have to guess, and would disagree with Rust
+  whenever binary data happened to be valid UTF-8.
+- Paths and OS strings become simple: the platform's bytes, which for a
+  valid UTF-8 path are the same string as a `str`.
+- Text with lone surrogates (ill-formed UTF-16 from JavaScript, Java,
+  .NET or Windows) is now encoded as WTF-8 instead of being rejected, so
+  encoding a string cannot fail. The `invalid_strings` vectors became
+  ordinary values.
+
+This departs from CBOR, Ion and Preserves (D16), which keep text and bytes
+apart because they are decoded back into typed values.
+
+## D18. Times, durations and more standard library types
+
+Instants and durations are integer nanoseconds (spec 2.6): an instant
+counts from the Unix epoch, in POSIX time. Other languages produce the same
+integer exactly (Python's `time_ns`, Elixir's `DateTime.to_unix(dt,
+:nanosecond)`, Go's `UnixNano`, Java's `Instant`), and an integer does not
+depend on the precision a source keeps. The alternatives were rejected:
+serde's `{secs, nanos}` maps are Rust-specific; RFC 3339 text needs a
+canonical form for fractional digits and offsets, and a formatter; floats
+cannot hold current instants to the nanosecond. `Instant` is not
+implemented: it has no fixed epoch, so its value means nothing outside the
+process.
+
+Also added, following serde's JSON forms where they are well defined:
+IP and socket addresses (RFC 5952 text), `Result`, the range types and
+`Bound`, `Wrapping`, `Saturating`, `Reverse`, `Cell`, the atomics,
+`LinkedList`, `Pin`, `Infallible`, `CStr` and `CString`, and the path and
+OS string types. Not implemented: `BinaryHeap` (no canonical order),
+`RefCell`, `Mutex` and `RwLock` (reading them can panic or block),
+`OnceCell` and `OnceLock`.
 
 ## To revisit
 

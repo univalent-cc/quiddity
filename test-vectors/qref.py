@@ -7,14 +7,15 @@ wins. Python values map onto the data model as:
     bool              boolean
     int               integer
     float             number (normalized by spec 2.2)
-    str               string
-    bytes             bytes
+    str               string: the text's WTF-8 bytes (spec 2.3)
+    bytes             string
     list              list
     Set([...])        set (a multiset: duplicates are kept)
     Map([(k, v)...])  map (a multiset of entries: duplicate keys are kept)
     dict              map with distinct keys
 
-Usage as a library: enc(v), digest(v), in_domain(d, label), text(d).
+Usage as a library: enc(v), digest(v), in_domain(d, label), text(d),
+wtf8(s).
 """
 
 import hashlib
@@ -23,7 +24,7 @@ import struct
 
 T_NULL, T_FALSE, T_TRUE = 0x01, 0x02, 0x03
 T_INT, T_FLOAT = 0x10, 0x11
-T_STR, T_BYTES = 0x20, 0x21
+T_STR = 0x20
 T_LIST, T_SET, T_MAP = 0x30, 0x31, 0x32
 
 H_VALUE = b"quiddity/1/value"
@@ -67,6 +68,21 @@ def norm(v):
     return v
 
 
+def wtf8(s):
+    """Text as bytes (spec 2.3): UTF-8, with surrogate pairs combined and
+    each remaining surrogate written as UTF-8 would write its code point."""
+    out = []
+    i = 0
+    while i < len(s):
+        c = ord(s[i])
+        if 0xD800 <= c < 0xDC00 and i + 1 < len(s) and 0xDC00 <= ord(s[i + 1]) < 0xE000:
+            c = 0x10000 + ((c - 0xD800) << 10) + (ord(s[i + 1]) - 0xDC00)
+            i += 1
+        out.append(chr(c).encode("utf-8", "surrogatepass"))
+        i += 1
+    return b"".join(out)
+
+
 def sorted_members(items):
     """Set members in canonical order (spec 2.5): by their encodings."""
     return sorted(items, key=enc)
@@ -93,10 +109,9 @@ def enc(v):
         b = CANONICAL_NAN if math.isnan(v) else struct.pack(">d", v)
         return b + bytes([T_FLOAT])
     if isinstance(v, str):
-        c = v.encode("utf-8")  # raises on surrogates, as spec 2.3 requires
-        return c + u64be(len(c)) + bytes([T_STR])
+        v = wtf8(v)
     if isinstance(v, bytes):
-        return v + u64be(len(v)) + bytes([T_BYTES])
+        return v + u64be(len(v)) + bytes([T_STR])
     if isinstance(v, list):
         return b"".join(map(enc, v)) + u64be(len(v)) + bytes([T_LIST])
     if isinstance(v, Set):
@@ -116,7 +131,7 @@ def digest(v):
 
 def in_domain(d, label):
     """D(d, label) (spec 4.2)."""
-    lb = label.encode("utf-8")
+    lb = wtf8(label) if isinstance(label, str) else label
     if not lb:
         raise ValueError("domain label must be non-empty")
     return hashlib.sha256(H_DOMAIN + lb + u64be(len(lb)) + d).digest()

@@ -176,11 +176,17 @@ mod serde_feature {
             quiddity::serde::digest(&Raw(&[1, 2])).unwrap(),
             BytesValue(&[1, 2]).quiddity()
         );
+        // Text and bytes are one kind.
+        assert_eq!(
+            quiddity::serde::digest(&Raw(b"ab")).unwrap(),
+            "ab".quiddity()
+        );
         let addr = std::net::Ipv4Addr::LOCALHOST;
         assert_eq!(
             quiddity::serde::digest(&addr).unwrap(),
             "127.0.0.1".quiddity()
         );
+        assert_eq!(quiddity::serde::digest(&addr).unwrap(), addr.quiddity());
     }
 
     struct BytesValue(&'static [u8]);
@@ -277,6 +283,7 @@ fn bytes() {
     let m = bytes::BytesMut::from(&[1u8, 2][..]);
     assert_eq!(b.quiddity(), m.quiddity());
     assert_ne!(b.quiddity(), vec![1u8, 2].quiddity());
+    assert_eq!(bytes::Bytes::from_static(b"ab").quiddity(), "ab".quiddity());
 }
 
 #[cfg(feature = "url")]

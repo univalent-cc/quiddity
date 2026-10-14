@@ -102,6 +102,144 @@ fn maps() {
 }
 
 #[test]
+fn text_and_bytes() {
+    // One kind: text is its UTF-8 bytes.
+    assert!(same("abc", &RawBytes(b"abc")));
+    assert!(same(&String::from("é"), &RawBytes(&[0xC3, 0xA9])));
+    // `Vec<u8>` remains a list of integers.
+    assert!(!same(&RawBytes(b"ab"), &b"ab".to_vec()));
+}
+
+/// A string written with `Encoder::bytes`.
+struct RawBytes(&'static [u8]);
+
+impl Quiddity for RawBytes {
+    fn encode(&self, e: &mut Encoder) {
+        e.bytes(self.0);
+    }
+}
+
+#[test]
+fn times() {
+    use std::time::{Duration, SystemTime, UNIX_EPOCH};
+    // Integer nanoseconds (spec 2.6), with the spec's examples.
+    let new_year_2024 = UNIX_EPOCH + Duration::from_secs(1_704_067_200);
+    assert!(same(&new_year_2024, &1_704_067_200_000_000_000u64));
+    assert!(same(
+        &(UNIX_EPOCH - Duration::from_secs(1)),
+        &-1_000_000_000i64
+    ));
+    assert!(same(&UNIX_EPOCH, &0u8));
+    assert!(same(&Duration::from_micros(3), &3000u16));
+    assert!(same(&Duration::MAX, &Duration::MAX.as_nanos()));
+    assert!(same(&Duration::ZERO, &0u8));
+    let _ = SystemTime::now().quiddity();
+}
+
+#[test]
+fn addresses() {
+    use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV6};
+    let v6 = |s: &str| s.parse::<Ipv6Addr>().unwrap();
+    assert!(same(&Ipv4Addr::new(192, 0, 2, 1), "192.0.2.1"));
+    assert!(same(&IpAddr::V4(Ipv4Addr::LOCALHOST), "127.0.0.1"));
+    // RFC 5952: lowercase, the longest run of zero groups compressed (the
+    // first of equal runs), a lone zero group not compressed, and dotted
+    // notation for IPv4-mapped addresses only.
+    assert!(same(&v6("2001:0DB8:0:0:0:0:0:1"), "2001:db8::1"));
+    assert!(same(&v6("2001:db8:0:0:1:0:0:1"), "2001:db8::1:0:0:1"));
+    assert!(same(&v6("2001:db8:0:1:1:1:1:1"), "2001:db8:0:1:1:1:1:1"));
+    assert!(same(&v6("::ffff:192.0.2.1"), "::ffff:192.0.2.1"));
+    assert!(same(&v6("::192.0.2.1"), "::c000:201"));
+    assert!(same(&Ipv6Addr::LOCALHOST, "::1"));
+    assert!(same(&Ipv6Addr::UNSPECIFIED, "::"));
+    let socket: SocketAddr = "[2001:db8::1]:80".parse().unwrap();
+    assert!(same(&socket, "[2001:db8::1]:80"));
+    assert!(same(
+        &"192.0.2.1:80".parse::<SocketAddr>().unwrap(),
+        "192.0.2.1:80"
+    ));
+    // The scope ID is written; the flow label is not.
+    let scoped = SocketAddrV6::new(v6("fe80::1"), 80, 7, 3);
+    assert!(same(&scoped, "[fe80::1%3]:80"));
+}
+
+#[test]
+fn paths() {
+    use std::ffi::{CString, OsStr, OsString};
+    use std::path::{Path, PathBuf};
+    assert!(same(Path::new("a/b"), "a/b"));
+    assert!(same(&PathBuf::from("a/b"), "a/b"));
+    assert!(same(OsStr::new("a/b"), "a/b"));
+    assert!(same(&OsString::from("a/b"), "a/b"));
+    assert!(same(&Cow::Borrowed(Path::new("a")), "a"));
+    // Not normalized.
+    assert!(!same(Path::new("a//b"), "a/b"));
+    assert!(!same(Path::new("./a"), "a"));
+    // C strings are their bytes, without the terminating NUL.
+    assert!(same(c"abc", "abc"));
+    assert!(same(&CString::new("abc").unwrap(), "abc"));
+    assert!(same(c"\xff", &RawBytes(b"\xff")));
+}
+
+#[cfg(unix)]
+#[test]
+fn paths_not_utf8() {
+    use std::os::unix::ffi::OsStrExt;
+    let path = std::path::Path::new(std::ffi::OsStr::from_bytes(b"a\xff"));
+    assert!(same(path, &RawBytes(b"a\xff")));
+}
+
+#[test]
+fn ranges() {
+    use std::ops::Bound;
+    assert_eq!((10u8..15).quiddity().to_string(), START_END);
+    assert_eq!((10u8..=15).quiddity().to_string(), START_END);
+    assert!(same(&(10u8..), &BTreeMap::from([("start", 10u8)])));
+    assert!(same(&(..15u8), &BTreeMap::from([("end", 15u8)])));
+    assert!(same(&(..=15u8), &BTreeMap::from([("end", 15u8)])));
+    assert!(same(
+        &Bound::Included(1u8),
+        &BTreeMap::from([("Included", 1u8)])
+    ));
+    assert!(same(
+        &Bound::Excluded(1u8),
+        &BTreeMap::from([("Excluded", 1u8)])
+    ));
+    assert!(same(&Bound::<u8>::Unbounded, "Unbounded"));
+}
+
+#[test]
+fn results() {
+    assert!(same(&Ok::<u8, ()>(5), &BTreeMap::from([("Ok", 5u8)])));
+    assert!(same(
+        &Err::<(), &str>("no"),
+        &BTreeMap::from([("Err", "no")])
+    ));
+    assert!(same(
+        &Ok::<u8, std::convert::Infallible>(5),
+        &Ok::<u8, ()>(5)
+    ));
+}
+
+#[test]
+fn wrappers() {
+    use std::cell::Cell;
+    use std::cmp::Reverse;
+    use std::collections::LinkedList;
+    use std::num::{Saturating, Wrapping};
+    use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU8};
+    assert!(same(&Wrapping(5u8), &5u8));
+    assert!(same(&Saturating(5u8), &5u8));
+    assert!(same(&Reverse("a"), "a"));
+    assert!(same(&Cell::new(5u8), &5u8));
+    assert!(same(&AtomicU8::new(5), &5u8));
+    assert!(same(&AtomicI64::new(-5), &-5i8));
+    assert!(same(&AtomicBool::new(true), &true));
+    assert!(same(&std::pin::Pin::new(Box::new(5u8)), &5u8));
+    assert!(same(&LinkedList::from([1u8, 2]), &vec![1u8, 2]));
+}
+
+#[test]
 fn digests_as_strings() {
     let d = 5u8.quiddity();
     assert!(same(&d, &d.to_string()));
