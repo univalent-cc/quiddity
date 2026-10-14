@@ -11,9 +11,19 @@
 )]
 #![cfg_attr(not(feature = "identity"), doc = "[`identity::Kind`]: #cargo-features")]
 #![cfg_attr(
+    not(feature = "identity"),
+    doc = "[`identity::Field`]: #cargo-features"
+)]
+#![cfg_attr(not(feature = "identity"), doc = "[`Identity`]: #cargo-features")]
+#![cfg_attr(
     feature = "identity",
     doc = "[`identity::Kind`]: crate::identity::Kind"
 )]
+#![cfg_attr(
+    feature = "identity",
+    doc = "[`identity::Field`]: crate::identity::Field"
+)]
+#![cfg_attr(feature = "identity", doc = "[`Identity`]: crate::identity::Identity")]
 // Normal links to crate items:
 //! [`Quiddity`]: trait@Quiddity
 //! [`Digest`]: Digest
@@ -21,7 +31,7 @@
 //! [`Digest64`]: Digest64
 //! [`Digest::mini()`]: Digest::mini
 //! [`Digest::micro()`]: Digest::micro
-//! [`in_domain`]: Digest::in_domain
+//! [`Digest::in_domain`]: Digest::in_domain
 //! [`IdentityMarker`]: trait@IdentityMarker
 //! [`Primary`]: Primary
 //! [`Encoder`]: Encoder

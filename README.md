@@ -17,18 +17,178 @@ Properties of `quiddity` include:
   depending on the purpose of the digest.  Different digest identities may allow
   for different field subsets, field encoding parameters, etc.
 
+## Concepts
+
+The fields and parameters that inform the digest logic are an *identity*.
+A *digest* is computed from a value under an identity.
+
+The examples in this section use the Rust crate's identity API, which builds
+an identity at run time, and uses it to digest dynamic (e.g. JSON) values with
+it. Each language's implementation offers the same base set of operations.
+
+The Rust API also allows identities to be declared with a derive macro, for
+static compilation of the digest function.  See the [Rust README](rust/README.md).
+
+### Digests
+
+A quiddity digest is a SHA-256 hash of what a value means, and should be
+invariant to the details of how it is represented. Values with the same
+essential content have the same digest, regardless of key order, container
+type, number formatting, and non-essential additional fields (timestamps, caches, etc.).
+
+A digest is written as `sha256:<64 hex digits>`, and can be shortened to 128
+or 64 bits (`sha256-128:…`, `sha256-64:…`). 64 bits is enough to compare two
+known values, but not for large collections or where collisions could be
+forged.
+
+### Identities
+
+An identity provides instructions for which fields belong in a digest and
+how to encode them.
+
+```rust
+use quiddity::identity::{Field, Identity, Kind};
+use serde_json::json;
+
+// Define an Identity for the DocumentRef type
+let document_ref = Identity::new(Kind::object([
+    ("label", Kind::String),
+    ("content", Kind::String), // a digest, in its text form
+])?)?
+.named("DocumentRef");
+
+// Define an Identity for the Task type, which includes the `document_ref` Identity
+let task = Identity::new(Kind::object([
+    ("prompt", Field::new(Kind::String)),
+    ("documents", Field::new(Kind::list(document_ref))),
+    ("priority", Field::new(Kind::Integer)),
+])?)?
+.named("Task");
+
+// Use the `task` identity to digest the JSON
+let digest = task.digest(&json!({
+    "prompt": "Summarize the report",
+    "documents": [{"label": "report", "content": "sha256:…"}],
+    "priority": 1,
+    "submitted_at": "2026-10-14T09:30:00Z", // not a field: not part of the digest
+}))?;
+
+println!("{digest}"); // sha256:9f2c…
+```
+
+#### Identities are portable
+
+An identity can be written as a JSON document, which every implementation
+reads, and which a Rust type can export from its derived identity. An
+identity has a digest of its own, which every implementation computes the
+same way:
+
+```rust
+let id = Identity::new(Kind::object([("prompt", Kind::String)])?)?;
+let document = id.to_json();
+// {"quiddity": 1, "root": {"object": {"fields": {"prompt": {"kind": "string"}}}}}
+assert_eq!(Identity::from_json(&document)?, id);
+```
+
+### Digest Encoding Behavior
+
+The goal of quiddity is to inform the digest based on the essential meaning
+of the values, without being influenced by properties of the representation,
+like the container type, or by ephemeral fields.
+
+Values are digested according to the following rules:
+
+- Numbers are digested by value, not by type: `5`, `5.0` and `5e0` have
+  the same digest. So do `-0.0` and `0`, and every NaN. A boolean is not a
+  number: `true` and `1` have different digests.
+- A map is digested by its entries, not by the order it lists them in. A
+  map with string keys has the same digest as an object with those field
+  names.
+- Sets are likewise unordered, but a set is not a list. Lists are digested
+  in order; reordering the items changes the digest.
+- Text and binary data are both strings. Text is digested as its UTF-8
+  bytes.
+- Strings are not Unicode-normalized: `é` as one code point and as `e` plus
+  a combining accent are different strings, with different digests.
+  Normalize text before hashing if it may contain both.
+- A field that is missing is read as null. A field can be left out when it
+  is null or empty, so that adding it does not change the digests of
+  existing values.
+- An instant is digested as the integer number of nanoseconds since the
+  Unix epoch, and a duration as an integer number of nanoseconds, whatever
+  form they are written in.
+
+An identity reads the forms values are commonly written in: the text `"1"`
+where an integer is expected, RFC 3339 text for an instant, base64 for
+bytes. It never turns a value into text, which would choose a spelling the
+source did not. A value of the wrong shape is an error.
+
+```rust
+let id = Identity::new(Kind::object([
+    ("count", Kind::Integer),
+    ("at", Kind::instant()),
+    ("tags", Kind::set(Kind::String)),
+])?)?;
+let a = id.digest(&json!({"count": 5, "at": "2024-01-01T00:00:00Z", "tags": ["x", "y"]}))?;
+let b = id.digest(&json!({"tags": ["y", "x"], "at": "2024-01-01T01:00:00+01:00", "count": "5.0"}))?;
+assert_eq!(a, b);
+```
+
+### Domains
+
+Sometimes we want to encode type or provenance information into a digest.
+By default, a digest only depends on the contents of a type, so two
+types with the same field names and values would have the same digest.
+
+This could be a problem when digests are signed. For example, if a
+signature over the digest of a `Payment` is accepted as authorizing that
+payment, the same signature must not also verify the `Refund`, even though
+both types contain exactly the same fields. A domain makes the digests also
+depend on the domain name:
+
+```rust
+let fields = Kind::object([("to", Kind::String), ("amount", Kind::Integer)])?;
+let mut payment = Identity::new(fields)?;
+let mut refund = payment.clone();
+payment.set_domain("example.payment")?;
+refund.set_domain("example.refund")?;
+
+let value = json!({"to": "bob", "amount": 100});
+assert_ne!(payment.digest(&value)?, refund.digest(&value)?);
+```
+
+An identity has no domain unless one is explicitly set. A digest in a
+domain is computed in two steps: the structural digest of the contents is
+computed first, then the domain label is hashed into the digest.
+Identities may share a domain. The domain is applied to the top-level
+value only; nested values are digested structurally.
+
+IMPORTANT: Domains do not make digests unforgeable: the encoding is public,
+and anyone can compute any digest in any domain. A domain allows a digest
+to encode provenance, so that a secure signature cannot be reused for a
+value of another kind.
+
+### Stability
+
+The encoding is specified in [`QUIDDITY_SPEC.md`](QUIDDITY_SPEC.md), and
+its hash inputs name its version (`quiddity/1`). Every implementation is
+tested against the vectors in [`test-vectors/`](test-vectors/), and an
+implementation's compatible releases do not change the digest of any value.
+
+## Language Support
+
 Every implementation is tested against the shared vectors in
 [`test-vectors/`](test-vectors/).
 
-## Elixir
+### Elixir
 
 Coming soon
 
-## Python
+### Python
 
 Coming soon
 
-## Rust
+### Rust
 
 The Rust crate in [`rust/`](rust/) includes:
 
@@ -36,6 +196,8 @@ The Rust crate in [`rust/`](rust/) includes:
 - Implementations for most `std` types
 - Optional features for types from `serde_json`, `indexmap`, `uuid`, `bytes` and `url`.
 - Support for any type that implements serde's `Serialize`.
+- Identities built at run time and read from identity documents, and
+  identities exported from derived types.
 - Compatibility with `no_std` environments.
 
 ## Alternatives to Quiddity

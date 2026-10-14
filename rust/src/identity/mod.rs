@@ -38,6 +38,25 @@ pub use load::InvalidIdentity;
 ///
 /// An `Identity` is always valid (spec 5.9) and in canonical form (spec
 /// 5.3).
+///
+/// # Examples
+///
+/// ```
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// # use quiddity::identity::{Field, Identity, Kind, Omit, Unit};
+/// # use serde_json::json;
+/// let task = Identity::new(Kind::object([
+///     ("prompt", Field::new(Kind::String)),
+///     ("priority", Field::new(Kind::Integer)),
+///     ("note", Field::optional(Kind::String)),
+/// ])?)?;
+/// // `submitted_at` is not a field of the identity, so it does not count.
+/// let a = task.digest(&json!({"prompt": "p", "priority": 1, "submitted_at": "09:30"}))?;
+/// let b = task.digest(&json!({"prompt": "p", "priority": 1, "submitted_at": "17:45"}))?;
+/// assert_eq!(a, b);
+/// # Ok(())
+/// # }
+/// ```
 #[derive(Clone, Debug, PartialEq, Eq, Quiddity)]
 #[quiddity(domain = "quiddity.identity")]
 pub struct Identity {
@@ -51,6 +70,19 @@ pub struct Identity {
 }
 
 /// What a value is, and how it is read (spec 5.4).
+///
+/// # Examples
+///
+/// ```
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// # use quiddity::identity::{Field, Identity, Kind, Omit, Unit};
+/// # use serde_json::json;
+/// let point = Kind::object([("x", Kind::Integer), ("y", Kind::Integer)])?;
+/// let path = Kind::list(point);
+/// assert!(matches!(path, Kind::List(_)));
+/// # Ok(())
+/// # }
+/// ```
 #[derive(Clone, Debug, PartialEq, Eq, Quiddity)]
 #[quiddity(rename_all = "snake_case")]
 pub enum Kind {
@@ -199,6 +231,23 @@ pub struct ObjectKind {
 }
 
 /// A field of an [`ObjectKind`].
+///
+/// # Examples
+///
+/// ```
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// # use quiddity::identity::{Field, Identity, Kind, Omit, Unit};
+/// # use serde_json::json;
+/// // A bare kind is a field that is always present and never omitted.
+/// let id = Identity::new(Kind::object([
+///     ("brief", Field::new(Kind::String)),
+///     ("tags", Field::omit_empty(Kind::set(Kind::String))),
+///     ("kind", Field::new(Kind::String).rename("type")),
+/// ])?)?;
+/// assert!(id.digest(&json!({"brief": "b", "kind": "q"})).is_ok());
+/// # Ok(())
+/// # }
+/// ```
 #[derive(Clone, Debug, PartialEq, Eq, Quiddity)]
 pub struct Field {
     /// The field's kind. A missing member is read as null.
@@ -281,32 +330,115 @@ pub struct Variant {
 
 impl Kind {
     /// A list of `item`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use quiddity::identity::{Field, Identity, Kind, Omit, Unit};
+    /// # use serde_json::json;
+    /// let id = Identity::new(Kind::list(Kind::String))?;
+    /// // Order matters.
+    /// assert_ne!(id.digest(&json!(["a", "b"]))?, id.digest(&json!(["b", "a"]))?);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn list(item: impl Into<Kind>) -> Kind {
         Kind::List(Box::new(item.into()))
     }
 
     /// A set of `member`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use quiddity::identity::{Field, Identity, Kind, Omit, Unit};
+    /// # use serde_json::json;
+    /// let id = Identity::new(Kind::set(Kind::String))?;
+    /// // Order does not matter.
+    /// assert_eq!(id.digest(&json!(["a", "b"]))?, id.digest(&json!(["b", "a"]))?);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn set(member: impl Into<Kind>) -> Kind {
         Kind::Set(Box::new(member.into()))
     }
 
     /// `kind` or null.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use quiddity::identity::{Field, Identity, Kind, Omit, Unit};
+    /// # use serde_json::json;
+    /// let id = Identity::new(Kind::optional(Kind::Integer))?;
+    /// assert!(id.digest(&json!(null)).is_ok());
+    /// assert!(id.digest(&json!(5)).is_ok());
+    /// assert!(id.digest(&json!("five")).is_err());
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn optional(kind: impl Into<Kind>) -> Kind {
         Kind::Union(alloc::vec![Kind::Null, kind.into()])
     }
 
     /// The identity this kind is placed in, for recursive types: a tree
     /// node's `children` field is `Kind::list(Kind::recursive())`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use quiddity::identity::{Field, Identity, Kind, Omit, Unit};
+    /// # use serde_json::json;
+    /// // A tree: each node's children are nodes.
+    /// let node = Identity::new(Kind::object([
+    ///     ("value", Field::new(Kind::Integer)),
+    ///     ("children", Field::new(Kind::list(Kind::recursive()))),
+    /// ])?)?
+    /// .named("Node");
+    /// let tree = json!({"value": 1, "children": [{"value": 2, "children": []}]});
+    /// assert!(node.digest(&tree).is_ok());
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn recursive() -> Kind {
         Kind::Recursive
     }
 
     /// Bytes, read from text as base64.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use quiddity::identity::{Field, Identity, Kind, Omit, Unit};
+    /// # use serde_json::json;
+    /// let id = Identity::new(Kind::bytes())?;
+    /// // An array of byte values and base64 text: the same bytes.
+    /// assert_eq!(id.digest(&json!([104, 105]))?, id.digest(&json!("aGk="))?);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn bytes() -> Kind {
         Kind::Bytes(BytesOptions::default())
     }
 
     /// Bytes, read from text as hexadecimal digits.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use quiddity::identity::{Field, Identity, Kind, Omit, Unit};
+    /// # use serde_json::json;
+    /// let id = Identity::new(Kind::bytes_hex())?;
+    /// assert_eq!(id.digest(&json!("6869"))?, id.digest(&json!([104, 105]))?);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn bytes_hex() -> Kind {
         Kind::Bytes(BytesOptions {
             text: Some(BytesText::Hex),
@@ -314,27 +446,105 @@ impl Kind {
     }
 
     /// An instant, read from RFC 3339 text or serde's `SystemTime` form.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use quiddity::identity::{Field, Identity, Kind, Omit, Unit};
+    /// # use serde_json::json;
+    /// let id = Identity::new(Kind::instant())?;
+    /// let utc = id.digest(&json!("2024-01-01T00:00:00Z"))?;
+    /// let paris = id.digest(&json!("2024-01-01T01:00:00+01:00"))?;
+    /// assert_eq!(utc, paris);
+    /// // A time without an offset is not an instant.
+    /// assert!(id.digest(&json!("2024-01-01T00:00:00")).is_err());
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn instant() -> Kind {
         Kind::Instant(TimeOptions::default())
     }
 
     /// An instant, also read from a number of `unit`s since the Unix epoch.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use quiddity::identity::{Field, Identity, Kind, Omit, Unit};
+    /// # use serde_json::json;
+    /// let id = Identity::new(Kind::instant_in(Unit::Ms))?;
+    /// assert_eq!(
+    ///     id.digest(&json!(1704067200000u64))?,
+    ///     id.digest(&json!("2024-01-01T00:00:00Z"))?,
+    /// );
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn instant_in(unit: Unit) -> Kind {
         Kind::Instant(TimeOptions { unit: Some(unit) })
     }
 
     /// A duration, read from ISO 8601 text or serde's `Duration` form.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use quiddity::identity::{Field, Identity, Kind, Omit, Unit};
+    /// # use serde_json::json;
+    /// let id = Identity::new(Kind::duration())?;
+    /// assert_eq!(id.digest(&json!("PT90S"))?, id.digest(&json!("PT1M30S"))?);
+    /// // serde's form of a Rust `Duration`.
+    /// assert_eq!(
+    ///     id.digest(&json!("PT1.5S"))?,
+    ///     id.digest(&json!({"secs": 1, "nanos": 500000000}))?,
+    /// );
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn duration() -> Kind {
         Kind::Duration(TimeOptions::default())
     }
 
     /// A duration, also read from a number of `unit`s.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use quiddity::identity::{Field, Identity, Kind, Omit, Unit};
+    /// # use serde_json::json;
+    /// let id = Identity::new(Kind::duration_in(Unit::S))?;
+    /// assert_eq!(id.digest(&json!(90))?, id.digest(&json!("PT1M30S"))?);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn duration_in(unit: Unit) -> Kind {
         Kind::Duration(TimeOptions { unit: Some(unit) })
     }
 
     /// A map from `key` to `value`. In JSON every key is a string, so `key`
     /// must accept strings.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use quiddity::identity::{Field, Identity, Kind, Omit, Unit};
+    /// # use serde_json::json;
+    /// // Keys read as integers from JSON's string keys.
+    /// let id = Identity::new(Kind::map(Kind::Integer, Kind::String)?)?;
+    /// assert_eq!(
+    ///     id.digest(&json!({"1": "a", "2": "b"}))?,
+    ///     id.digest(&json!({"2": "b", "1": "a"}))?,
+    /// );
+    /// // A key kind must accept strings.
+    /// assert!(Kind::map(Kind::list(Kind::String), Kind::Any).is_err());
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn map(key: impl Into<Kind>, value: impl Into<Kind>) -> Result<Kind, InvalidIdentity> {
         compose::checked(Kind::Map(MapKind {
             key: Box::new(key.into()),
@@ -343,6 +553,24 @@ impl Kind {
     }
 
     /// An object with the given fields, encoded as a map from their keys.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use quiddity::identity::{Field, Identity, Kind, Omit, Unit};
+    /// # use serde_json::json;
+    /// let id = Identity::new(Kind::object([("x", Kind::Integer), ("y", Kind::Integer)])?)?;
+    /// // Members not listed are skipped, and member order does not matter.
+    /// assert_eq!(
+    ///     id.digest(&json!({"x": 1, "y": 2, "label": "a"}))?,
+    ///     id.digest(&json!({"y": 2, "x": 1}))?,
+    /// );
+    /// // A missing member is null, which `Kind::Integer` does not accept.
+    /// assert!(id.digest(&json!({"x": 1})).is_err());
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn object<N, F>(fields: impl IntoIterator<Item = (N, F)>) -> Result<Kind, InvalidIdentity>
     where
         N: Into<String>,
@@ -353,6 +581,20 @@ impl Kind {
 
     /// An object with the given fields, encoded as the list of their values
     /// in the order given. Its fields cannot be omitted.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use quiddity::identity::{Field, Identity, Kind, Omit, Unit};
+    /// # use serde_json::json;
+    /// let point = Identity::new(Kind::object_as_list([("x", Kind::Integer), ("y", Kind::Integer)])?)?;
+    /// let list = Identity::new(Kind::list(Kind::Integer))?;
+    /// // Digested as the list [x, y].
+    /// assert_eq!(point.digest(&json!({"y": 2, "x": 1}))?, list.digest(&json!([1, 2]))?);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn object_as_list<N, F>(
         fields: impl IntoIterator<Item = (N, F)>,
     ) -> Result<Kind, InvalidIdentity>
@@ -365,6 +607,29 @@ impl Kind {
 
     /// One of several kinds, told apart by the value's type, or objects by
     /// their keys (spec 5.7).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use quiddity::identity::{Field, Identity, Kind, Omit, Unit};
+    /// # use serde_json::json;
+    /// let id = Identity::new(Kind::union([Kind::Integer, Kind::String])?)?;
+    /// // Told apart by type: 5 and "5" stay different.
+    /// assert_ne!(id.digest(&json!(5))?, id.digest(&json!("5"))?);
+    /// // Two kinds that both read numbers cannot be told apart.
+    /// assert!(Kind::union([Kind::Integer, Kind::Number]).is_err());
+    ///
+    /// // Objects are told apart by their keys.
+    /// let figure = Identity::new(Kind::union([
+    ///     Kind::object([("x", Kind::Integer), ("y", Kind::Integer)])?,
+    ///     Kind::object([("w", Kind::Integer), ("h", Kind::Integer)])?,
+    /// ])?)?;
+    /// assert!(figure.digest(&json!({"w": 1, "h": 2})).is_ok());
+    /// assert!(figure.digest(&json!({"x": 1, "h": 2})).is_err());
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn union<K: Into<Kind>>(
         alternatives: impl IntoIterator<Item = K>,
     ) -> Result<Kind, InvalidIdentity> {
@@ -374,6 +639,19 @@ impl Kind {
     }
 
     /// A fixed-length array, each item of the kind in its position.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use quiddity::identity::{Field, Identity, Kind, Omit, Unit};
+    /// # use serde_json::json;
+    /// let id = Identity::new(Kind::tuple([Kind::String, Kind::Integer])?)?;
+    /// assert!(id.digest(&json!(["a", 1])).is_ok());
+    /// assert!(id.digest(&json!(["a", 1, 2])).is_err());
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn tuple<K: Into<Kind>>(
         items: impl IntoIterator<Item = K>,
     ) -> Result<Kind, InvalidIdentity> {
@@ -382,6 +660,22 @@ impl Kind {
 
     /// Variants written as `{"Name": value}`, or `"Name"` for a unit
     /// variant (`None`), as serde writes enums by default.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use quiddity::identity::{Field, Identity, Kind, Omit, Unit};
+    /// # use serde_json::json;
+    /// let id = Identity::new(Kind::externally_tagged([
+    ///     ("Empty", None),
+    ///     ("Circle", Some(Kind::Number)),
+    /// ])?)?;
+    /// assert!(id.digest(&json!("Empty")).is_ok());
+    /// assert!(id.digest(&json!({"Circle": 1.5})).is_ok());
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn externally_tagged<N: Into<String>>(
         variants: impl IntoIterator<Item = (N, Option<Kind>)>,
     ) -> Result<Kind, InvalidIdentity> {
@@ -391,6 +685,22 @@ impl Kind {
     /// Variants written as objects whose member `tag` names the variant,
     /// as serde's `#[serde(tag = "…")]` does. Each variant is a unit
     /// variant (`None`) or an object kind.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use quiddity::identity::{Field, Identity, Kind, Omit, Unit};
+    /// # use serde_json::json;
+    /// let rect = Kind::object([("w", Kind::Integer), ("h", Kind::Integer)])?;
+    /// let id = Identity::new(Kind::internally_tagged("type", [
+    ///     ("Empty", None),
+    ///     ("Rect", Some(rect)),
+    /// ])?)?;
+    /// assert!(id.digest(&json!({"type": "Rect", "w": 1, "h": 2})).is_ok());
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn internally_tagged<N: Into<String>>(
         tag: impl Into<String>,
         variants: impl IntoIterator<Item = (N, Option<Kind>)>,
@@ -400,6 +710,21 @@ impl Kind {
 
     /// Variants written as `{tag: "Name", content: value}`, as serde's
     /// `#[serde(tag = "…", content = "…")]` does.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use quiddity::identity::{Field, Identity, Kind, Omit, Unit};
+    /// # use serde_json::json;
+    /// let id = Identity::new(Kind::adjacently_tagged("t", "c", [
+    ///     ("Empty", None),
+    ///     ("Circle", Some(Kind::Number)),
+    /// ])?)?;
+    /// assert!(id.digest(&json!({"t": "Circle", "c": 1.5})).is_ok());
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn adjacently_tagged<N: Into<String>>(
         tag: impl Into<String>,
         content: impl Into<String>,
@@ -415,6 +740,21 @@ impl Kind {
 
     /// The tagged union `self`, with each variant identified in the result
     /// by the given discriminant rather than its name.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use quiddity::identity::{Field, Identity, Kind, Omit, Unit};
+    /// # use serde_json::json;
+    /// let level = Kind::externally_tagged([("Low", None), ("High", None)])?
+    ///     .by_discriminant([("Low", 0), ("High", 1)])?;
+    /// let id = Identity::new(level)?;
+    /// // "High" is digested as the integer 1.
+    /// assert_eq!(id.digest(&json!("High"))?, Identity::new(Kind::Integer)?.digest(&json!(1))?);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn by_discriminant<N: AsRef<str>>(
         self,
         discriminants: impl IntoIterator<Item = (N, i128)>,
@@ -441,12 +781,37 @@ impl Field {
 
     /// A field of `kind` or null, omitted when null: an `Option` that
     /// serde leaves out when it is `None`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use quiddity::identity::{Field, Identity, Kind, Omit, Unit};
+    /// # use serde_json::json;
+    /// let id = Identity::new(Kind::object([("note", Field::optional(Kind::String))])?)?;
+    /// // A missing note and a null one are both left out.
+    /// assert_eq!(id.digest(&json!({}))?, id.digest(&json!({"note": null}))?);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn optional(kind: impl Into<Kind>) -> Field {
         Field::new(Kind::optional(kind)).omit(Omit::None)
     }
 
     /// A field omitted when it is empty or missing: a collection that
     /// serde leaves out when it is empty.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use quiddity::identity::{Field, Identity, Kind, Omit, Unit};
+    /// # use serde_json::json;
+    /// let id = Identity::new(Kind::object([("tags", Field::omit_empty(Kind::set(Kind::String)))])?)?;
+    /// assert_eq!(id.digest(&json!({}))?, id.digest(&json!({"tags": []}))?);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn omit_empty(kind: impl Into<Kind>) -> Field {
         Field::new(Kind::optional(kind))
             .omit(Omit::None)
@@ -454,12 +819,38 @@ impl Field {
     }
 
     /// The field, with its key in the result changed to `key`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use quiddity::identity::{Field, Identity, Kind, Omit, Unit};
+    /// # use serde_json::json;
+    /// // Read from the member `kind`, digested under the key `type`.
+    /// let id = Identity::new(Kind::object([("kind", Field::new(Kind::String).rename("type"))])?)?;
+    /// let map = Identity::new(Kind::map(Kind::String, Kind::String)?)?;
+    /// assert_eq!(id.digest(&json!({"kind": "q"}))?, map.digest(&json!({"type": "q"}))?);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn rename(mut self, key: impl Into<String>) -> Field {
         self.rename = Some(key.into());
         self
     }
 
     /// The field, left out when `condition` holds.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use quiddity::identity::{Field, Identity, Kind, Omit, Unit};
+    /// # use serde_json::json;
+    /// let field = Field::new(Kind::optional(Kind::String)).omit(Omit::None);
+    /// assert_eq!(field, Field::optional(Kind::String));
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn omit(mut self, condition: Omit) -> Field {
         self.omit.insert(condition);
         self
@@ -481,6 +872,20 @@ impl From<Identity> for Field {
 impl Identity {
     /// An identity whose root is `kind`. Identities nested in `kind` become
     /// its definitions.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use quiddity::identity::{Field, Identity, Kind, Omit, Unit};
+    /// # use serde_json::json;
+    /// let id = Identity::new(Kind::object([("prompt", Kind::String)])?)?;
+    /// assert!(id.digest(&json!({"prompt": "Summarize the report"})).is_ok());
+    /// // An identity is checked when it is made.
+    /// assert!(Identity::new(Kind::recursive()).is_err());
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn new(kind: impl Into<Kind>) -> Result<Identity, InvalidIdentity> {
         compose::identity(kind.into(), None)
     }
@@ -489,6 +894,20 @@ impl Identity {
     /// under that name, which is how the identity appears in its document
     /// and in the documents of identities it is nested in. An identity that
     /// is not named is written in place where it is nested.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use quiddity::identity::{Field, Identity, Kind, Omit, Unit};
+    /// # use serde_json::json;
+    /// let row = Identity::new(Kind::object([("label", Kind::String)])?)?.named("Row");
+    /// let table = Identity::new(Kind::list(row))?;
+    /// // The nested identity is a definition, under its name.
+    /// assert_eq!(table.to_json()["root"], json!({"list": {"ref": "Row"}}));
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn named(self, name: impl Into<String>) -> Identity {
         compose::named(self, name.into())
     }
@@ -496,6 +915,18 @@ impl Identity {
     /// The name of the identity's own definition, if its root is one: the
     /// name given with [`Identity::named`], a type's name for an exported
     /// identity, or `_self` for an unnamed recursive identity.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use quiddity::identity::{Field, Identity, Kind, Omit, Unit};
+    /// # use serde_json::json;
+    /// assert_eq!(Identity::new(Kind::String)?.named("Label").name(), Some("Label"));
+    /// assert_eq!(Identity::new(Kind::String)?.name(), None);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn name(&self) -> Option<&str> {
         match &self.root {
             Kind::Ref(name) => Some(name.as_str()),
@@ -504,27 +935,96 @@ impl Identity {
     }
 
     /// The identity's root kind.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use quiddity::identity::{Field, Identity, Kind, Omit, Unit};
+    /// # use serde_json::json;
+    /// let id = Identity::new(Kind::list(Kind::String))?;
+    /// assert_eq!(id.root(), &Kind::list(Kind::String));
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn root(&self) -> &Kind {
         &self.root
     }
 
     /// The identity's definitions, by name.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use quiddity::identity::{Field, Identity, Kind, Omit, Unit};
+    /// # use serde_json::json;
+    /// let row = Identity::new(Kind::object([("label", Kind::String)])?)?.named("Row");
+    /// let table = Identity::new(Kind::list(row))?;
+    /// assert!(table.definitions().contains_key("Row"));
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn definitions(&self) -> &BTreeMap<String, Kind> {
         &self.definitions
     }
 
     /// The definition `name`, as an identity of its own.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use quiddity::identity::{Field, Identity, Kind, Omit, Unit};
+    /// # use serde_json::json;
+    /// let row = Identity::new(Kind::object([("label", Kind::String)])?)?.named("Row");
+    /// let table = Identity::new(Kind::list(row.clone()))?;
+    /// assert_eq!(table.definition("Row"), Some(row));
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn definition(&self, name: &str) -> Option<Identity> {
         compose::definition(self, name)
     }
 
     /// The identity's domain, if any.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use quiddity::identity::{Field, Identity, Kind, Omit, Unit};
+    /// # use serde_json::json;
+    /// let mut id = Identity::new(Kind::String)?;
+    /// id.set_domain("example.label")?;
+    /// assert_eq!(id.domain(), Some("example.label"));
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn domain(&self) -> Option<&str> {
         self.domain.as_deref()
     }
 
     /// Places digests under this identity in `domain` (spec 4.2), which
     /// must not be empty.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use quiddity::identity::{Field, Identity, Kind, Omit, Unit};
+    /// # use serde_json::json;
+    /// let fields = Kind::object([("to", Kind::String), ("amount", Kind::Integer)])?;
+    /// let mut payment = Identity::new(fields)?;
+    /// let mut refund = payment.clone();
+    /// payment.set_domain("example.payment")?;
+    /// refund.set_domain("example.refund")?;
+    /// // The same fields, in different domains: different digests.
+    /// let value = json!({"to": "bob", "amount": 100});
+    /// assert_ne!(payment.digest(&value)?, refund.digest(&value)?);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn set_domain(&mut self, domain: impl Into<String>) -> Result<(), InvalidIdentity> {
         let domain = domain.into();
         if domain.is_empty() {
@@ -535,11 +1035,38 @@ impl Identity {
     }
 
     /// Removes the identity's domain.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use quiddity::identity::{Field, Identity, Kind, Omit, Unit};
+    /// # use serde_json::json;
+    /// let mut id = Identity::new(Kind::String)?;
+    /// id.set_domain("example.label")?;
+    /// id.clear_domain();
+    /// assert_eq!(id.domain(), None);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn clear_domain(&mut self) {
         self.domain = None;
     }
 
     /// Replaces the root kind.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use quiddity::identity::{Field, Identity, Kind, Omit, Unit};
+    /// # use serde_json::json;
+    /// let mut id = Identity::new(Kind::String)?;
+    /// id.set_root(Kind::Integer)?;
+    /// assert!(id.digest(&json!(5)).is_ok());
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn set_root(&mut self, kind: impl Into<Kind>) -> Result<(), InvalidIdentity> {
         let mut next = compose::identity(kind.into(), self.domain.clone())?;
         if let Some(name) = self.name() {
@@ -550,6 +1077,21 @@ impl Identity {
     }
 
     /// Adds or replaces the field `name` of the root object.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use quiddity::identity::{Field, Identity, Kind, Omit, Unit};
+    /// # use serde_json::json;
+    /// let mut id = Identity::new(Kind::object([("prompt", Kind::String)])?)?;
+    /// id.set_field("priority", Kind::Integer)?;
+    /// assert!(id.digest(&json!({"prompt": "p", "priority": 1})).is_ok());
+    /// // A change that would make the identity invalid fails, and changes nothing.
+    /// assert!(id.set_field("other", Field::new(Kind::String).rename("prompt")).is_err());
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn set_field(
         &mut self,
         name: impl Into<String>,
@@ -563,6 +1105,19 @@ impl Identity {
     }
 
     /// Removes the field `name` of the root object, if it has one.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use quiddity::identity::{Field, Identity, Kind, Omit, Unit};
+    /// # use serde_json::json;
+    /// let mut id = Identity::new(Kind::object([("prompt", Kind::String), ("priority", Kind::Integer)])?)?;
+    /// id.remove_field("priority")?;
+    /// assert!(id.digest(&json!({"prompt": "p"})).is_ok());
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn remove_field(&mut self, name: &str) -> Result<(), InvalidIdentity> {
         compose::edit_object(self, None, false, |o, _, _| {
             o.fields.remove(name);
@@ -575,6 +1130,20 @@ impl Identity {
 
     /// Adds or replaces the field `name` of the object defined as
     /// `definition`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use quiddity::identity::{Field, Identity, Kind, Omit, Unit};
+    /// # use serde_json::json;
+    /// let row = Identity::new(Kind::object([("label", Kind::String)])?)?.named("Row");
+    /// let mut table = Identity::new(Kind::list(row))?;
+    /// table.set_field_in("Row", "value", Kind::Number)?;
+    /// assert!(table.digest(&json!([{"label": "x", "value": 1.5}])).is_ok());
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn set_field_in(
         &mut self,
         definition: &str,
@@ -589,6 +1158,22 @@ impl Identity {
     }
 
     /// Removes the field `name` of the object defined as `definition`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use quiddity::identity::{Field, Identity, Kind, Omit, Unit};
+    /// # use serde_json::json;
+    /// let row = Identity::new(Kind::object([("label", Kind::String)])?)?.named("Row");
+    /// let mut q = Identity::new(Kind::object([("brief", Field::new(Kind::String)), ("rows", Field::new(Kind::list(row)))])?)?
+    ///     .named("Question");
+    /// // Removing the last use of `Row` removes its definition.
+    /// q.remove_field_in("Question", "rows")?;
+    /// assert!(!q.definitions().contains_key("Row"));
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn remove_field_in(&mut self, definition: &str, name: &str) -> Result<(), InvalidIdentity> {
         compose::edit_object(self, Some(definition), false, |o, _, _| {
             o.fields.remove(name);
@@ -609,16 +1194,62 @@ impl Identity {
     }
 
     /// Loads an identity document (spec 5.3).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use quiddity::identity::{Field, Identity, Kind, Omit, Unit};
+    /// # use serde_json::json;
+    /// let id = Identity::from_json(&json!({
+    ///     "quiddity": 1,
+    ///     "root": {"object": {"fields": {"prompt": {"kind": "string"}}}}
+    /// }))?;
+    /// assert_eq!(id, Identity::new(Kind::object([("prompt", Kind::String)])?)?);
+    /// // A document that is not valid is an error.
+    /// assert!(Identity::from_json(&json!({"quiddity": 1, "root": "text"})).is_err());
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn from_json(document: &serde_json::Value) -> Result<Identity, InvalidIdentity> {
         load::from_json(document)
     }
 
     /// The identity document, in canonical form.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use quiddity::identity::{Field, Identity, Kind, Omit, Unit};
+    /// # use serde_json::json;
+    /// let id = Identity::new(Kind::optional(Kind::String))?;
+    /// assert_eq!(id.to_json(), json!({"quiddity": 1, "root": {"union": ["null", "string"]}}));
+    /// assert_eq!(Identity::from_json(&id.to_json())?, id);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn to_json(&self) -> serde_json::Value {
         load::to_json(self)
     }
 
     /// The digest of `value` under this identity (spec 5.1).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use quiddity::identity::{Field, Identity, Kind, Omit, Unit};
+    /// # use serde_json::json;
+    /// let id = Identity::new(Kind::object([("prompt", Kind::String)])?)?;
+    /// let digest = id.digest(&json!({"prompt": "Summarize the report"}))?;
+    /// assert!(digest.to_string().starts_with("sha256:"));
+    /// // A value of the wrong shape is an error that says where.
+    /// let err = id.digest(&json!({"prompt": 5})).unwrap_err();
+    /// assert_eq!(err.path, "$.prompt");
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn digest(&self, value: &serde_json::Value) -> Result<Digest, ApplyError> {
         let v = apply::apply(self, value)?;
         let mut e = crate::Encoder::new();

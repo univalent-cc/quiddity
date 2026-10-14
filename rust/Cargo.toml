@@ -37,6 +37,7 @@ url = { version = "2", optional = true }
 
 [dev-dependencies]
 bytes = "1"
+http = "1"
 indexmap = "2"
 serde = { version = "1", features = ["derive"] }
 # Exact float parsing, so that the vectors' JSON texts parse as spec 2.7 requires.

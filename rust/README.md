@@ -24,6 +24,11 @@ Properties of `quiddity` include:
 quiddity = { version = "0.1", features = ["serde_json"] }
 ```
 
+A conceptual overview of quiddity is explained in the repository's
+[README](https://github.com/univalent-cc/quiddity#concepts).  That information is
+common to every implementation, regardless of language.  This README covers the
+Rust crate.
+
 ## Example
 
 ```rust
@@ -66,13 +71,28 @@ The `Display` and `Serialize` implementations write this format and `FromStr` pa
 
 This example uses a digest as an HTTP `ETag` to detect concurrent changes:
 
-```rust ignore
-let current = task.quiddity();
-let claimed: Digest = request.header("If-Match")?.parse()?;
+```rust
+# use quiddity::{Quiddity, QuiddityExt};
+# #[derive(Quiddity)]
+# struct Task { prompt: String }
+# let task = Task { prompt: "Summarize the report".into() };
+use http::{HeaderMap, StatusCode, header::IF_MATCH};
+use quiddity::Digest;
 
-if claimed != current {
-    return Err(StatusCode::PRECONDITION_FAILED);
+/// Accepts a change only if the client saw the current version.
+fn check_if_match(headers: &HeaderMap, current: Digest) -> Result<(), StatusCode> {
+    let claimed: Option<Digest> = headers
+        .get(IF_MATCH)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.trim_matches('"').parse().ok());
+    match claimed {
+        Some(claimed) if claimed == current => Ok(()),
+        _ => Err(StatusCode::PRECONDITION_FAILED),
+    }
 }
+# let mut headers = HeaderMap::new();
+# headers.insert(IF_MATCH, format!("\"{}\"", task.quiddity()).parse().unwrap());
+# assert!(check_if_match(&headers, task.quiddity()).is_ok());
 ```
 
 ## Additional Identities
@@ -129,52 +149,20 @@ can be a generic parameter.
 
 ## Domains
 
-Sometimes we want to encode type or provenance information into a digest.  By default,
-a digest only depends on the contents of a container, so two types with the same
-field names and values would have the same digest.
+Two different kinds of values with the same fields will have the same digest
+by default.
 
-This could be a problem when digests are signed. For example, if a signature
-over the digest of a `Payment` is accepted as authorizing that payment, the same
-signature must not also verify the `Refund`, even though both types contain exactly
-the same fields. The `domain` attribute makes the digests also depend on the
-domain name:
+When this is not desirable, for example when a digest is signed or used as an
+identfier, use a domain. A domain is a label, hashed into the digest, so types
+in different domains never share digests.  Set the domain on a type using the
+`#[quiddity(domain = "…")]` macro attribute.
 
-```rust
-use quiddity::{Quiddity, QuiddityExt};
+The [`Digest::in_domain`] method can also be used to encode a domain into an existing
+digest that was computed over a bare structure (no existing domain).
 
-#[derive(Quiddity)]
-#[quiddity(domain = "example.payment")]
-struct Payment { to: String, amount: u64 }
+See the [Domains discussion in the repository's README](https://github.com/univalent-cc/quiddity#domains) for more.
 
-#[derive(Quiddity)]
-#[quiddity(domain = "example.refund")]
-struct Refund { to: String, amount: u64 }
-
-let payment = Payment { to: "bob".into(), amount: 100 };
-let refund = Refund { to: "bob".into(), amount: 100 };
-assert_ne!(payment.quiddity(), refund.quiddity());
-```
-
-A type has no domain unless one is explicitly set. A type with a domain has its
-digest computed in two steps: the structural digest of the contents is computed
-first, then the domain label is hashed into the digest. Types may share a domain,
-for example an owned type and a borrowed view. The domain is  applied to the
-top-level value only; nested values are digested structurally.
-
-The [`in_domain`] method lifts a structure-only digest into
-a domain. This allows untyped data to be compared with a digest in a domain:
-
-```rust ignore
-let from_json = json.quiddity().in_domain("example.payment");
-assert_eq!(from_json, payment.quiddity());
-```
-
-IMPORTANT: Domains do not make digests unforgeable: the encoding is public,
-and anyone can compute any digest in any domain. A domain allows a digest to
-encode provenance, so that a secure signature cannot be reused for a value
-of another kind.
-
-## Attributes
+## Derive macro attributes
 
 ### On a type
 
@@ -530,7 +518,8 @@ covers most types that implement `Serialize`.
 ## Dynamic identities
 
 An identity can also be written as data: an identity document, in JSON,
-that every implementation of quiddity can read (see
+that every implementation of quiddity can read (see the repository's
+[README](https://github.com/univalent-cc/quiddity#identity-documents) and
 [`QUIDDITY_SPEC.md`] section 5). The `identity` feature loads identity
 documents and digests `serde_json::Value`s under them:
 
@@ -559,7 +548,41 @@ assert_eq!(a, b);
 Members that the identity does not list, such as `tag`, are skipped.
 Values written in other forms are converted: the text `"1"` to an
 integer, and RFC 3339 text to an instant. A value of the wrong shape is an
-error. An identity can also be built in code, from [`identity::Kind`]s.
+error.
+
+### Building identities at runtime
+
+An [`Identity`] can also be built and changed in code. Kinds nest: a
+field's kind can be another identity, which becomes a definition of the
+identity it is placed in, under its name. Each method checks what it
+builds, and a change that would make an identity invalid fails, changing
+nothing.
+
+```rust ignore
+use quiddity::identity::{Field, Identity, Kind};
+
+let row = Identity::new(Kind::object([
+    ("label", Kind::String),
+    ("value", Kind::Number),
+])?)?
+.named("Row");
+
+let mut question = Identity::new(Kind::object([
+    ("brief", Field::new(Kind::String)),
+    ("note", Field::optional(Kind::String)),             // null or missing: left out
+    ("tags", Field::omit_empty(Kind::set(Kind::String))),
+    ("rows", Field::new(Kind::list(row))),
+    ("parent", Field::optional(Kind::recursive())),       // a question
+])?)?
+.named("Question");
+question.set_domain("example.question")?;
+question.set_field_in("Question", "asked_at", Kind::instant())?;
+
+let document = question.to_json(); // {"quiddity": 1, "root": {"ref": "Question"}, …}
+```
+
+The [`identity::Kind`] and [`identity::Field`] documentation has an
+example for each kind and method.
 
 An `Identity` has a digest of its own, `identity.quiddity()`, which every
 implementation computes the same way.
@@ -603,10 +626,12 @@ Licensed under the MIT license.
 [`Digest64`]: https://docs.rs/quiddity/latest/quiddity/struct.Digest64.html
 [`Digest::mini()`]: https://docs.rs/quiddity/latest/quiddity/struct.Digest.html#method.mini
 [`Digest::micro()`]: https://docs.rs/quiddity/latest/quiddity/struct.Digest.html#method.micro
-[`in_domain`]: https://docs.rs/quiddity/latest/quiddity/struct.Digest.html#method.in_domain
+[`Digest::in_domain`]: https://docs.rs/quiddity/latest/quiddity/struct.Digest.html#method.in_domain
 [`IdentityMarker`]: https://docs.rs/quiddity/latest/quiddity/trait.IdentityMarker.html
 [`Primary`]: https://docs.rs/quiddity/latest/quiddity/struct.Primary.html
 [`Encoder`]: https://docs.rs/quiddity/latest/quiddity/struct.Encoder.html
 [`Encoder::bytes`]: https://docs.rs/quiddity/latest/quiddity/struct.Encoder.html#method.bytes
 [`quiddity::serde::digest`]: https://docs.rs/quiddity/latest/quiddity/serde/fn.digest.html
 [`identity::Kind`]: https://docs.rs/quiddity/latest/quiddity/identity/enum.Kind.html
+[`identity::Field`]: https://docs.rs/quiddity/latest/quiddity/identity/struct.Field.html
+[`Identity`]: https://docs.rs/quiddity/latest/quiddity/identity/struct.Identity.html
