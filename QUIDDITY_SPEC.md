@@ -21,7 +21,7 @@ Section 5 is normative for the Rust crate `quiddity` only. An
 implementation in another language defines its own mapping onto the data
 model and MUST then follow sections 2 to 4.
 
-Design rationale is recorded in `DESIGN.md` and is not repeated here.
+Design rationale is recorded in `history/DESIGN.md` and is not repeated here.
 
 ### 1.2 Conventions
 

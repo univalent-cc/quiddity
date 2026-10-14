@@ -1,4 +1,5 @@
-//! Checks the encoder and digests against `test-vectors/quiddity-v1.json`.
+//! Checks the encoder and digests against `test-vectors/quiddity-v1.json`,
+//! at the root of the repository, outside this crate.
 //!
 //! The vectors are not part of the published crate. In a published crate
 //! (recognized by the `.cargo_vcs_info.json` that `cargo package` adds),
@@ -136,7 +137,7 @@ fn encoding(v: &Value) -> Vec<u8> {
 /// The vectors, or `None` in a published crate, which does not include them.
 fn vectors() -> Option<Json> {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
-    let path = root.join("test-vectors/quiddity-v1.json");
+    let path = root.join("../test-vectors/quiddity-v1.json");
     match std::fs::read_to_string(&path) {
         Ok(text) => Some(serde_json::from_str(&text).expect("the vectors file is valid JSON")),
         Err(_) if root.join(".cargo_vcs_info.json").exists() => {
