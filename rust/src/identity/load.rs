@@ -531,18 +531,10 @@ pub(crate) fn build(
     defs.retain(|name, _| reached.contains(name));
     Ok(Identity {
         version: 1,
-        name: None,
         domain,
         root,
         definitions: defs,
     })
-}
-
-/// Whether `k` reaches the definition `name`.
-pub(crate) fn reaches(k: &Kind, defs: &BTreeMap<String, Kind>, name: &str) -> bool {
-    let mut reached = BTreeSet::new();
-    reach(k, defs, &mut reached);
-    reached.contains(name)
 }
 
 /// Adds the names of the definitions `k` reaches to `reached`.

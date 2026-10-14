@@ -38,15 +38,11 @@ pub use load::InvalidIdentity;
 ///
 /// An `Identity` is always valid (spec 5.9) and in canonical form (spec
 /// 5.3).
-#[derive(Clone, Debug, Quiddity)]
+#[derive(Clone, Debug, PartialEq, Eq, Quiddity)]
 #[quiddity(domain = "quiddity.identity")]
 pub struct Identity {
     #[quiddity(rename = "quiddity")]
     version: u32,
-    /// The name of the definition the identity becomes when nested; not
-    /// part of the identity's document.
-    #[quiddity(skip)]
-    name: Option<String>,
     #[quiddity(omit_none)]
     domain: Option<String>,
     root: Kind,
@@ -128,18 +124,6 @@ impl fmt::Display for RefName {
         f.write_str(&self.0)
     }
 }
-
-/// Two identities are equal if their documents are; a name used only when
-/// nesting is not compared.
-impl PartialEq for Identity {
-    fn eq(&self, other: &Identity) -> bool {
-        self.domain == other.domain
-            && self.root == other.root
-            && self.definitions == other.definitions
-    }
-}
-
-impl Eq for Identity {}
 
 /// The options of [`Kind::Bytes`].
 #[derive(Clone, Debug, Default, PartialEq, Eq, Quiddity)]
@@ -498,19 +482,25 @@ impl Identity {
     /// An identity whose root is `kind`. Identities nested in `kind` become
     /// its definitions.
     pub fn new(kind: impl Into<Kind>) -> Result<Identity, InvalidIdentity> {
-        compose::identity(kind.into(), None, None)
+        compose::identity(kind.into(), None)
     }
 
-    /// The identity, with the name it has as a definition when nested in
-    /// another identity, and as its own definition if it is recursive.
-    /// Without a name, one is generated.
+    /// The identity, named `name`: its root becomes its own definition
+    /// under that name, which is how the identity appears in its document
+    /// and in the documents of identities it is nested in. An identity that
+    /// is not named is written in place where it is nested.
     pub fn named(self, name: impl Into<String>) -> Identity {
         compose::named(self, name.into())
     }
 
-    /// The name given with [`Identity::named`], if any.
+    /// The name of the identity's own definition, if its root is one: the
+    /// name given with [`Identity::named`], a type's name for an exported
+    /// identity, or `_self` for an unnamed recursive identity.
     pub fn name(&self) -> Option<&str> {
-        self.name.as_deref()
+        match &self.root {
+            Kind::Ref(name) => Some(name.as_str()),
+            _ => None,
+        }
     }
 
     /// The identity's root kind.
@@ -551,7 +541,10 @@ impl Identity {
 
     /// Replaces the root kind.
     pub fn set_root(&mut self, kind: impl Into<Kind>) -> Result<(), InvalidIdentity> {
-        let next = compose::identity(kind.into(), self.domain.clone(), self.name.clone())?;
+        let mut next = compose::identity(kind.into(), self.domain.clone())?;
+        if let Some(name) = self.name() {
+            next = compose::named(next, String::from(name));
+        }
         *self = next;
         Ok(())
     }
@@ -644,6 +637,25 @@ impl Identity {
         let mut e = crate::Encoder::buffer(Vec::new());
         v.encode(&mut e);
         Ok(e.into_buffer())
+    }
+}
+
+/// Writes the identity document (spec 5.3), in canonical form, as
+/// [`Identity::to_json`] does.
+#[cfg(feature = "serde")]
+impl serde::Serialize for Identity {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serde::Serialize::serialize(&self.to_json(), serializer)
+    }
+}
+
+/// Reads an identity document and checks it, as [`Identity::from_json`]
+/// does; a document that is not valid (spec 5.9) is an error.
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for Identity {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let document = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        Identity::from_json(&document).map_err(serde::de::Error::custom)
     }
 }
 

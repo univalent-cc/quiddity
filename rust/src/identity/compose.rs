@@ -116,8 +116,8 @@ fn absorb(k: Kind, defs: &mut BTreeMap<String, Kind>, me: Option<&str>) -> Resul
 
 /// Moves the definitions of the nested identity `id` into `defs`, reusing
 /// equal definitions and renaming others whose names are taken, and returns
-/// the kind standing for `id`: a reference to its definition if it has a
-/// name or is recursive, else its root.
+/// the kind standing for `id`: a reference to its own definition if it is
+/// named or recursive, else its root.
 fn merge(id: Identity, defs: &mut BTreeMap<String, Kind>) -> Result<Kind> {
     let mut map: BTreeMap<String, String> = BTreeMap::new();
     for (name, k) in &id.definitions {
@@ -133,56 +133,44 @@ fn merge(id: Identity, defs: &mut BTreeMap<String, Kind>) -> Result<Kind> {
         let renamed = rename_refs(k, &map);
         defs.entry(map[&name].clone()).or_insert(renamed);
     }
-    let root = rename_refs(id.root, &map);
-    match (root, id.name) {
-        (root @ Kind::Ref(_), _) | (root, None) => Ok(root),
-        (root, Some(name)) => {
-            let name = if defs.get(&name).is_none_or(|existing| *existing == root) {
-                name
-            } else {
-                fresh(&name, defs, &[])
-            };
-            defs.insert(name.clone(), root);
-            Ok(Kind::Ref(RefName::new(name)))
-        }
-    }
+    Ok(rename_refs(id.root, &map))
 }
 
 /// An identity whose root is `kind`.
-pub(crate) fn identity(
-    kind: Kind,
-    domain: Option<String>,
-    name: Option<String>,
-) -> Result<Identity> {
+pub(crate) fn identity(kind: Kind, domain: Option<String>) -> Result<Identity> {
     let mut defs = BTreeMap::new();
     let root = if contains_recursive(&kind) {
         // The identity refers to itself: its root becomes its own
         // definition. The name is reserved before nested identities are
         // merged, so that none takes it.
-        let me = name.clone().unwrap_or_else(|| SELF.to_owned());
-        defs.insert(me.clone(), Kind::Null);
-        let k = absorb(kind, &mut defs, Some(&me))?;
-        defs.insert(me.clone(), k);
-        Kind::Ref(RefName::new(me))
+        defs.insert(SELF.to_owned(), Kind::Null);
+        let k = absorb(kind, &mut defs, Some(SELF))?;
+        defs.insert(SELF.to_owned(), k);
+        Kind::Ref(RefName::new(SELF.to_owned()))
     } else {
         absorb(kind, &mut defs, None)?
     };
-    let mut id = load::build(root, defs, domain)?;
-    id.name = name;
-    Ok(id)
+    load::build(root, defs, domain)
 }
 
-/// The identity, named `name`; its own definition, if it has one, is
-/// renamed to match.
+/// The identity, named `name`: its root becomes its own definition, under
+/// that name, so that the name is part of its document.
 pub(crate) fn named(mut id: Identity, name: String) -> Identity {
-    if let Kind::Ref(own) = &id.root {
-        let own = own.as_str().to_owned();
-        if own != name {
-            let target = if id.definitions.contains_key(&name) {
-                fresh(&name, &id.definitions, &[])
-            } else {
-                name.clone()
-            };
+    let own = match &id.root {
+        Kind::Ref(own) => Some(own.as_str().to_owned()),
+        _ => None,
+    };
+    if own.as_deref() == Some(name.as_str()) {
+        return id;
+    }
+    let taken: Vec<&String> = Vec::new();
+    let mut others = id.definitions.clone();
+    if let Some(own) = &own {
+        others.remove(own);
+    }
+    let target = fresh(&name, &others, &taken);
+    match own {
+        Some(own) => {
             let map = BTreeMap::from([(own, target)]);
             let definitions = core::mem::take(&mut id.definitions);
             id.definitions = definitions
@@ -191,21 +179,18 @@ pub(crate) fn named(mut id: Identity, name: String) -> Identity {
                 .collect();
             id.root = rename_refs(core::mem::replace(&mut id.root, Kind::Null), &map);
         }
+        None => {
+            let root = core::mem::replace(&mut id.root, Kind::Ref(RefName::new(target.clone())));
+            id.definitions.insert(target, root);
+        }
     }
-    id.name = Some(name);
     id
 }
 
-/// The definition `name` of `id`, as an identity of its own.
+/// The definition `name` of `id`, as an identity of its own, named `name`.
 pub(crate) fn definition(id: &Identity, name: &str) -> Option<Identity> {
-    let kind = id.definitions.get(name)?;
-    // As it was before it was nested: its own kind at the root, unless it
-    // refers to itself.
-    let root = if load::reaches(kind, &id.definitions, name) {
-        Kind::Ref(RefName::new(name.to_owned()))
-    } else {
-        kind.clone()
-    };
+    id.definitions.get(name)?;
+    let root = Kind::Ref(RefName::new(name.to_owned()));
     // Only what the definition reaches.
     let mut reached = alloc::collections::BTreeSet::new();
     load::reach(&root, &id.definitions, &mut reached);
@@ -215,9 +200,7 @@ pub(crate) fn definition(id: &Identity, name: &str) -> Option<Identity> {
         .filter(|(n, _)| reached.contains(*n))
         .map(|(n, k)| (n.clone(), k.clone()))
         .collect();
-    let mut d = load::build(root, defs, None).ok()?;
-    d.name = Some(name.to_owned());
-    Some(d)
+    load::build(root, defs, None).ok()
 }
 
 /// `k` if it is valid as far as can be told outside an identity: a kind
@@ -313,7 +296,7 @@ pub(crate) fn edit_object(
     };
     if needs_self && me.is_none() {
         // The root becomes the identity's own definition.
-        let name = fresh(id.name.as_deref().unwrap_or(SELF), &defs, &[]);
+        let name = fresh(SELF, &defs, &[]);
         defs.insert(
             name.clone(),
             core::mem::replace(&mut root, Kind::Ref(RefName::new(name.clone()))),
@@ -343,9 +326,7 @@ pub(crate) fn edit_object(
 }
 
 fn replace(id: &mut Identity, root: Kind, defs: BTreeMap<String, Kind>) -> Result<()> {
-    let mut next = load::build(root, defs, id.domain.clone())?;
-    next.name = id.name.take();
-    *id = next;
+    *id = load::build(root, defs, id.domain.clone())?;
     Ok(())
 }
 

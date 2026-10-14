@@ -15,13 +15,25 @@ use crate::{IdentityMarker, Primary, Quiddity};
 /// A type or attribute that an identity document cannot express.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ExportError {
+    /// Where: the exported type's name, then the names of the fields and
+    /// variants leading to the problem, separated by `.`; empty if the
+    /// problem is the identity as a whole.
+    pub path: String,
     /// What cannot be exported, and why.
     pub message: String,
 }
 
 impl fmt::Display for ExportError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "cannot export an identity: {}", self.message)
+        if self.path.is_empty() {
+            write!(f, "cannot export an identity: {}", self.message)
+        } else {
+            write!(
+                f,
+                "cannot export an identity: at {}: {}",
+                self.path, self.message
+            )
+        }
     }
 }
 
@@ -33,6 +45,8 @@ pub struct Exporter {
     definitions: BTreeMap<String, Kind>,
     /// The definition name of each (type, identity) reached so far.
     names: BTreeMap<(&'static str, &'static str), String>,
+    /// The root type, and the fields and variants being described.
+    path: Vec<String>,
 }
 
 /// The identity of `T` under `I` (spec 6.8).
@@ -40,10 +54,12 @@ pub fn construct<T: Quiddity<I> + ?Sized, I: IdentityMarker>() -> Result<Identit
     let mut cx = Exporter {
         definitions: BTreeMap::new(),
         names: BTreeMap::new(),
+        path: Vec::new(),
     };
     let root = cx.describe::<T, I>()?;
     let domain = <T as Quiddity<I>>::DOMAIN.map(ToOwned::to_owned);
     Identity::from_parts(root, cx.definitions, domain).map_err(|e| ExportError {
+        path: String::new(),
         message: format!("the identity of `{}` is not valid: {e}", type_name::<T>()),
     })
 }
@@ -85,25 +101,48 @@ impl Exporter {
             name = format!("{}{suffix}", key.0);
         }
         self.names.insert(key, name.clone());
-        let kind = build(self)?;
-        self.definitions.insert(name.clone(), kind);
+        let root = self.path.is_empty();
+        if root {
+            self.path.push(short_name(key.0).to_owned());
+        }
+        let kind = build(self);
+        if root {
+            self.path.pop();
+        }
+        self.definitions.insert(name.clone(), kind?);
         Ok(Kind::Ref(super::RefName::new(name)))
+    }
+
+    /// `f`'s result, with `step` (a field's or variant's name) added to
+    /// the path of any error it reports.
+    pub fn within(
+        &mut self,
+        step: &str,
+        f: impl FnOnce(&mut Self) -> Result<Kind, ExportError>,
+    ) -> Result<Kind, ExportError> {
+        self.path.push(step.to_owned());
+        let r = f(self);
+        self.path.pop();
+        r
+    }
+
+    fn error(&self, message: String) -> ExportError {
+        ExportError {
+            path: self.path.join("."),
+            message,
+        }
     }
 
     /// The error for a type that does not describe itself.
     pub fn unsupported_type(&self, type_name: &str) -> ExportError {
-        ExportError {
-            message: format!("`{type_name}` has no identity document form"),
-        }
+        self.error(format!("`{type_name}` has no identity document form"))
     }
 
     /// The error for an attribute that has no identity document form.
     pub fn unsupported_attribute(&self, type_name: &str, attribute: &str) -> ExportError {
-        ExportError {
-            message: format!(
-                "`{type_name}` uses `{attribute}`, which has no identity document form"
-            ),
-        }
+        self.error(format!(
+            "`{type_name}` uses `{attribute}`, which has no identity document form"
+        ))
     }
 }
 
@@ -152,12 +191,12 @@ pub fn map(key: Kind, value: Kind) -> Kind {
 
 /// The kind of a field with `encode_as = set`: a set of the items of the
 /// sequence its type describes.
-pub fn as_set(kind: Kind, type_name: &str) -> Result<Kind, ExportError> {
+pub fn as_set(cx: &Exporter, kind: Kind, type_name: &str) -> Result<Kind, ExportError> {
     match kind {
         Kind::List(item) | Kind::Set(item) => Ok(Kind::Set(item)),
-        _ => Err(ExportError {
-            message: format!("`{type_name}` has `encode_as = set` but is not a sequence"),
-        }),
+        _ => Err(cx.error(format!(
+            "`{type_name}` has `encode_as = set` but is not a sequence"
+        ))),
     }
 }
 

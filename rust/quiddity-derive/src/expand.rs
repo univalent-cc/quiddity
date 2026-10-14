@@ -785,13 +785,10 @@ fn describe(
                 let name = variant_name(v, vattrs, key, rename_all);
                 let kind = match &v.fields {
                     Fields::Unit => None,
-                    form => Some(describe_fields(
-                        fields,
-                        form,
-                        variant_shape(form),
-                        key,
-                        None,
-                    )?),
+                    form => Some(within(
+                        &name,
+                        describe_fields(fields, form, variant_shape(form), key, None)?,
+                    )),
                 };
                 alternatives.push((name, kind, disc));
             }
@@ -868,7 +865,7 @@ fn describe_fields(
                     .unwrap()
                     .0
                     .clone();
-                let kind = f.describe_value(key)?;
+                let kind = within(&name, f.describe_value(key)?);
                 items.push(
                     quote!((#name, ::quiddity::identity::export::field(#kind, false, false))),
                 );
@@ -882,7 +879,8 @@ fn describe_fields(
         Shape::List => {
             let kinds = participating
                 .iter()
-                .map(|f| f.describe_value(key))
+                .enumerate()
+                .map(|(i, f)| Ok(within(&i.to_string(), f.describe_value(key)?)))
                 .collect::<syn::Result<Vec<_>>>()?;
             Ok(quote!(::quiddity::identity::Kind::Tuple(
                 ::quiddity::__private::vec![#(#kinds),*]
@@ -891,7 +889,7 @@ fn describe_fields(
         Shape::Map => {
             let mut items = Vec::new();
             for (name, f) in map_entries(fields, key, rename_all)? {
-                let kind = f.describe_value(key)?;
+                let kind = within(&name, f.describe_value(key)?);
                 let omit_none = f.attrs.omit_none.get(key).copied().unwrap_or(false);
                 let omit_empty = f.attrs.omit_empty.get(key).copied().unwrap_or(false);
                 if f.attrs.omit_if.get(key).is_some() {
@@ -911,6 +909,12 @@ fn describe_fields(
     }
 }
 
+/// `kind`, an expression giving a kind, evaluated with `step` added to the
+/// exporter's path for errors.
+fn within(step: &str, kind: TokenStream) -> TokenStream {
+    quote!(__cx.within(#step, |__cx| ::core::result::Result::Ok(#kind))?)
+}
+
 impl Field {
     /// An expression giving the kind of the field's value.
     fn describe_value(&self, key: &str) -> syn::Result<TokenStream> {
@@ -922,10 +926,10 @@ impl Field {
         };
         Ok(match self.encoding(key)? {
             ValueEncoding::Own(j) => quote!(__cx.describe::<#ty, #j>()?),
-            ValueEncoding::Set => quote!(::quiddity::identity::export::as_set(
-                __cx.describe::<#ty, ::quiddity::Primary>()?,
-                ::core::any::type_name::<#ty>(),
-            )?),
+            ValueEncoding::Set => quote!({
+                let __kind = __cx.describe::<#ty, ::quiddity::Primary>()?;
+                ::quiddity::identity::export::as_set(__cx, __kind, ::core::any::type_name::<#ty>())?
+            }),
             ValueEncoding::With(_) => unsupported("with"),
             ValueEncoding::Display => unsupported("encode_as = display"),
             ValueEncoding::Serde => unsupported("encode_as = serde"),

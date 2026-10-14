@@ -1079,8 +1079,12 @@ changed at any time, and every state the API reaches is valid.
   definitions are reused, and different ones with the same name get a
   suffix (`Row_2`). `Kind::Ref` holds an opaque `RefName` that only nesting
   and recursion create, so no reference can refer to a missing definition.
-  `named` was kept so that people inspecting an identity's definitions see
-  type names rather than generated ones.
+  `named` was kept so that people inspecting an identity see type names
+  rather than generated ones. A named identity's root is its own
+  definition under that name (`{"ref": "Row"}`), so the name is part of its
+  document, survives `to_json`/`from_json` and serde, and is part of its
+  digest; `name()` reads it from the root. There is no state outside the
+  document.
 - **Recursion:** `Kind::recursive()` is the identity being built; its root
   becomes its own definition. Mutual recursion comes only from documents
   and export.
@@ -1487,6 +1491,39 @@ Decided in the draft, open to review:
 - R4: richer kinds (exact decimals first).
 - R5: redaction (potential future addition).
 - W6: pluggable hash function (deferred).
-- W7: identities for dynamic data (separate issue).
+- W7: identities for dynamic data: done as D19 (spec section 5, the Rust
+  `identity` feature).
 - W4: labels readable from digests (typed `Digest<I>`, text form).
 - License: MIT for now.
+- **`Identity`'s serde impls go through `serde_json::Value`** (2026-10-14).
+  `Deserialize` reads a `Value`, then calls `from_json`, which allocates
+  twice and needs a self-describing format; `Serialize` writes `to_json()`.
+  Neither is necessary: the document's shape is serde's default enum
+  representation (a unit variant as its name, a newtype variant as
+  `{"name": value}`), so `Identity`, `Kind` and the option types could
+  derive both, with `rename_all = "snake_case"`, `deny_unknown_fields`,
+  `skip_serializing_if` for optional members, `#[serde(skip)]` on
+  `Kind::Identity` and `Kind::Recursive`, and `#[serde(try_from = …)]` to
+  validate and canonicalize after reading. That reads without an
+  intermediate `Value`, and works with formats that are not
+  self-describing (as their own encoding of an identity; the identity's
+  digest is defined on the document either way). Costs: serde's syntax
+  errors are less precise than `from_json`'s paths, and there would be two
+  parsers, so the invalid-document vectors should run through both. Left
+  as it is for now.
+- **Three thin wrapper types could become struct variants of `Kind`**:
+  `MapKind` (`Kind::Map { key, value }`), `TimeOptions`
+  (`Kind::Instant { unit }`, `Kind::Duration { unit }`) and `BytesOptions`
+  (`Kind::Bytes { text }`), with the same encodings, so no digest changes;
+  the identity module's public types would go from 18 to 15. Not decided.
+- **Deferred from D19:** value types other than `serde_json::Value` (a
+  read-only value trait, for CBOR, TOML or YAML values); applying an
+  identity directly to a `Serialize` type without building a `Value`;
+  `QuiddityFromSerialize`, a derive that reads serde's attributes rather
+  than quiddity's; removing the "Draft" marker from spec section 5.
+- **D20:** resolution and tolerant digests, after the README rework.
+- **README:** the root README's examples are placeholders until the
+  composition API suggests a compact style for Python, Elixir and
+  JavaScript.
+- **Other languages:** Python and Elixir implementations, tested against
+  `test-vectors/`.

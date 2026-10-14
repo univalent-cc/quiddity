@@ -306,6 +306,46 @@ struct Keyed {
     by_row: BTreeMap<Vec<u8>, u8>,
 }
 
+#[derive(Quiddity)]
+struct Outer {
+    name: String,
+    items: Vec<Custom>,
+}
+
+#[derive(Quiddity)]
+#[allow(dead_code)]
+enum Choice {
+    Plain(u8),
+    Fancy { inner: Outer },
+}
+
+#[derive(Quiddity)]
+struct Pair(u8, Result<u8, std::convert::Infallible>);
+
+/// Export errors name where the problem is: the exported type, then the
+/// fields and variants leading to it.
+#[test]
+fn export_error_paths() {
+    let e = <Custom as Quiddity>::construct_identity().unwrap_err();
+    assert_eq!(e.path, "Custom.raw");
+    let e = <Outer as Quiddity>::construct_identity().unwrap_err();
+    assert_eq!(e.path, "Outer.items.raw");
+    assert!(
+        e.to_string()
+            .starts_with("cannot export an identity: at Outer.items.raw: "),
+        "{e}"
+    );
+    let e = <Choice as Quiddity>::construct_identity().unwrap_err();
+    assert_eq!(e.path, "Choice.Fancy.inner.items.raw");
+    let e = <Pair as Quiddity>::construct_identity().unwrap_err();
+    assert_eq!(e.path, "Pair.1");
+    let e = <Shown as Quiddity>::construct_identity().unwrap_err();
+    assert_eq!(e.path, "Shown");
+    // A problem with the identity as a whole has no path.
+    let e = <Overlapping as Quiddity>::construct_identity().unwrap_err();
+    assert_eq!(e.path, "");
+}
+
 #[test]
 fn export_errors() {
     let err = |r: Result<Identity, quiddity::identity::ExportError>| r.unwrap_err().message;

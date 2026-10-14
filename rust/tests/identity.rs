@@ -133,6 +133,26 @@ fn names_that_clash() {
 }
 
 #[test]
+fn names_are_in_the_document() {
+    // A named identity's root is its own definition, so its name appears
+    // in its document, and comes back when the document is read.
+    let r = row();
+    assert_eq!(r.name(), Some("Row"));
+    let doc = r.to_json();
+    assert_eq!(doc["root"], json!({"ref": "Row"}));
+    assert!(doc["definitions"]["Row"]["object"].is_object());
+    let back = Identity::from_json(&doc).unwrap();
+    assert_eq!(back.name(), Some("Row"));
+    assert_eq!(back, r);
+    // Renaming renames the definition and the references to it.
+    let renamed = question().named("Query");
+    assert_eq!(renamed.to_json()["root"], json!({"ref": "Query"}));
+    let parent = &renamed.to_json()["definitions"]["Query"]["object"]["fields"]["parent"];
+    assert_eq!(parent["kind"], json!({"union": ["null", {"ref": "Query"}]}));
+    assert_ne!(renamed.quiddity(), question().quiddity());
+}
+
+#[test]
 fn unnamed_identities_are_inlined() {
     let point = Identity::new(Kind::object([("x", Kind::Integer)]).unwrap()).unwrap();
     let id = Identity::new(Kind::list(point)).unwrap();
@@ -207,4 +227,49 @@ fn constructors_check_what_they_build() {
     // A recursive kind is checked once it is placed in an identity.
     assert!(Kind::union([Kind::Null, Kind::recursive()]).is_ok());
     assert!(Identity::new(Kind::recursive()).is_err());
+}
+
+/// With the `serde` feature, an identity is written and read as its
+/// document, and reading checks it.
+#[cfg(feature = "serde")]
+#[test]
+fn serde_round_trip() {
+    let q = question();
+    let text = serde_json::to_string(&q).unwrap();
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&text).unwrap(),
+        q.to_json()
+    );
+    let back: Identity = serde_json::from_str(&text).unwrap();
+    assert_eq!(back, q);
+    assert_eq!(back.quiddity(), q.quiddity());
+
+    // Inside another serde type.
+    #[derive(serde::Serialize, serde::Deserialize)]
+    struct Config {
+        version: u32,
+        identity: Identity,
+    }
+    let config: Config = serde_json::from_value(json!({
+        "version": 3,
+        "identity": {"quiddity": 1, "root": {"union": ["null", "string"]}}
+    }))
+    .unwrap();
+    assert_eq!(
+        config.identity,
+        Identity::new(Kind::optional(Kind::String)).unwrap()
+    );
+    assert_eq!(
+        serde_json::to_value(&config).unwrap()["identity"],
+        config.identity.to_json()
+    );
+
+    // Not valid: an error, naming the problem.
+    let err = serde_json::from_value::<Identity>(json!({
+        "quiddity": 1, "root": {"union": ["integer", "number"]}
+    }))
+    .unwrap_err();
+    assert!(err.to_string().contains("natively"), "{err}");
+    let err = serde_json::from_str::<Identity>(r#"{"quiddity": 1, "root": "text"}"#).unwrap_err();
+    assert!(err.to_string().contains("unknown kind"), "{err}");
 }
