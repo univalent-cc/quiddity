@@ -15,10 +15,11 @@ wins. Python values map onto the data model as:
     dict              map with distinct keys
 
 Usage as a library: enc(v), digest(v), in_domain(d, label), text(d),
-wtf8(s).
+wtf8(s), from_json(text).
 """
 
 import hashlib
+import json
 import math
 import struct
 
@@ -122,6 +123,21 @@ def enc(v):
         body = b"".join(enc(k) + enc(x) for k, x in e)
         return body + u64be(len(e)) + bytes([T_MAP])
     raise TypeError(f"not a data-model value: {v!r}")
+
+
+def from_json(text):
+    """A JSON text as a data-model value (spec 2.7)."""
+    def number_int(t):
+        n = int(t)
+        return n if -(2**63) <= n <= 2**64 - 1 else float(t)
+
+    def not_json(t):
+        raise ValueError(f"not JSON: {t}")
+
+    return json.loads(
+        text, parse_int=number_int, parse_float=float, parse_constant=not_json,
+        object_pairs_hook=Map,
+    )
 
 
 def digest(v):

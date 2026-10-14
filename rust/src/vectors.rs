@@ -227,6 +227,22 @@ fn domains() {
     }
 }
 
+/// JSON texts, mapped by spec 2.7.
+#[cfg(feature = "serde_json")]
+#[test]
+fn json() {
+    let Some(vectors) = vectors() else { return };
+    for case in vectors["json"].as_array().unwrap() {
+        let text = str_of(case, "text");
+        let value: Json = serde_json::from_str(text).expect("valid JSON");
+        assert_eq!(
+            value.quiddity().to_string(),
+            str_of(case, "digest"),
+            "{text}"
+        );
+    }
+}
+
 #[test]
 fn text_forms() {
     let Some(vectors) = vectors() else { return };

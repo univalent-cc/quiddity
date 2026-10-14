@@ -12,6 +12,25 @@ mod tests {
         serde_json::from_str::<Value>(json).unwrap().quiddity()
     }
 
+    /// The JSON vectors (spec 2.7) give the same digests with the feature.
+    #[test]
+    fn json_vectors() {
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../../test-vectors/quiddity-v1.json"
+        );
+        let text = std::fs::read_to_string(path).unwrap();
+        let vectors: Value = serde_json::from_str(&text).unwrap();
+        for case in vectors["json"].as_array().unwrap() {
+            let json = case["text"].as_str().unwrap();
+            assert_eq!(
+                digest(json).to_string(),
+                case["digest"].as_str().unwrap(),
+                "{json}"
+            );
+        }
+    }
+
     #[test]
     fn feature_is_on() {
         // Without the feature, serde_json rejects numbers beyond `f64`.

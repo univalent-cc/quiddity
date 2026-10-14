@@ -24,7 +24,7 @@ import pathlib
 import struct
 import sys
 
-from qref import Map, Set, digest, enc, in_domain, text
+from qref import Map, Set, digest, enc, from_json, in_domain, text
 
 OUT = pathlib.Path(__file__).resolve().parent / "quiddity-v1.json"
 
@@ -186,6 +186,32 @@ DOMAINS = [
     ("non-ascii label", null(), "café"),
 ]
 
+# JSON texts (spec 2.7). Texts in one group have the same digest; texts in
+# different groups do not. The pairs marked JCS test Appendix B.
+JSON = [
+    # Numbers by binary64 value (JCS agrees).
+    ("1", "1.0", "1e0", "10e-1", "0.1e1"),
+    ("0", "-0", "-0.0", "0e5"),
+    ("1.5", "15e-1"),
+    # Integers are exact within 64 bits (JCS rounds above 2^53).
+    ("9007199254740992", "9007199254740993.0", "9007199254740992.0"),
+    ("9007199254740993",),
+    ("18446744073709551615",),
+    ("-9223372036854775808",),
+    # Beyond 64 bits, the nearest binary64.
+    ("18446744073709551616", "18446744073709551617", "1.8446744073709552e19"),
+    # Member order does not matter; item order does (JCS agrees).
+    ('{"a":1,"b":[true,null]}', '{ "b" : [ true , null ] , "a" : 1 }'),
+    ('[1,2]',),
+    ('[2,1]',),
+    # Strings by code points, without normalization (JCS agrees).
+    ('"\u00e9"', '"é"'),
+    ('"e\u0301"',),
+    ('"\ud83d\ude00"', '"😀"'),
+    # Nested objects.
+    ('{"to":"bob","amount":100}', '{"amount":1e2,"to":"bob"}'),
+]
+
 d0 = digest(None)
 TEXT_FORMS = [
     (text(d0), True, "MUST"),
@@ -218,11 +244,20 @@ def build():
             "structural": text(s), **digests(in_domain(s, label)),
         })
     texts = [{"text": t, "valid": ok, "requirement": req} for t, ok, req in TEXT_FORMS]
+    json_cases = []
+    seen = {}
+    for group, members in enumerate(JSON):
+        for t in members:
+            d = digest(from_json(t))
+            assert seen.setdefault(d, group) == group, f"{t} collides with group {seen[d]}"
+            assert d == digest(from_json(members[0])), f"{t} differs from {members[0]}"
+            json_cases.append({"text": t, "group": group, **digests(d)})
     return {
         "spec": "QUIDDITY_SPEC.md, version 1 (draft)",
         "generator": "test-vectors/generate.py",
         "values": values,
         "domains": domains,
+        "json": json_cases,
         "text_forms": texts,
     }
 

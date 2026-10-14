@@ -42,6 +42,36 @@ Notation:
   32-byte string.
 - `E(v)` is the encoding of value `v` (section 3).
 
+### 1.3 References
+
+Normative:
+
+- **[FIPS 180-4]** NIST, *Secure Hash Standard (SHS)*, FIPS PUB 180-4, 2015.
+- **[IEEE 754]** IEEE, *Standard for Floating-Point Arithmetic*, IEEE Std
+  754-2019.
+- **[X.690]** ITU-T, *ASN.1 encoding rules: Specification of Basic Encoding
+  Rules (BER), Canonical Encoding Rules (CER) and Distinguished Encoding
+  Rules (DER)*, Recommendation X.690.
+- **[POSIX]** IEEE Std 1003.1-2024, Base Definitions, *Seconds Since the
+  Epoch*.
+- **[RFC 2119]**, **[RFC 8174]** Key words for use in RFCs to indicate
+  requirement levels.
+- **[RFC 3629]** *UTF-8, a transformation format of ISO 10646*.
+- **[RFC 5234]** *Augmented BNF for Syntax Specifications: ABNF*.
+- **[RFC 5952]** *A Recommendation for IPv6 Address Text Representation*,
+  section 4. Section 5.2 states its own rule for dotted notation.
+- **[RFC 8259]** *The JavaScript Object Notation (JSON) Data Interchange
+  Format*.
+
+Informative:
+
+- **[RFC 7493]** *The I-JSON Message Format*.
+- **[RFC 8785]** *JSON Canonicalization Scheme (JCS)*. Appendix B compares
+  it with this specification.
+- **[WTF-8]** S. Sapin, *The WTF-8 encoding*,
+  <https://simonsapin.github.io/wtf-8/>. Section 2.3 states the part of
+  WTF-8 that this specification uses.
+
 ## 2. Data model
 
 ### 2.1 Values
@@ -98,7 +128,7 @@ and binary data are both strings, and are equal when their bytes are equal.
 - Text that is a sequence of Unicode scalar values (code points U+0000 to
   U+D7FF and U+E000 to U+10FFFF) is its UTF-8 encoding.
 - Text that may contain surrogate code points, such as an ill-formed UTF-16
-  string, is its WTF-8 encoding: each high surrogate immediately followed
+  string, is its WTF-8 encoding [WTF-8]: each high surrogate immediately followed
   by a low surrogate is first combined into the scalar value the pair
   represents, and each remaining surrogate code point is written as the
   three bytes that UTF-8's encoding scheme gives that code point (for
@@ -144,8 +174,8 @@ data model SHOULD map them as follows:
 
 - An **instant** is the integer number of nanoseconds since
   1970-01-01T00:00:00 UTC (the Unix epoch), negative for an instant before
-  it. Time is counted as in POSIX: every day has 86 400 seconds, and leap
-  seconds are not counted.
+  it. Time is counted as in POSIX [POSIX]: every day has 86 400 seconds,
+  and leap seconds are not counted.
 - A **duration** is the integer number of nanoseconds, negative for a
   negative duration.
 
@@ -159,6 +189,32 @@ keeps. For example, 2024-01-01T00:00:00Z is `1704067200000000000`, and
 A date and time without a time zone or UTC offset (a "local" or "naive"
 date and time) is not an instant, and a duration in calendar units, such as
 months, has no fixed number of nanoseconds. Neither has a mapping here.
+
+### 2.7 JSON
+
+So that a JSON document has the same digest in every language, an
+implementation that maps JSON [RFC 8259] onto the data model SHOULD map it
+as follows:
+
+| JSON | Data-model value |
+|---|---|
+| `null` | null |
+| `true`, `false` | boolean |
+| number | as below |
+| string | string: its text (2.3), after escapes are decoded |
+| array | list, in order |
+| object | map with string keys; member order does not matter |
+
+A number whose text has no fraction and no exponent, and whose value is
+from −2^63 to 2^64 − 1, is that integer. Any other number is converted to
+the nearest binary64 value (ties to even) and normalized by 2.2. So `1`,
+`1.0` and `1e0` are the integer 1, and `9007199254740993` is that integer,
+while `9007199254740993.0` is the binary64 value 2^53, the integer
+9007199254740992. The bounds are those of 64-bit integers, which most JSON
+parsers represent exactly.
+
+This mapping is defined for objects without duplicate names, as I-JSON
+[RFC 7493] requires.
 
 ## 3. Encoding
 
@@ -396,7 +452,7 @@ impl writes it, which can differ from this table. For example, serde
 writes a `Duration` as the map `{"secs": s, "nanos": n}`.
 
 **Addresses.** An IPv4 address is in dotted decimal, such as `192.0.2.1`.
-An IPv6 address is in the text form of RFC 5952, section 4: lowercase hex
+An IPv6 address is in the text form of [RFC 5952], section 4: lowercase hex
 digits without leading zeros, the longest run of two or more zero groups
 written `::` (the first, among equally long runs), and no other
 compression. An IPv4-mapped address (`::ffff:0:0/96`) has its last 32 bits
@@ -558,8 +614,8 @@ the same identity; a scope list naming an identity not declared in
 | `Array(a)` | list |
 | `Object(m)` | map with string keys, whatever the iteration order of `m` |
 
-A `Number` holding an `i64` or `u64` is that integer. A `Number` holding an
-`f64` is normalized by 2.2.
+`Value` follows the JSON mapping of 2.7. A `Number` holding an `i64` or
+`u64` is that integer. A `Number` holding an `f64` is normalized by 2.2.
 
 With serde_json's `arbitrary_precision` feature, a `Number` holds its
 decimal text. Such a `Number` MUST have the value it would have had without
@@ -608,7 +664,7 @@ produces the encoding of section 3 and the digests of section 4.
 The normative test vectors are in `test-vectors/quiddity-v1.json`. The file
 is generated by `test-vectors/generate.py`, using the Python implementation
 of sections 2 to 4 in `test-vectors/qref.py`; the generator's header
-describes the typed JSON notation for values. The file has three sections:
+describes the typed JSON notation for values. The file has four sections:
 
 - `values`: a value, its encoding `E(v)` in hex, and its structural digest
   in each text form (4.4). Floats are given as binary64 bits before
@@ -617,6 +673,8 @@ describes the typed JSON notation for values. The file has three sections:
   tests 2.3.
 - `domains`: a value, a domain label, and the digest in that domain in each
   text form.
+- `json`: a JSON text and its digest under the mapping of 2.7. Texts with
+  the same digest are equal values; several are chosen to test Appendix B.
 - `text_forms`: strings to be parsed as digest text, whether each is valid,
   and whether accepting or rejecting it is required (`MUST`) or recommended
   (`SHOULD`).
@@ -665,3 +723,41 @@ D(S(v), "example.payment") = f9104f8b85740d8c6c47c0f5a04bb05d264ee25f9be3d310be6
 ```
 
 In text form, the last is `sha256-64:f9104f8b85740d8c`.
+
+## Appendix B. Relation to RFC 8785 (informative)
+
+The JSON Canonicalization Scheme (JCS) [RFC 8785] writes a JSON value as
+exactly one JSON text, which can then be hashed. This specification
+instead encodes values of its own data model (section 2), which includes
+JSON values (2.7).
+
+**Agreement on JSON values.** For JSON texts that are I-JSON [RFC 7493]
+(valid Unicode, no duplicate names) and whose integers lie from
+−(2^53 − 1) to 2^53 − 1, two texts have the same quiddity digest if and only
+if they have the same JCS form. Both treat a number as its binary64 value,
+so `1`, `1.0` and `1e0` are equal and `-0` equals `0`. Both treat a string
+as its exact code points, without Unicode normalization. Both treat object
+members as unordered and array items as ordered. Outside that range,
+quiddity is finer: it keeps integers up to 2^64 − 1 exact (2.7), where JCS
+rounds them to binary64.
+
+**Differences.**
+
+| | RFC 8785 | This specification |
+|---|---|---|
+| Integers beyond 2^53 | Rounded to binary64; the RFC suggests strings for them | Exact, at any size (3.4) |
+| NaN, ±∞ | An error | Values; every NaN is the same value (2.2) |
+| Lone surrogates | An error | Encoded as WTF-8 (2.3) |
+| Binary data, sets, non-string keys | Not representable | A string of bytes (2.3), a set, keys of any kind |
+| Duplicate keys | An error | Allowed; maps and sets are multisets (2.1) |
+| Order of keys | By UTF-16 code units | By encoding (2.5); the orders differ between characters U+E000 to U+FFFF and characters above U+FFFF |
+| Framing | JSON text, with escaping | A length or count and a tag after each value, without escaping (3.1) |
+| Floats | ECMAScript's shortest round-trip decimal text | The 8 bytes of binary64 (3.4) |
+| Hash input | Not specified | Prefixed and domain-separated (4.1, 4.2) |
+
+The differences follow from this specification's purposes. Every value of
+the data model can be encoded, so encoding never fails. Values from
+languages other than JSON, such as sets, 64-bit integers and binary data,
+are encoded exactly. An encoding can be written straight into a hash
+function, without producing text and without formatting numbers as
+decimals.

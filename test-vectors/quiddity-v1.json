@@ -1152,6 +1152,225 @@
       "digest64": "sha256-64:9e6551475cebcd8f"
     }
   ],
+  "json": [
+    {
+      "text": "1",
+      "group": 0,
+      "digest": "sha256:2703bfd3b50d7dd6522d108837053d9af4e32055e94d0f69e63ca983bfac4f8c",
+      "digest128": "sha256-128:2703bfd3b50d7dd6522d108837053d9a",
+      "digest64": "sha256-64:2703bfd3b50d7dd6"
+    },
+    {
+      "text": "1.0",
+      "group": 0,
+      "digest": "sha256:2703bfd3b50d7dd6522d108837053d9af4e32055e94d0f69e63ca983bfac4f8c",
+      "digest128": "sha256-128:2703bfd3b50d7dd6522d108837053d9a",
+      "digest64": "sha256-64:2703bfd3b50d7dd6"
+    },
+    {
+      "text": "1e0",
+      "group": 0,
+      "digest": "sha256:2703bfd3b50d7dd6522d108837053d9af4e32055e94d0f69e63ca983bfac4f8c",
+      "digest128": "sha256-128:2703bfd3b50d7dd6522d108837053d9a",
+      "digest64": "sha256-64:2703bfd3b50d7dd6"
+    },
+    {
+      "text": "10e-1",
+      "group": 0,
+      "digest": "sha256:2703bfd3b50d7dd6522d108837053d9af4e32055e94d0f69e63ca983bfac4f8c",
+      "digest128": "sha256-128:2703bfd3b50d7dd6522d108837053d9a",
+      "digest64": "sha256-64:2703bfd3b50d7dd6"
+    },
+    {
+      "text": "0.1e1",
+      "group": 0,
+      "digest": "sha256:2703bfd3b50d7dd6522d108837053d9af4e32055e94d0f69e63ca983bfac4f8c",
+      "digest128": "sha256-128:2703bfd3b50d7dd6522d108837053d9a",
+      "digest64": "sha256-64:2703bfd3b50d7dd6"
+    },
+    {
+      "text": "0",
+      "group": 1,
+      "digest": "sha256:1c6e2c7c95d2fd9b5bb439aac67a11822e9f3b28ee12899bf743818a389672c7",
+      "digest128": "sha256-128:1c6e2c7c95d2fd9b5bb439aac67a1182",
+      "digest64": "sha256-64:1c6e2c7c95d2fd9b"
+    },
+    {
+      "text": "-0",
+      "group": 1,
+      "digest": "sha256:1c6e2c7c95d2fd9b5bb439aac67a11822e9f3b28ee12899bf743818a389672c7",
+      "digest128": "sha256-128:1c6e2c7c95d2fd9b5bb439aac67a1182",
+      "digest64": "sha256-64:1c6e2c7c95d2fd9b"
+    },
+    {
+      "text": "-0.0",
+      "group": 1,
+      "digest": "sha256:1c6e2c7c95d2fd9b5bb439aac67a11822e9f3b28ee12899bf743818a389672c7",
+      "digest128": "sha256-128:1c6e2c7c95d2fd9b5bb439aac67a1182",
+      "digest64": "sha256-64:1c6e2c7c95d2fd9b"
+    },
+    {
+      "text": "0e5",
+      "group": 1,
+      "digest": "sha256:1c6e2c7c95d2fd9b5bb439aac67a11822e9f3b28ee12899bf743818a389672c7",
+      "digest128": "sha256-128:1c6e2c7c95d2fd9b5bb439aac67a1182",
+      "digest64": "sha256-64:1c6e2c7c95d2fd9b"
+    },
+    {
+      "text": "1.5",
+      "group": 2,
+      "digest": "sha256:abee116c081a17dae4b03f4ec6c3339cdb6134726180231494373b1c9ce377ee",
+      "digest128": "sha256-128:abee116c081a17dae4b03f4ec6c3339c",
+      "digest64": "sha256-64:abee116c081a17da"
+    },
+    {
+      "text": "15e-1",
+      "group": 2,
+      "digest": "sha256:abee116c081a17dae4b03f4ec6c3339cdb6134726180231494373b1c9ce377ee",
+      "digest128": "sha256-128:abee116c081a17dae4b03f4ec6c3339c",
+      "digest64": "sha256-64:abee116c081a17da"
+    },
+    {
+      "text": "9007199254740992",
+      "group": 3,
+      "digest": "sha256:0e8c029fff66de92ac0cff48fe869f4b910eff293eea01b40da576078afb2254",
+      "digest128": "sha256-128:0e8c029fff66de92ac0cff48fe869f4b",
+      "digest64": "sha256-64:0e8c029fff66de92"
+    },
+    {
+      "text": "9007199254740993.0",
+      "group": 3,
+      "digest": "sha256:0e8c029fff66de92ac0cff48fe869f4b910eff293eea01b40da576078afb2254",
+      "digest128": "sha256-128:0e8c029fff66de92ac0cff48fe869f4b",
+      "digest64": "sha256-64:0e8c029fff66de92"
+    },
+    {
+      "text": "9007199254740992.0",
+      "group": 3,
+      "digest": "sha256:0e8c029fff66de92ac0cff48fe869f4b910eff293eea01b40da576078afb2254",
+      "digest128": "sha256-128:0e8c029fff66de92ac0cff48fe869f4b",
+      "digest64": "sha256-64:0e8c029fff66de92"
+    },
+    {
+      "text": "9007199254740993",
+      "group": 4,
+      "digest": "sha256:f0c047c36d784c768ba24c2b6f0502f75a5130e962feb6bb6d32d73d3e6e5d3f",
+      "digest128": "sha256-128:f0c047c36d784c768ba24c2b6f0502f7",
+      "digest64": "sha256-64:f0c047c36d784c76"
+    },
+    {
+      "text": "18446744073709551615",
+      "group": 5,
+      "digest": "sha256:834e4579290eba7854c5eb035716c1a0b41969b7172e184c94a662900b599397",
+      "digest128": "sha256-128:834e4579290eba7854c5eb035716c1a0",
+      "digest64": "sha256-64:834e4579290eba78"
+    },
+    {
+      "text": "-9223372036854775808",
+      "group": 6,
+      "digest": "sha256:c7b5dd5ba3d770f545dcc8f53aa006a546fa1a3643e2a95564acb5786759b1e9",
+      "digest128": "sha256-128:c7b5dd5ba3d770f545dcc8f53aa006a5",
+      "digest64": "sha256-64:c7b5dd5ba3d770f5"
+    },
+    {
+      "text": "18446744073709551616",
+      "group": 7,
+      "digest": "sha256:ea68dd7237027dea9aa364321e866776f344a219dbc0d3eae2f1b03e0553d9a8",
+      "digest128": "sha256-128:ea68dd7237027dea9aa364321e866776",
+      "digest64": "sha256-64:ea68dd7237027dea"
+    },
+    {
+      "text": "18446744073709551617",
+      "group": 7,
+      "digest": "sha256:ea68dd7237027dea9aa364321e866776f344a219dbc0d3eae2f1b03e0553d9a8",
+      "digest128": "sha256-128:ea68dd7237027dea9aa364321e866776",
+      "digest64": "sha256-64:ea68dd7237027dea"
+    },
+    {
+      "text": "1.8446744073709552e19",
+      "group": 7,
+      "digest": "sha256:ea68dd7237027dea9aa364321e866776f344a219dbc0d3eae2f1b03e0553d9a8",
+      "digest128": "sha256-128:ea68dd7237027dea9aa364321e866776",
+      "digest64": "sha256-64:ea68dd7237027dea"
+    },
+    {
+      "text": "{\"a\":1,\"b\":[true,null]}",
+      "group": 8,
+      "digest": "sha256:2d066497bd37f92c8bec275676134bfab42dbe6bcdf43e0f5e7c1d1afed28099",
+      "digest128": "sha256-128:2d066497bd37f92c8bec275676134bfa",
+      "digest64": "sha256-64:2d066497bd37f92c"
+    },
+    {
+      "text": "{ \"b\" : [ true , null ] , \"a\" : 1 }",
+      "group": 8,
+      "digest": "sha256:2d066497bd37f92c8bec275676134bfab42dbe6bcdf43e0f5e7c1d1afed28099",
+      "digest128": "sha256-128:2d066497bd37f92c8bec275676134bfa",
+      "digest64": "sha256-64:2d066497bd37f92c"
+    },
+    {
+      "text": "[1,2]",
+      "group": 9,
+      "digest": "sha256:bf870ad50f4b5d4b88b3571ce3be68bdd54dc517b56fc76504042458644c90b3",
+      "digest128": "sha256-128:bf870ad50f4b5d4b88b3571ce3be68bd",
+      "digest64": "sha256-64:bf870ad50f4b5d4b"
+    },
+    {
+      "text": "[2,1]",
+      "group": 10,
+      "digest": "sha256:c742696032f5707a789c2a7aa287c64a4380dd6458775e52185636fc04fc206a",
+      "digest128": "sha256-128:c742696032f5707a789c2a7aa287c64a",
+      "digest64": "sha256-64:c742696032f5707a"
+    },
+    {
+      "text": "\"\u00e9\"",
+      "group": 11,
+      "digest": "sha256:d3a8c32bb9af3134c7b000ba18e1c8c0366413e94a6fd2269e7f04598cb2a00f",
+      "digest128": "sha256-128:d3a8c32bb9af3134c7b000ba18e1c8c0",
+      "digest64": "sha256-64:d3a8c32bb9af3134"
+    },
+    {
+      "text": "\"\u00e9\"",
+      "group": 11,
+      "digest": "sha256:d3a8c32bb9af3134c7b000ba18e1c8c0366413e94a6fd2269e7f04598cb2a00f",
+      "digest128": "sha256-128:d3a8c32bb9af3134c7b000ba18e1c8c0",
+      "digest64": "sha256-64:d3a8c32bb9af3134"
+    },
+    {
+      "text": "\"e\u0301\"",
+      "group": 12,
+      "digest": "sha256:321f2f95e4fbcf33ad01a7be6dc6609ba6ef7cc38125213a534d82a36e7d439a",
+      "digest128": "sha256-128:321f2f95e4fbcf33ad01a7be6dc6609b",
+      "digest64": "sha256-64:321f2f95e4fbcf33"
+    },
+    {
+      "text": "\"\ud83d\ude00\"",
+      "group": 13,
+      "digest": "sha256:f6fe5841e8845f22f28f150d159b7bfe13f900c1ab6f5bb8aa8062cd13fd8de6",
+      "digest128": "sha256-128:f6fe5841e8845f22f28f150d159b7bfe",
+      "digest64": "sha256-64:f6fe5841e8845f22"
+    },
+    {
+      "text": "\"\ud83d\ude00\"",
+      "group": 13,
+      "digest": "sha256:f6fe5841e8845f22f28f150d159b7bfe13f900c1ab6f5bb8aa8062cd13fd8de6",
+      "digest128": "sha256-128:f6fe5841e8845f22f28f150d159b7bfe",
+      "digest64": "sha256-64:f6fe5841e8845f22"
+    },
+    {
+      "text": "{\"to\":\"bob\",\"amount\":100}",
+      "group": 14,
+      "digest": "sha256:ebdada98fd6978a74c13d459b99036804651da3c7c677873973a497373f252b7",
+      "digest128": "sha256-128:ebdada98fd6978a74c13d459b9903680",
+      "digest64": "sha256-64:ebdada98fd6978a7"
+    },
+    {
+      "text": "{\"amount\":1e2,\"to\":\"bob\"}",
+      "group": 14,
+      "digest": "sha256:ebdada98fd6978a74c13d459b99036804651da3c7c677873973a497373f252b7",
+      "digest128": "sha256-128:ebdada98fd6978a74c13d459b9903680",
+      "digest64": "sha256-64:ebdada98fd6978a7"
+    }
+  ],
   "text_forms": [
     {
       "text": "sha256:9b33f75d21a313761583c755e50288efa6ccb37c900dc413d3951395aada56c3",
