@@ -363,6 +363,57 @@ fn export_errors() {
     );
 }
 
+#[derive(Serialize, Quiddity)]
+struct Reading {
+    #[quiddity(quantize = 100)]
+    count: i64,
+    #[quiddity(decimals = 2)]
+    price: f64,
+    #[quiddity(decimals = -3)]
+    big: f64,
+    #[quiddity(quantize = 1_000_000_000)]
+    at: SystemTime,
+    #[quiddity(quantize = 60_000_000_000)]
+    wait: Duration,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[quiddity(quantize = 10, omit_none)]
+    maybe: Option<u32>,
+}
+
+/// Quantized fields export as quantized fields, and digest the same.
+#[test]
+fn quantized_fields() {
+    for (count, price, big, ms, maybe) in [
+        (149, 12.989, 123_456.7, 1_999, Some(19)),
+        (-1, -0.001, -0.5, 61_000, None),
+        (100, 2.675, 1e300, 0, Some(10)),
+    ] {
+        check::<_, Primary>(&Reading {
+            count,
+            price,
+            big,
+            at: UNIX_EPOCH + Duration::from_millis(1_704_067_200_000 + ms),
+            wait: Duration::from_millis(ms),
+            maybe,
+        });
+    }
+    let doc = <Reading as Quiddity>::construct_identity()
+        .unwrap()
+        .to_json();
+    let fields = &doc["definitions"]["Reading"]["object"]["fields"];
+    assert_eq!(fields["count"]["quantize"], serde_json::json!(100));
+    assert_eq!(fields["big"]["decimals"], serde_json::json!(-3));
+}
+
+#[derive(Quiddity)]
+struct Pair2(#[quiddity(quantize = 10)] u8, u8);
+
+#[test]
+fn quantized_unnamed_fields_do_not_export() {
+    let e = <Pair2 as Quiddity>::construct_identity().unwrap_err();
+    assert!(e.message.contains("quantize"), "{e}");
+}
+
 #[test]
 fn std_types() {
     check::<_, Primary>(&(1u8, "a", Some(2.5f64), None::<bool>));

@@ -1,4 +1,4 @@
-error: `with`, `encode_as` and `identity` cannot be combined (identity `Primary`)
+error: `with`, `encode_as`, `identity`, `quantize` and `decimals` cannot be combined (identity `Primary`)
   --> tests/ui/conflicting_encodings.rs:10:8
    |
 10 |     a: u8,

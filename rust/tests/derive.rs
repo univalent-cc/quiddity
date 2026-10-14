@@ -757,3 +757,66 @@ fn omit_none_on_nullable_types() {
         Map::new().with("a", 1u8).with("b", 2u8).quiddity()
     );
 }
+
+#[derive(Quiddity)]
+struct Quantized {
+    #[quiddity(quantize = 100)]
+    count: i64,
+    #[quiddity(decimals = 2)]
+    price: f64,
+    #[quiddity(decimals = 1)]
+    ratio: f32,
+    #[quiddity(quantize = 1_000_000_000)]
+    timeout: std::time::Duration,
+    #[quiddity(quantize = 1_000_000_000)]
+    at: std::time::SystemTime,
+    #[quiddity(quantize = 10, omit_none)]
+    maybe: Option<u8>,
+}
+
+fn quantized(count: i64, price: f64, ratio: f32, ms: u64, maybe: Option<u8>) -> Quantized {
+    use std::time::{Duration, UNIX_EPOCH};
+    Quantized {
+        count,
+        price,
+        ratio,
+        timeout: Duration::from_millis(ms),
+        at: UNIX_EPOCH + Duration::from_millis(1_704_067_200_000 + ms),
+        maybe,
+    }
+}
+
+#[test]
+fn quantize_and_decimals() {
+    let a = quantized(100, 12.98, 0.7, 1_000, Some(12));
+    let b = quantized(149, 12.989, 0.75, 1_999, Some(19));
+    assert_eq!(a.quiddity(), b.quiddity());
+    // Each field across its grid's edge changes the digest.
+    for c in [
+        quantized(99, 12.98, 0.7, 1_000, Some(12)),
+        quantized(100, 12.97, 0.7, 1_000, Some(12)),
+        quantized(100, 12.98, 0.69, 1_000, Some(12)),
+        quantized(100, 12.98, 0.7, 999, Some(12)),
+        quantized(100, 12.98, 0.7, 1_000, Some(9)),
+        quantized(100, 12.98, 0.7, 1_000, None),
+    ] {
+        assert_ne!(a.quiddity(), c.quiddity());
+    }
+    // The quantized values, as a map of plain values.
+    assert_eq!(
+        a.quiddity(),
+        Map::new()
+            .with("count", 100u8)
+            .with("price", 12.98f64)
+            .with("ratio", 0.7f64)
+            .with("timeout", 1_000_000_000u64)
+            .with("at", 1_704_067_201_000_000_000u64)
+            .with("maybe", 10u8)
+            .quiddity()
+    );
+    // Negative values round down.
+    assert_eq!(
+        quantized(-1, -0.001, 0.7, 1_000, None).quiddity(),
+        quantized(-100, -0.01, 0.7, 1_000, None).quiddity()
+    );
+}

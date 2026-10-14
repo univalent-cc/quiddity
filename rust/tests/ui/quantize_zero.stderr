@@ -1,0 +1,5 @@
+error: `quantize` must be a positive integer
+ --> tests/ui/quantize_zero.rs:5:16
+  |
+5 |     #[quiddity(quantize = 0)]
+  |                ^^^^^^^^

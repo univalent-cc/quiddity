@@ -15,6 +15,7 @@ of an identity under the identity of identity documents (spec Appendix C).
 
 import base64
 import json
+import math
 import re
 from fractions import Fraction
 
@@ -161,7 +162,7 @@ def canonical_object(v, where):
     keys = set()
     for fname, f in v["fields"].items():
         fw = f"{where}.fields.{fname}"
-        members(f, fw, required=("kind",), optional=("rename", "omit"))
+        members(f, fw, required=("kind",), optional=("rename", "omit", "quantize", "decimals"))
         out = {"kind": canonical_kind(f["kind"], fw)}
         if "rename" in f:
             nonempty_str(f["rename"], fw)
@@ -179,6 +180,19 @@ def canonical_object(v, where):
                 one_of(c, {"none", "empty"}, fw)
             if omit:
                 out["omit"] = sorted(omit)
+        if "quantize" in f:
+            q = f["quantize"]
+            if not isinstance(q, int) or isinstance(q, bool) or q < 1:
+                raise InvalidDocument(f"{fw}: quantize must be a positive integer")
+            if q != 1:
+                out["quantize"] = q
+        if "decimals" in f:
+            d = f["decimals"]
+            if not isinstance(d, int) or isinstance(d, bool) or not -300 <= d <= 300:
+                raise InvalidDocument(f"{fw}: decimals must be an integer from -300 to 300")
+            out["decimals"] = d
+        if "quantize" in f and "decimals" in f:
+            raise InvalidDocument(f"{fw}: a field has quantize or decimals, not both")
         fields[fname] = out
     out = {"fields": fields}
     if "unlisted" in v:
@@ -346,8 +360,11 @@ def walk(k, defs):
         if len(accepting) > 1:
             raise InvalidDocument("a map's key union has two alternatives that accept strings")
     elif name == "object":
-        for f in v["fields"].values():
+        for fname, f in v["fields"].items():
             walk(f["kind"], defs)
+            for option, kinds in (("quantize", {"integer", "instant", "duration"}), ("decimals", {"number"})):
+                if option in f and quantized_kind(f["kind"], defs) not in kinds:
+                    raise InvalidDocument(f"field {fname!r}: {option} does not apply to its kind")
     elif name == "union":
         for a in v:
             walk(a, defs)
@@ -370,6 +387,38 @@ def walk(k, defs):
                 for fname, f in o["fields"].items():
                     if tag in (fname, f.get("rename", fname)):
                         raise InvalidDocument(f"variant {vname!r} has a field named {tag!r}")
+
+
+def quantized_kind(k, defs):
+    """The name of the kind a quantization applies to: the field's kind, or
+    the one alternative besides null of a union; references followed."""
+    k = resolve(k, defs)
+    if isinstance(k, dict) and "union" in k:
+        others = [a for a in k["union"] if resolve(a, defs) != "null"]
+        if len(others) != 1:
+            return None
+        k = resolve(others[0], defs)
+    return kind_name(k)
+
+
+def quantize(v, f):
+    """A field's value, quantized as its `quantize` or `decimals` says
+    (spec 5.6): rounded down to a multiple of the step, exactly."""
+    if v is None:
+        return v
+    if "quantize" in f:
+        return (v // f["quantize"]) * f["quantize"]
+    if "decimals" in f:
+        if isinstance(v, float) and (math.isnan(v) or math.isinf(v)):
+            return v
+        d = f["decimals"]
+        scale = Fraction(10) ** d
+        # A float stands for the shortest decimal that rounds to it, which is
+        # what a JSON writer emits (Python's repr).
+        exact = Fraction(repr(v)) if isinstance(v, float) else Fraction(v)
+        r = Fraction(math.floor(exact * scale)) / scale
+        return int(r) if r.denominator == 1 else qref.norm(float(r))
+    return v
 
 
 def resolve(k, defs, seen=()):
@@ -756,7 +805,7 @@ def apply_object(o, s, defs, skip=None):
     leave out (an internally tagged union's tag)."""
     values = []
     for fname, f in o["fields"].items():
-        v = apply_kind(f["kind"], s.get(fname), defs)
+        v = quantize(apply_kind(f["kind"], s.get(fname), defs), f)
         omit = f.get("omit", [])
         if ("none" in omit and v is None) or ("empty" in omit and is_empty(v)):
             continue

@@ -273,6 +273,7 @@ impl Cx<'_> {
                 member.unwrap_or(&Value::Null),
                 &format!("{path}.{name}"),
             )?;
+            let v = quantize(v, f);
             if (f.omit.contains(&Omit::None) && v.is_null())
                 || (f.omit.contains(&Omit::Empty) && v.is_empty())
             {
@@ -519,4 +520,39 @@ fn small(bytes: &[u8]) -> Option<i128> {
     let mut buf = [fill; 16];
     buf[16 - b.len()..].copy_from_slice(b);
     Some(i128::from_be_bytes(buf))
+}
+
+/// A field's value, quantized as its `quantize` or `decimals` says (spec
+/// 5.6). The identity is valid, so the value is of a kind that applies.
+fn quantize(v: Val, f: &super::Field) -> Val {
+    use crate::quantize::{self as q, Decimal};
+    let int = |bytes: &[u8], step: u64| {
+        let mut out = alloc::vec![0u8; bytes.len() + 9];
+        let r = crate::number::minimal(q::int(bytes, step, &mut out)).to_vec();
+        Val::Int(r)
+    };
+    let decimal = |d: Decimal| match d {
+        Decimal::Float(x) => Val::Float(x),
+        Decimal::Int { n, zeros } => {
+            let mut buf = [0u8; q::INT_BUF];
+            Val::Int(crate::number::minimal(q::scaled(n, zeros, &mut buf)).to_vec())
+        }
+    };
+    match (v, f.quantize, f.decimals) {
+        (Val::Int(bytes), Some(step), _) => int(&bytes, step),
+        (Val::Float(x), _, Some(d)) => decimal(q::f64(x, d)),
+        (Val::Int(bytes), _, Some(d)) if d < 0 => {
+            // A number kind's integer is within 64 bits (spec 2.7), so a step
+            // beyond 10^19 leaves 0, or one step below 0 for a negative value.
+            let k = d.unsigned_abs();
+            if k <= 19 {
+                int(&bytes, 10u64.pow(k))
+            } else if bytes.first().is_some_and(|b| b & 0x80 != 0) {
+                decimal(Decimal::Int { n: -1, zeros: k })
+            } else {
+                Val::int(0)
+            }
+        }
+        (v, _, _) => v,
+    }
 }

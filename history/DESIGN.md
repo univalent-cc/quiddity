@@ -1220,6 +1220,34 @@ search), fuzzy extractors (cryptographic, need stored helper data), and
 exact representations at the source (integer cents, spec 2.6's integer
 nanoseconds).
 
+### Part 1 as implemented: quantization (2026-10-14)
+
+Decided after discussion, replacing the "resolution" sketch below:
+
+- **Name:** quantization. Two field members, in identity documents and as
+  derive attributes: `quantize` (a positive integer step, for integers,
+  and for instants and durations in nanoseconds) and `decimals` (a power
+  of ten, for numbers, from −300 to 300).
+- **A field attribute, not a kind option.** Like `rename` and `omit`, it
+  belongs to the field, so kinds keep one spelling (`"integer"` stays a
+  string) and the derive and the document match: the attribute applies to
+  the field's value directly, or through an `Option` (`null | k`). Not to
+  the elements of collections (use a newtype).
+- **Rounding:** floor (toward negative infinity) everywhere, the band
+  containing the value; truncation toward zero would make the band at zero
+  twice as wide. Computed exactly. The quantized value is encoded in the
+  kind's own unit, so a value already on the grid is unchanged.
+- **Floats are taken as the shortest decimal that rounds to them** (what
+  JSON writers emit: Python's `repr`, JavaScript's `toString`, Rust's
+  `Display`), not their exact binary value. Found by the vectors: the float
+  written `2.67` is stored as 2.6699999…, which floors to 2.66 on its exact
+  value. An `f32` uses its own shortest binary32 decimal.
+- **Rust:** `src/quantize.rs` does the arithmetic without allocating (floor
+  on two's-complement integers of any length; shortest decimals from
+  `{:e}`); the derive uses two traits, `Quantize` and `Decimals`, so a
+  misuse is a compile error naming the attribute. A quantized field
+  without a name (tuple struct, newtype) cannot be exported.
+
 ### Part 1: resolution
 
 A declared grid step per numeric value; the value is rounded to it before
@@ -1252,48 +1280,85 @@ Choices:
   `"mode": "floor"` can come later if needed.
 - Significant digits are a logarithmic grid; the mechanism is the same.
 
-### Part 2: tolerant digests (budgeted neighbor sets)
+### Part 2: tolerant comparison (field-isolating digests)
 
-A value can only change bin by crossing an edge, so only values close to an
-edge need a second digest. A record publishes a small set of digests:
+Revised 2026-10-14 after a survey and further discussion; supersedes the
+budgeted neighbor sets first recorded here. Not to be implemented until
+Part 1 is done.
 
-- **The checking side computes one ordinary digest**, quantized to the
-  declared resolution; it knows nothing about tolerance. Comparison is
-  membership (`published.contains(&digest)`), or intersection when both
-  sides publish sets.
-- **Only the publishing side handles edges**, so the two sides need not
-  agree on a tolerance, and the publisher may choose per record.
-- **The user gives only the resolution and a budget `k`** (default 3,
-  meaning at most 2^3 = 8 digests). The publisher measures each value's
-  distance to its nearest bin edge, branches on the `k` values closest to
-  an edge (both adjacent bins), and publishes the resulting at most `2^k`
-  digests. The guarantee adapts to the record: a copy matches if every
-  value moved less than the edge distance of the `(k+1)`-th closest value.
-  The publisher can report that radius. A record with nothing near an edge
-  gets one digest and a large radius.
-- **Why not a fixed tolerance:** with per-value edge probability
-  `p = 2·tolerance/step`, the expected set size is `(1 + p)^n ≈ e^(p·n)`,
-  exponential in the number of values `n` (about 7 digests for `p = 0.02`
-  and `n = 100`, about 10^8 for `n = 1000`). The budget bounds the set for
-  every record size; large numeric arrays remain out of scope, as for
-  `ndarray`.
-- **Determinism:** any superset of the correct bins is a valid published
-  set, so implementations cannot produce wrong matches by choosing
-  differently. The choice is still specified exactly (closest to an edge
-  first, ties by position in canonical order) so that vectors are
-  reproducible.
-- **Cost:** `2^k` full encodings (8 SHA-256 computations by default).
-- **API:** `quiddity()` stays the single quantized digest. A separate method
-  (for example `quiddity_near()`) returns a small `DigestSet`. HTTP's
-  `If-Match` already accepts a list of entity tags, so a set fits
-  preconditions without anything new.
-- **Still not transitive:** the published side is the reference, and other
-  copies are matched against it, not against each other.
+**Survey.** Randomly shifted grids (E2LSH, `⌊(x + b)/w⌋`) are
+probabilistic: close values can miss. Multi-probe LSH (Lv et al., VLDB
+2007) probes neighbouring buckets of a whole-vector key, whose number grows
+exponentially with dimension. Distance-sensitive Bloom filters (Kirsch and
+Mitzenmacher, ALENEX 2006) answer "is any member near x?" and inherit
+LSH's false negatives. Similarity digests (TLSH, ssdeep) score byte
+streams heuristically. Fuzzy extractors and secure sketches (quantization
+with helper data; zero-leakage helper data, de Groot et al.) recover an
+exact key from a noisy reading using public helper data from a reference
+reading. All of them combine every value into one key, for lookup; that is
+where the 2^n comes from.
+
+**The design: keep each field's hash separate.** A tolerant digest is not
+one hash but a small table:
+
+- an **exact part**: the digest of the record with its tolerant values left
+  out; it must be equal;
+- for each tolerant value, its **band hashes**: its band in each of `k`
+  grids of width `w` (the field's resolution), shifted by `w/k`, each
+  hashed together with the exact part and the value's path (so that a band
+  hash means nothing outside its record, and low-range values cannot be
+  found by trying candidates).
+
+Two tolerant digests match when the exact parts are equal and, for each
+tolerant value separately, at least one grid's band hashes agree. Each
+field picks its own grid at comparison time, so nothing needs a hash for
+every combination of grids: the size is `k · n`, not `2^n`. With `k`
+grids, values closer than `w·(1 − 1/k)` always match, values `w` or more
+apart never match, and the range between is uncertain (`k = 2`: always
+below `w/2`). The uncertain range never disappears; `k` narrows it. Worked
+example: `price` (resolution 1.0) 12.98 and 13.01 differ in grid A (bands
+12, 13) and agree in grid B; `weight` (0.1) 5.03 and 5.04 agree in grid A;
+the records match.
+
+**Points from the discussion:**
+
+- The band width is part of the identity, per field. A digest is always
+  computed under one identity, and two digests are only compared under the
+  same one, so there is never a need to reconcile different band widths.
+  Including the identity's digest in a tolerant digest makes a mismatch
+  detectable.
+- Matching is a comparison, not equality, and is not transitive (values
+  within tolerance of each other in a chain need not be within tolerance
+  of each other). No digest can make closeness transitive; a design with a
+  reference side and per-value hint bits (fuzzy-extractor style: one
+  digest plus one bit per value, the reference choosing for each value the
+  grid in which it sits far from an edge) was considered and set aside in
+  favour of this symmetric one, which needs no reference.
+- A tolerant digest has no fixed size: it grows with the number of
+  tolerant values, and an identity's number of fields is not capped. The
+  band hashes can be small (32 bits or less), since the exact part does the
+  heavy lifting.
+- A further idea: store each value's band number in one grid as a small
+  integer (for example 16 bits, wrapping), offset by a key derived from the
+  exact part, and compare by "equal or adjacent" (±1). One number per value
+  instead of `k` hashes; values closer than `w` always match and values
+  `2w` or more apart never do. Adjacency survives the keyed offset, but
+  differences between bands are visible.
+- Tolerant values need a stable path (a field, a list index, a tuple
+  position); values inside sets or map keys have none, since changing a
+  value changes its place in the canonical order.
+- The exact digest with every tolerant value rounded to its first-grid
+  band (Part 1's digest) remains usable as an exact key for lookup; it
+  finds records in the same bands, not neighbours across an edge. Indexing
+  each record under one combined key per grid catches more neighbours
+  cheaply, without a guarantee when several values are near edges. Finding
+  any stored record within tolerance is the hard LSH problem and is out of
+  scope.
 
 ### Order of work
 
-Resolution first (Part 1), since it stands alone. Tolerant digests (Part 2)
-after export from derived types (spec 6.8) is implemented.
+Quantization (Part 1) is implemented. The tolerant comparison (Part 2)
+later, as a separate feature built on it.
 
 ## To revisit
 

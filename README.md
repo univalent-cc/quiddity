@@ -134,6 +134,29 @@ let b = id.digest(&json!({"tags": ["y", "x"], "at": "2024-01-01T01:00:00+01:00",
 assert_eq!(a, b);
 ```
 
+### Quantization
+
+Measurements, prices and timestamps often differ in ways that don't
+matter: a float's last digits, a timestamp's milliseconds. A field can be
+*quantized*: its value is rounded down to a grid before it is digested, so
+values in the same band have the same digest.
+
+```rust
+let reading = Identity::new(Kind::object([
+    ("price", Field::new(Kind::Number).decimals(2)),
+    ("count", Field::new(Kind::Integer).quantize(100)),
+    ("at", Field::new(Kind::instant()).quantize(1_000_000_000)), // to the second
+])?)?;
+let a = reading.digest(&json!({"price": 12.989, "count": 149, "at": "2024-01-01T00:00:00.75Z"}))?;
+let b = reading.digest(&json!({"price": 12.98, "count": 100, "at": "2024-01-01T00:00:00Z"}))?;
+assert_eq!(a, b);
+```
+
+Values are rounded down, so 99 and 100 fall in different bands: values on
+either side of a band's edge have different digests, however close they
+are. A float is taken as the decimal it is written as, so `2.67` stays
+`2.67`.
+
 ### Domains
 
 Sometimes we want to encode type or provenance information into a digest.
@@ -213,20 +236,20 @@ The problem has three parts:
 
 ### Summary
 
-| Library or format | Languages | Field selection | Stable encoding | Survives evolution | Several identities | JSON values |
-|---|---|---|---|---|---|---|
-| `derive-where`, `educe` | Rust | on the type | no | — | no | — |
-| `digestible` | Rust | on the type | no | no | no | yes |
-| `object-hash` | JavaScript | per call | by policy, not specified | no | per call | yes |
-| `hashstructure` | Go | on the type | not specified | partly | no | no |
-| `DeepHash` (deepdiff) | Python | per call | not documented | no | per call | yes |
-| `borsh` | Rust, JavaScript, others | on the type | yes, specified | no (positional) | no | no (example only) |
-| BCS, DAG-CBOR | Rust, Go, JavaScript, Python, others | via serde in Rust (also removes it from JSON) | yes | no | no | via serde |
-| JCS (RFC 8785) | many | a projection struct | yes, RFC 8785 | partly | one struct each | yes |
-| `stable-hash` | Rust | no | yes | yes | no | no |
-| objecthash | Python, C, Go, Ruby, JavaScript | no (redaction instead) | yes, specified | no | no | yes |
-| Ion Hash | Java, JavaScript, Python, Go, .NET, Rust | no | yes, specified | no | no | via Ion |
-| `quiddity` | Rust; Python and Elixir planned | on the type | yes, specified | yes | yes | yes, unordered keys |
+| Library or format | Languages | Field selection | Stable encoding | Survives evolution | Several identities | JSON values | Quantization |
+|---|---|---|---|---|---|---|---|
+| `derive-where`, `educe` | Rust | on the type | no | — | no | — | no |
+| `digestible` | Rust | on the type | no | no | no | yes | no |
+| `object-hash` | JavaScript | per call | by policy, not specified | no | per call | yes | no |
+| `hashstructure` | Go | on the type | not specified | partly | no | no | no |
+| `DeepHash` (deepdiff) | Python | per call | not documented | no | per call | yes | yes (significant digits, truncated datetimes) |
+| `borsh` | Rust, JavaScript, others | on the type | yes, specified | no (positional) | no | no (example only) | no |
+| BCS, DAG-CBOR | Rust, Go, JavaScript, Python, others | via serde in Rust (also removes it from JSON) | yes | no | no | via serde | no |
+| JCS (RFC 8785) | many | a projection struct | yes, RFC 8785 | partly | one struct each | yes | no |
+| `stable-hash` | Rust | no | yes | yes | no | no | no |
+| objecthash | Python, C, Go, Ruby, JavaScript | no (redaction instead) | yes, specified | no | no | yes | no |
+| Ion Hash | Java, JavaScript, Python, Go, .NET, Rust | no | yes, specified | no | no | via Ion | no |
+| `quiddity` | Rust; Python and Elixir planned | on the type | yes, specified | yes | yes | yes, unordered keys | yes, per field |
 
 ### Object hashers in other languages
 

@@ -207,7 +207,12 @@ fn object(v: &Value, path: &str) -> Result<ObjectKind> {
     let mut fields = BTreeMap::new();
     for (name, f) in fields_obj {
         let fp = format!("{path}.fields.{name}");
-        let fo = members(f, &fp, &["kind"], &["rename", "omit"])?;
+        let fo = members(
+            f,
+            &fp,
+            &["kind"],
+            &["rename", "omit", "quantize", "decimals"],
+        )?;
         let mut field = Field::new(kind(&fo["kind"], &format!("{fp}.kind"))?);
         if let Some(r) = fo.get("rename") {
             field.rename = Some(string(r, &format!("{fp}.rename"))?);
@@ -222,6 +227,20 @@ fn object(v: &Value, path: &str) -> Result<ObjectKind> {
                     return Err(invalid(&fp, "an omit condition is given twice"));
                 }
             }
+        }
+        if let Some(q) = fo.get("quantize") {
+            field.quantize = Some(
+                q.as_u64()
+                    .filter(|q| *q >= 1)
+                    .ok_or_else(|| invalid(&fp, "quantize must be a positive integer"))?,
+            );
+        }
+        if let Some(d) = fo.get("decimals") {
+            field.decimals = Some(
+                d.as_i64()
+                    .and_then(|d| i32::try_from(d).ok())
+                    .ok_or_else(|| invalid(&fp, "decimals must be an integer"))?,
+            );
         }
         fields.insert(name.clone(), field);
     }
@@ -407,12 +426,23 @@ fn canonical_object(o: ObjectKind, path: &str) -> Result<ObjectKind> {
         if !keys.insert(key.clone()) {
             return Err(invalid(&fp, format!("two fields have the key `{key}`")));
         }
+        if f.quantize.is_some() && f.decimals.is_some() {
+            return Err(invalid(&fp, "a field has quantize or decimals, not both"));
+        }
+        if f.quantize == Some(0) {
+            return Err(invalid(&fp, "quantize must be a positive integer"));
+        }
+        if f.decimals.is_some_and(|d| !(-300..=300).contains(&d)) {
+            return Err(invalid(&fp, "decimals must be from -300 to 300"));
+        }
         fields.insert(
             name,
             Field {
                 kind: canonical(f.kind, &fp)?,
                 rename,
                 omit: f.omit,
+                quantize: f.quantize.filter(|q| *q != 1),
+                decimals: f.decimals,
             },
         );
     }
@@ -779,6 +809,25 @@ pub(crate) fn resolve<'k>(mut k: &'k Kind, defs: &'k BTreeMap<String, Kind>) -> 
     k
 }
 
+/// The kind a field's quantization applies to: its kind, or the one
+/// alternative besides null of a union; references followed (spec 5.6).
+pub(crate) fn quantized_kind<'k>(
+    k: &'k Kind,
+    defs: &'k BTreeMap<String, Kind>,
+) -> Option<&'k Kind> {
+    match resolve(k, defs) {
+        Kind::Union(alts) => {
+            let mut others = alts
+                .iter()
+                .map(|a| resolve(a, defs))
+                .filter(|a| !matches!(a, Kind::Null));
+            let only = others.next()?;
+            others.next().is_none().then_some(only)
+        }
+        k => Some(k),
+    }
+}
+
 /// The checks of spec 5.9 that need the whole identity.
 fn check(k: &Kind, defs: &BTreeMap<String, Kind>, path: &str) -> Result<()> {
     claims(k, defs, &mut Vec::new()).map_err(|m| invalid(path, m))?;
@@ -810,10 +859,26 @@ fn check(k: &Kind, defs: &BTreeMap<String, Kind>, path: &str) -> Result<()> {
                 )),
             }
         }
-        Kind::Object(o) => o
-            .fields
-            .iter()
-            .try_for_each(|(name, f)| check(&f.kind, defs, &format!("{path}.fields.{name}"))),
+        Kind::Object(o) => o.fields.iter().try_for_each(|(name, f)| {
+            let fp = format!("{path}.fields.{name}");
+            check(&f.kind, defs, &fp)?;
+            let target = quantized_kind(&f.kind, defs);
+            if f.quantize.is_some()
+                && !matches!(
+                    target,
+                    Some(Kind::Integer | Kind::Instant(_) | Kind::Duration(_))
+                )
+            {
+                return Err(invalid(
+                    &fp,
+                    "quantize applies to integers, instants and durations",
+                ));
+            }
+            if f.decimals.is_some() && !matches!(target, Some(Kind::Number)) {
+                return Err(invalid(&fp, "decimals applies to numbers"));
+            }
+            Ok(())
+        }),
         Kind::Tagged(t) => {
             for (name, v) in &t.variants {
                 let vp = format!("{path}.variants.{name}");
@@ -918,6 +983,12 @@ fn kind_json(k: &Kind) -> Value {
                     fo.insert("kind".into(), kind_json(&f.kind));
                     if let Some(r) = &f.rename {
                         fo.insert("rename".into(), json!(r));
+                    }
+                    if let Some(q) = f.quantize {
+                        fo.insert("quantize".into(), json!(q));
+                    }
+                    if let Some(d) = f.decimals {
+                        fo.insert("decimals".into(), json!(d));
                     }
                     if !f.omit.is_empty() {
                         let omit: Vec<&str> = f

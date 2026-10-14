@@ -80,6 +80,7 @@ mod features;
 pub mod identity;
 mod impls;
 mod number;
+mod quantize;
 #[cfg(feature = "serde")]
 pub mod serde;
 
@@ -176,6 +177,7 @@ impl<T: ?Sized> QuiddityExt for T {}
 #[doc(hidden)]
 pub mod __private {
     pub use crate::empty::{IsEmpty, Nullable};
+    pub use crate::quantize::{Decimals, Quantize};
 
     #[cfg(feature = "identity")]
     pub use alloc::vec;

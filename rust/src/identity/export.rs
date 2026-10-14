@@ -152,6 +152,17 @@ impl Exporter {
 /// missing from the JSON form (as with serde's `skip_serializing_if`), so it
 /// also accepts null and omits it (spec 6.8).
 pub fn field(kind: Kind, omit_none: bool, omit_empty: bool) -> Field {
+    field_quantized(kind, omit_none, omit_empty, None, None)
+}
+
+/// A field of an object kind, with its quantization (spec 6.8).
+pub fn field_quantized(
+    kind: Kind,
+    omit_none: bool,
+    omit_empty: bool,
+    quantize: Option<u64>,
+    decimals: Option<i32>,
+) -> Field {
     let mut omit = BTreeSet::new();
     let kind = if omit_empty {
         omit.insert(Omit::Empty);
@@ -167,6 +178,8 @@ pub fn field(kind: Kind, omit_none: bool, omit_empty: bool) -> Field {
         kind,
         rename: None,
         omit,
+        quantize,
+        decimals,
     }
 }
 

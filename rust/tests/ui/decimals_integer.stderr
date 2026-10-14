@@ -1,0 +1,18 @@
+error[E0277]: `decimals` applies to `f32` and `f64` (or an `Option` of one), not `u32`
+ --> tests/ui/decimals_integer.rs:3:10
+  |
+3 | #[derive(Quiddity)]
+  |          ^^^^^^^^ cannot be quantized to decimals
+...
+6 |     n: u32,
+  |        --- required by a bound introduced by this call
+  |
+  = help: the trait `quiddity::__private::Decimals` is not implemented for `u32`
+help: the following other types implement trait `quiddity::__private::Decimals`
+ --> src/quantize.rs
+  |
+  | impl Decimals for f64 {
+  | ^^^^^^^^^^^^^^^^^^^^^ `f64`
+...
+  | impl Decimals for f32 {
+  | ^^^^^^^^^^^^^^^^^^^^^ `f32`

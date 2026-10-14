@@ -1610,6 +1610,28 @@
                   "none",
                   "empty"
                 ]
+              },
+              "quantize": {
+                "kind": {
+                  "union": [
+                    "null",
+                    "integer"
+                  ]
+                },
+                "omit": [
+                  "none"
+                ]
+              },
+              "decimals": {
+                "kind": {
+                  "union": [
+                    "null",
+                    "integer"
+                  ]
+                },
+                "omit": [
+                  "none"
+                ]
               }
             }
           }
@@ -1717,7 +1739,7 @@
         }
       }
     },
-    "identity_digest": "sha256:937551a2281fd6a54f32ff4a4f7bfc7f4f5653af5a43ec14b84bbc1bb612405b"
+    "identity_digest": "sha256:cb33c900b3276c2843e6602c8115f146ca258d70ee2f55fcaa42869c01c77db0"
   },
   "identities": [
     {
@@ -3338,6 +3360,568 @@
       ]
     },
     {
+      "name": "quantize an integer",
+      "document": {
+        "quiddity": 1,
+        "root": {
+          "object": {
+            "fields": {
+              "n": {
+                "kind": "integer",
+                "quantize": 100
+              }
+            }
+          }
+        }
+      },
+      "identity_digest": "sha256:1e94a8964c8a1ab0dd2f8255a80b0ca9d7b7af4e9768911514d0a62d2feb772c",
+      "cases": [
+        {
+          "source": {
+            "n": 100
+          },
+          "encoding": "6e00000000000000012064000000000000000110000000000000000132",
+          "digest": "sha256:c94127433d20a551531267ebc0508210e0608893cf64c2cb907237b5d36ce464",
+          "digest128": "sha256-128:c94127433d20a551531267ebc0508210",
+          "digest64": "sha256-64:c94127433d20a551"
+        },
+        {
+          "source": {
+            "n": 149
+          },
+          "encoding": "6e00000000000000012064000000000000000110000000000000000132",
+          "digest": "sha256:c94127433d20a551531267ebc0508210e0608893cf64c2cb907237b5d36ce464",
+          "digest128": "sha256-128:c94127433d20a551531267ebc0508210",
+          "digest64": "sha256-64:c94127433d20a551"
+        },
+        {
+          "source": {
+            "n": "120"
+          },
+          "encoding": "6e00000000000000012064000000000000000110000000000000000132",
+          "digest": "sha256:c94127433d20a551531267ebc0508210e0608893cf64c2cb907237b5d36ce464",
+          "digest128": "sha256-128:c94127433d20a551531267ebc0508210",
+          "digest64": "sha256-64:c94127433d20a551"
+        },
+        {
+          "source": {
+            "n": 100.0
+          },
+          "encoding": "6e00000000000000012064000000000000000110000000000000000132",
+          "digest": "sha256:c94127433d20a551531267ebc0508210e0608893cf64c2cb907237b5d36ce464",
+          "digest128": "sha256-128:c94127433d20a551531267ebc0508210",
+          "digest64": "sha256-64:c94127433d20a551"
+        },
+        {
+          "source": {
+            "n": 0
+          },
+          "encoding": "6e00000000000000012000000000000000000110000000000000000132",
+          "digest": "sha256:e38e8558587d6f14afea3885610e25246c2f3a56dd79129a6fad6aae8c904c10",
+          "digest128": "sha256-128:e38e8558587d6f14afea3885610e2524",
+          "digest64": "sha256-64:e38e8558587d6f14"
+        },
+        {
+          "source": {
+            "n": 51
+          },
+          "encoding": "6e00000000000000012000000000000000000110000000000000000132",
+          "digest": "sha256:e38e8558587d6f14afea3885610e25246c2f3a56dd79129a6fad6aae8c904c10",
+          "digest128": "sha256-128:e38e8558587d6f14afea3885610e2524",
+          "digest64": "sha256-64:e38e8558587d6f14"
+        },
+        {
+          "source": {
+            "n": 99
+          },
+          "encoding": "6e00000000000000012000000000000000000110000000000000000132",
+          "digest": "sha256:e38e8558587d6f14afea3885610e25246c2f3a56dd79129a6fad6aae8c904c10",
+          "digest128": "sha256-128:e38e8558587d6f14afea3885610e2524",
+          "digest64": "sha256-64:e38e8558587d6f14"
+        },
+        {
+          "source": {
+            "n": -1
+          },
+          "encoding": "6e0000000000000001209c000000000000000110000000000000000132",
+          "digest": "sha256:bd01549b0a2fd2517f9afb05737dd97e4f02a7bb1e74a7f5c841a423256e8a3b",
+          "digest128": "sha256-128:bd01549b0a2fd2517f9afb05737dd97e",
+          "digest64": "sha256-64:bd01549b0a2fd251"
+        },
+        {
+          "source": {
+            "n": -100
+          },
+          "encoding": "6e0000000000000001209c000000000000000110000000000000000132",
+          "digest": "sha256:bd01549b0a2fd2517f9afb05737dd97e4f02a7bb1e74a7f5c841a423256e8a3b",
+          "digest128": "sha256-128:bd01549b0a2fd2517f9afb05737dd97e",
+          "digest64": "sha256-64:bd01549b0a2fd251"
+        },
+        {
+          "source": {
+            "n": -101
+          },
+          "encoding": "6e000000000000000120ff38000000000000000210000000000000000132",
+          "digest": "sha256:42c30eafe2dbb92f654a745c0dced0de064ab58a9dd4c6aafd3f29467b5331e8",
+          "digest128": "sha256-128:42c30eafe2dbb92f654a745c0dced0de",
+          "digest64": "sha256-64:42c30eafe2dbb92f"
+        },
+        {
+          "source": {
+            "n": null
+          },
+          "error": true
+        },
+        {
+          "source": {
+            "n": 1.5
+          },
+          "error": true
+        }
+      ]
+    },
+    {
+      "name": "quantize to decimals",
+      "document": {
+        "quiddity": 1,
+        "root": {
+          "object": {
+            "fields": {
+              "x": {
+                "kind": "number",
+                "decimals": 2
+              }
+            }
+          }
+        }
+      },
+      "identity_digest": "sha256:4a096d595c3d77f15eaa98b16f4922dd885085b93e81083299c63a6b6e489d3a",
+      "cases": [
+        {
+          "source": {
+            "x": 12.98
+          },
+          "encoding": "780000000000000001204029f5c28f5c28f611000000000000000132",
+          "digest": "sha256:96ccdf29facf9736b052ea27849bf31a423cc2e47a9a98f932a91a58081e4634",
+          "digest128": "sha256-128:96ccdf29facf9736b052ea27849bf31a",
+          "digest64": "sha256-64:96ccdf29facf9736"
+        },
+        {
+          "source": {
+            "x": 12.989
+          },
+          "encoding": "780000000000000001204029f5c28f5c28f611000000000000000132",
+          "digest": "sha256:96ccdf29facf9736b052ea27849bf31a423cc2e47a9a98f932a91a58081e4634",
+          "digest128": "sha256-128:96ccdf29facf9736b052ea27849bf31a",
+          "digest64": "sha256-64:96ccdf29facf9736"
+        },
+        {
+          "source": {
+            "x": "12.9899"
+          },
+          "encoding": "780000000000000001204029f5c28f5c28f611000000000000000132",
+          "digest": "sha256:96ccdf29facf9736b052ea27849bf31a423cc2e47a9a98f932a91a58081e4634",
+          "digest128": "sha256-128:96ccdf29facf9736b052ea27849bf31a",
+          "digest64": "sha256-64:96ccdf29facf9736"
+        },
+        {
+          "source": {
+            "x": 2.67
+          },
+          "encoding": "7800000000000000012040055c28f5c28f5c11000000000000000132",
+          "digest": "sha256:bc7a42b5c34340a765142f68ff06632546c189bf4fbc4a8593c8173d630aefca",
+          "digest128": "sha256-128:bc7a42b5c34340a765142f68ff066325",
+          "digest64": "sha256-64:bc7a42b5c34340a7"
+        },
+        {
+          "source": {
+            "x": 2.675
+          },
+          "encoding": "7800000000000000012040055c28f5c28f5c11000000000000000132",
+          "digest": "sha256:bc7a42b5c34340a765142f68ff06632546c189bf4fbc4a8593c8173d630aefca",
+          "digest128": "sha256-128:bc7a42b5c34340a765142f68ff066325",
+          "digest64": "sha256-64:bc7a42b5c34340a7"
+        },
+        {
+          "source": {
+            "x": -0.01
+          },
+          "encoding": "78000000000000000120bf847ae147ae147b11000000000000000132",
+          "digest": "sha256:b132ebc2699ec12242ea19f88c14af5b81c7e571934bd4f21b33caecad850e99",
+          "digest128": "sha256-128:b132ebc2699ec12242ea19f88c14af5b",
+          "digest64": "sha256-64:b132ebc2699ec122"
+        },
+        {
+          "source": {
+            "x": -0.001
+          },
+          "encoding": "78000000000000000120bf847ae147ae147b11000000000000000132",
+          "digest": "sha256:b132ebc2699ec12242ea19f88c14af5b81c7e571934bd4f21b33caecad850e99",
+          "digest128": "sha256-128:b132ebc2699ec12242ea19f88c14af5b",
+          "digest64": "sha256-64:b132ebc2699ec122"
+        },
+        {
+          "source": {
+            "x": 0.3
+          },
+          "encoding": "780000000000000001203fd333333333333311000000000000000132",
+          "digest": "sha256:8c95ef8417fec643be1fffd785a53f41bbd616a87c91ec9722089eebd492fbf7",
+          "digest128": "sha256-128:8c95ef8417fec643be1fffd785a53f41",
+          "digest64": "sha256-64:8c95ef8417fec643"
+        },
+        {
+          "source": {
+            "x": 0.30000000000000004
+          },
+          "encoding": "780000000000000001203fd333333333333311000000000000000132",
+          "digest": "sha256:8c95ef8417fec643be1fffd785a53f41bbd616a87c91ec9722089eebd492fbf7",
+          "digest128": "sha256-128:8c95ef8417fec643be1fffd785a53f41",
+          "digest64": "sha256-64:8c95ef8417fec643"
+        },
+        {
+          "source": {
+            "x": 1234
+          },
+          "encoding": "7800000000000000012004d2000000000000000210000000000000000132",
+          "digest": "sha256:5f43bcccae82858b2013bf874733b5fb4f4cdcd11fa3a6a6b714b5906308eebf",
+          "digest128": "sha256-128:5f43bcccae82858b2013bf874733b5fb",
+          "digest64": "sha256-64:5f43bcccae82858b"
+        },
+        {
+          "source": {
+            "x": 1234.001
+          },
+          "encoding": "7800000000000000012004d2000000000000000210000000000000000132",
+          "digest": "sha256:5f43bcccae82858b2013bf874733b5fb4f4cdcd11fa3a6a6b714b5906308eebf",
+          "digest128": "sha256-128:5f43bcccae82858b2013bf874733b5fb",
+          "digest64": "sha256-64:5f43bcccae82858b"
+        },
+        {
+          "source": {
+            "x": 0
+          },
+          "encoding": "7800000000000000012000000000000000000110000000000000000132",
+          "digest": "sha256:eca3072650d13c37414938c5c86a59f37fb655b4652dfb338c5353f6a56d4329",
+          "digest128": "sha256-128:eca3072650d13c37414938c5c86a59f3",
+          "digest64": "sha256-64:eca3072650d13c37"
+        },
+        {
+          "source": {
+            "x": 0.001
+          },
+          "encoding": "7800000000000000012000000000000000000110000000000000000132",
+          "digest": "sha256:eca3072650d13c37414938c5c86a59f37fb655b4652dfb338c5353f6a56d4329",
+          "digest128": "sha256-128:eca3072650d13c37414938c5c86a59f3",
+          "digest64": "sha256-64:eca3072650d13c37"
+        },
+        {
+          "source": {
+            "x": -0.0
+          },
+          "encoding": "7800000000000000012000000000000000000110000000000000000132",
+          "digest": "sha256:eca3072650d13c37414938c5c86a59f37fb655b4652dfb338c5353f6a56d4329",
+          "digest128": "sha256-128:eca3072650d13c37414938c5c86a59f3",
+          "digest64": "sha256-64:eca3072650d13c37"
+        },
+        {
+          "source": {
+            "x": "nan"
+          },
+          "encoding": "780000000000000001207ff800000000000011000000000000000132",
+          "digest": "sha256:ce3e99871f05abb26c35a214d1bb51ecfe626fe2543f69e8e12a3daea1104cf6",
+          "digest128": "sha256-128:ce3e99871f05abb26c35a214d1bb51ec",
+          "digest64": "sha256-64:ce3e99871f05abb2"
+        },
+        {
+          "source": {
+            "x": "-inf"
+          },
+          "encoding": "78000000000000000120fff000000000000011000000000000000132",
+          "digest": "sha256:f3de394c32be5588080904624d91b617bcffc208c297b304ad85aed7e5e17d95",
+          "digest128": "sha256-128:f3de394c32be5588080904624d91b617",
+          "digest64": "sha256-64:f3de394c32be5588"
+        }
+      ]
+    },
+    {
+      "name": "quantize to tens of decimals",
+      "document": {
+        "quiddity": 1,
+        "root": {
+          "object": {
+            "fields": {
+              "x": {
+                "kind": "number",
+                "decimals": -2
+              }
+            }
+          }
+        }
+      },
+      "identity_digest": "sha256:565b331465c5fbcb22a1adcab23e6d1c3a793e8f9a288060276a53086f963cb5",
+      "cases": [
+        {
+          "source": {
+            "x": 1200
+          },
+          "encoding": "7800000000000000012004b0000000000000000210000000000000000132",
+          "digest": "sha256:b55c2fbbe4661bfddb00829a42c4b268f41856c0937753f995c61855acf2965c",
+          "digest128": "sha256-128:b55c2fbbe4661bfddb00829a42c4b268",
+          "digest64": "sha256-64:b55c2fbbe4661bfd"
+        },
+        {
+          "source": {
+            "x": 1234
+          },
+          "encoding": "7800000000000000012004b0000000000000000210000000000000000132",
+          "digest": "sha256:b55c2fbbe4661bfddb00829a42c4b268f41856c0937753f995c61855acf2965c",
+          "digest128": "sha256-128:b55c2fbbe4661bfddb00829a42c4b268",
+          "digest64": "sha256-64:b55c2fbbe4661bfd"
+        },
+        {
+          "source": {
+            "x": 1299.99
+          },
+          "encoding": "7800000000000000012004b0000000000000000210000000000000000132",
+          "digest": "sha256:b55c2fbbe4661bfddb00829a42c4b268f41856c0937753f995c61855acf2965c",
+          "digest128": "sha256-128:b55c2fbbe4661bfddb00829a42c4b268",
+          "digest64": "sha256-64:b55c2fbbe4661bfd"
+        },
+        {
+          "source": {
+            "x": "1250"
+          },
+          "encoding": "7800000000000000012004b0000000000000000210000000000000000132",
+          "digest": "sha256:b55c2fbbe4661bfddb00829a42c4b268f41856c0937753f995c61855acf2965c",
+          "digest128": "sha256-128:b55c2fbbe4661bfddb00829a42c4b268",
+          "digest64": "sha256-64:b55c2fbbe4661bfd"
+        },
+        {
+          "source": {
+            "x": -100
+          },
+          "encoding": "780000000000000001209c000000000000000110000000000000000132",
+          "digest": "sha256:7a8c471ffc3eccf9ae153dc9eb77129331bb3140f4de0300a228f54ef9e0f08d",
+          "digest128": "sha256-128:7a8c471ffc3eccf9ae153dc9eb771293",
+          "digest64": "sha256-64:7a8c471ffc3eccf9"
+        },
+        {
+          "source": {
+            "x": -1
+          },
+          "encoding": "780000000000000001209c000000000000000110000000000000000132",
+          "digest": "sha256:7a8c471ffc3eccf9ae153dc9eb77129331bb3140f4de0300a228f54ef9e0f08d",
+          "digest128": "sha256-128:7a8c471ffc3eccf9ae153dc9eb771293",
+          "digest64": "sha256-64:7a8c471ffc3eccf9"
+        },
+        {
+          "source": {
+            "x": -0.5
+          },
+          "encoding": "780000000000000001209c000000000000000110000000000000000132",
+          "digest": "sha256:7a8c471ffc3eccf9ae153dc9eb77129331bb3140f4de0300a228f54ef9e0f08d",
+          "digest128": "sha256-128:7a8c471ffc3eccf9ae153dc9eb771293",
+          "digest64": "sha256-64:7a8c471ffc3eccf9"
+        }
+      ]
+    },
+    {
+      "name": "quantize an instant",
+      "document": {
+        "quiddity": 1,
+        "root": {
+          "object": {
+            "fields": {
+              "at": {
+                "kind": {
+                  "instant": {}
+                },
+                "quantize": 1000000000
+              }
+            }
+          }
+        }
+      },
+      "identity_digest": "sha256:d80aaec19f030b6da48760a9b4eb89e683ecad837be0fe824e079873c0ee7813",
+      "cases": [
+        {
+          "source": {
+            "at": "2024-01-01T00:00:00Z"
+          },
+          "encoding": "617400000000000000022017a6101701650000000000000000000810000000000000000132",
+          "digest": "sha256:34b1466092cc2e228f37844908ffcf7371576742f44459809df8e9a13577b2dd",
+          "digest128": "sha256-128:34b1466092cc2e228f37844908ffcf73",
+          "digest64": "sha256-64:34b1466092cc2e22"
+        },
+        {
+          "source": {
+            "at": "2024-01-01T00:00:00.999999999Z"
+          },
+          "encoding": "617400000000000000022017a6101701650000000000000000000810000000000000000132",
+          "digest": "sha256:34b1466092cc2e228f37844908ffcf7371576742f44459809df8e9a13577b2dd",
+          "digest128": "sha256-128:34b1466092cc2e228f37844908ffcf73",
+          "digest64": "sha256-64:34b1466092cc2e22"
+        },
+        {
+          "source": {
+            "at": "2024-01-01T01:00:00.5+01:00"
+          },
+          "encoding": "617400000000000000022017a6101701650000000000000000000810000000000000000132",
+          "digest": "sha256:34b1466092cc2e228f37844908ffcf7371576742f44459809df8e9a13577b2dd",
+          "digest128": "sha256-128:34b1466092cc2e228f37844908ffcf73",
+          "digest64": "sha256-64:34b1466092cc2e22"
+        },
+        {
+          "source": {
+            "at": "1969-12-31T23:59:59Z"
+          },
+          "encoding": "6174000000000000000220c4653600000000000000000410000000000000000132",
+          "digest": "sha256:378b5516f906b12630347be814da5e20d7d29d2c98b930413ac8c162b691db08",
+          "digest128": "sha256-128:378b5516f906b12630347be814da5e20",
+          "digest64": "sha256-64:378b5516f906b126"
+        },
+        {
+          "source": {
+            "at": "1969-12-31T23:59:59.5Z"
+          },
+          "encoding": "6174000000000000000220c4653600000000000000000410000000000000000132",
+          "digest": "sha256:378b5516f906b12630347be814da5e20d7d29d2c98b930413ac8c162b691db08",
+          "digest128": "sha256-128:378b5516f906b12630347be814da5e20",
+          "digest64": "sha256-64:378b5516f906b126"
+        }
+      ]
+    },
+    {
+      "name": "quantize a duration",
+      "document": {
+        "quiddity": 1,
+        "root": {
+          "object": {
+            "fields": {
+              "d": {
+                "kind": {
+                  "duration": {}
+                },
+                "quantize": 60000000000
+              }
+            }
+          }
+        }
+      },
+      "identity_digest": "sha256:63c87c1adc26dea51439b92315e2e1f74ebf78d1d3783d1b18e22efe46607477",
+      "cases": [
+        {
+          "source": {
+            "d": "PT1M"
+          },
+          "encoding": "640000000000000001200df8475800000000000000000510000000000000000132",
+          "digest": "sha256:3fa58b730f27fdd1c5db99363a1c4cb1505eaba25dca923de6ac0fbe520148c2",
+          "digest128": "sha256-128:3fa58b730f27fdd1c5db99363a1c4cb1",
+          "digest64": "sha256-64:3fa58b730f27fdd1"
+        },
+        {
+          "source": {
+            "d": "PT1M59.9S"
+          },
+          "encoding": "640000000000000001200df8475800000000000000000510000000000000000132",
+          "digest": "sha256:3fa58b730f27fdd1c5db99363a1c4cb1505eaba25dca923de6ac0fbe520148c2",
+          "digest128": "sha256-128:3fa58b730f27fdd1c5db99363a1c4cb1",
+          "digest64": "sha256-64:3fa58b730f27fdd1"
+        },
+        {
+          "source": {
+            "d": {
+              "secs": 100,
+              "nanos": 0
+            }
+          },
+          "encoding": "640000000000000001200df8475800000000000000000510000000000000000132",
+          "digest": "sha256:3fa58b730f27fdd1c5db99363a1c4cb1505eaba25dca923de6ac0fbe520148c2",
+          "digest128": "sha256-128:3fa58b730f27fdd1c5db99363a1c4cb1",
+          "digest64": "sha256-64:3fa58b730f27fdd1"
+        },
+        {
+          "source": {
+            "d": "PT0S"
+          },
+          "encoding": "6400000000000000012000000000000000000110000000000000000132",
+          "digest": "sha256:c647df1c00781a372d215e0ac8ec255c0f004ff38e2f9a3a5ec8846fee5135b4",
+          "digest128": "sha256-128:c647df1c00781a372d215e0ac8ec255c",
+          "digest64": "sha256-64:c647df1c00781a37"
+        },
+        {
+          "source": {
+            "d": "PT59S"
+          },
+          "encoding": "6400000000000000012000000000000000000110000000000000000132",
+          "digest": "sha256:c647df1c00781a372d215e0ac8ec255c0f004ff38e2f9a3a5ec8846fee5135b4",
+          "digest128": "sha256-128:c647df1c00781a372d215e0ac8ec255c",
+          "digest64": "sha256-64:c647df1c00781a37"
+        }
+      ]
+    },
+    {
+      "name": "quantize an optional integer",
+      "document": {
+        "quiddity": 1,
+        "root": {
+          "object": {
+            "fields": {
+              "n": {
+                "kind": {
+                  "union": [
+                    "null",
+                    "integer"
+                  ]
+                },
+                "quantize": 10,
+                "omit": [
+                  "none"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "identity_digest": "sha256:b3fccc61148283d23158e00ae3820503d5d075c6eb88f1db1f4146421efe2338",
+      "cases": [
+        {
+          "source": {
+            "n": 12
+          },
+          "encoding": "6e0000000000000001200a000000000000000110000000000000000132",
+          "digest": "sha256:930b879692b137a5e0fd09c1b62ac5b81bbd91d764d495eb30392fd65a4a380a",
+          "digest128": "sha256-128:930b879692b137a5e0fd09c1b62ac5b8",
+          "digest64": "sha256-64:930b879692b137a5"
+        },
+        {
+          "source": {
+            "n": 19
+          },
+          "encoding": "6e0000000000000001200a000000000000000110000000000000000132",
+          "digest": "sha256:930b879692b137a5e0fd09c1b62ac5b81bbd91d764d495eb30392fd65a4a380a",
+          "digest128": "sha256-128:930b879692b137a5e0fd09c1b62ac5b8",
+          "digest64": "sha256-64:930b879692b137a5"
+        },
+        {
+          "source": {},
+          "encoding": "000000000000000032",
+          "digest": "sha256:a3fe341b5de46146b7380f41d042ace641a60f8e16c88b1f5a637034cbba0f21",
+          "digest128": "sha256-128:a3fe341b5de46146b7380f41d042ace6",
+          "digest64": "sha256-64:a3fe341b5de46146"
+        },
+        {
+          "source": {
+            "n": null
+          },
+          "encoding": "000000000000000032",
+          "digest": "sha256:a3fe341b5de46146b7380f41d042ace641a60f8e16c88b1f5a637034cbba0f21",
+          "digest128": "sha256-128:a3fe341b5de46146b7380f41d042ace6",
+          "digest64": "sha256-64:a3fe341b5de46146"
+        }
+      ]
+    },
+    {
       "name": "bool or string",
       "document": {
         "quiddity": 1,
@@ -4301,6 +4885,108 @@
       }
     },
     {
+      "name": "quantize a string",
+      "document": {
+        "quiddity": 1,
+        "root": {
+          "object": {
+            "fields": {
+              "s": {
+                "kind": "string",
+                "quantize": 10
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "decimals on an integer",
+      "document": {
+        "quiddity": 1,
+        "root": {
+          "object": {
+            "fields": {
+              "n": {
+                "kind": "integer",
+                "decimals": 2
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "quantize zero",
+      "document": {
+        "quiddity": 1,
+        "root": {
+          "object": {
+            "fields": {
+              "n": {
+                "kind": "integer",
+                "quantize": 0
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "decimals out of range",
+      "document": {
+        "quiddity": 1,
+        "root": {
+          "object": {
+            "fields": {
+              "x": {
+                "kind": "number",
+                "decimals": 301
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "quantize and decimals",
+      "document": {
+        "quiddity": 1,
+        "root": {
+          "object": {
+            "fields": {
+              "x": {
+                "kind": "number",
+                "quantize": 10,
+                "decimals": 2
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "quantize a union of two kinds",
+      "document": {
+        "quiddity": 1,
+        "root": {
+          "object": {
+            "fields": {
+              "n": {
+                "kind": {
+                  "union": [
+                    "integer",
+                    "string"
+                  ]
+                },
+                "quantize": 10
+              }
+            }
+          }
+        }
+      }
+    },
+    {
       "name": "discriminant beyond 64 bits",
       "document": {
         "quiddity": 1,
@@ -4419,6 +5105,37 @@
         }
       ],
       "identity_digest": "sha256:c83f05022b47a0921d44bc3f5266322a8183f9416b0bf3609ec3911da7713d2d"
+    },
+    {
+      "name": "quantize 1 is the default",
+      "documents": [
+        {
+          "quiddity": 1,
+          "root": {
+            "object": {
+              "fields": {
+                "n": {
+                  "kind": "integer",
+                  "quantize": 1
+                }
+              }
+            }
+          }
+        },
+        {
+          "quiddity": 1,
+          "root": {
+            "object": {
+              "fields": {
+                "n": {
+                  "kind": "integer"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "identity_digest": "sha256:89e3f556c5e2cae13933a1cd714d327d08c784d843d35e8096890547a95f6907"
     },
     {
       "name": "unreachable definitions",

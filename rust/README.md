@@ -162,6 +162,34 @@ digest that was computed over a bare structure (no existing domain).
 
 See the [Domains discussion in the repository's README](https://github.com/univalent-cc/quiddity#domains) for more.
 
+## Quantization
+
+A field's value can be rounded down to a grid before it is digested, so
+that small differences, such as a float's last digits or a timestamp's
+milliseconds, don't change the digest. See the repository's
+[README](https://github.com/univalent-cc/quiddity#quantization) for more.
+
+```rust
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use quiddity::{Quiddity, QuiddityExt};
+
+#[derive(Quiddity)]
+struct Reading {
+    #[quiddity(decimals = 2)]
+    price: f64,
+    #[quiddity(quantize = 1_000_000_000)] // to the second
+    at: SystemTime,
+}
+
+let noon = UNIX_EPOCH + Duration::from_secs(1_704_110_400);
+let a = Reading { price: 12.989, at: noon + Duration::from_millis(750) };
+let b = Reading { price: 12.98, at: noon };
+assert_eq!(a.quiddity(), b.quiddity());
+```
+
+Values are rounded down, so values on either side of a band's edge have
+different digests, however close they are.
+
 ## Derive macro attributes
 
 ### On a type
@@ -189,6 +217,8 @@ See the [Domains discussion in the repository's README](https://github.com/univa
 | `omit_none` | When the field is null (`None`, `()`, JSON `null`), omit it, as if the key were missing, rather than hashing it as null. Only valid on types that can be null: `Option`, `()`, `serde_json::Value`, and references and smart pointers to them. `Some(None)` is not omitted. |
 | `omit_empty` | When the field is an empty string, sequence, set or map, omit it. On an `Option`, `Some` of an empty value is omitted, and `None` is not (combine with `omit_none` to omit both). |
 | `omit_if = path` | Omit the field when `path(&value)` returns `true`, for conditions the two above do not cover. The cost of the check is the caller's. |
+| `quantize = n` | Round the field's value down to a multiple of `n`, so that smaller differences do not change the digest. For integers, and for `Duration` and `SystemTime` in nanoseconds (`quantize = 1_000_000_000` is to the second), or an `Option` of one. |
+| `decimals = d` | Round the field's value down to `d` decimal places (to hundreds with `d = -2`). For `f32` and `f64`, or an `Option` of one. A float is taken as the decimal it is written as, so `2.67` stays `2.67`. |
 
 Omitting a field lets it be added to a type without changing the digests of
 existing values, as long as the new field is omitted in them.

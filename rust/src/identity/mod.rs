@@ -258,6 +258,13 @@ pub struct Field {
     /// When the field is left out.
     #[quiddity(omit_empty)]
     pub omit: BTreeSet<Omit>,
+    /// Quantizes the value, an integer, instant or duration, to a multiple
+    /// of this (in nanoseconds for instants and durations).
+    #[quiddity(omit_none)]
+    pub quantize: Option<u64>,
+    /// Quantizes the value, a number, to a multiple of 10^−decimals.
+    #[quiddity(omit_none)]
+    pub decimals: Option<i32>,
 }
 
 /// A condition under which a field is left out.
@@ -776,6 +783,8 @@ impl Field {
             kind: kind.into(),
             rename: None,
             omit: BTreeSet::new(),
+            quantize: None,
+            decimals: None,
         }
     }
 
@@ -853,6 +862,56 @@ impl Field {
     /// ```
     pub fn omit(mut self, condition: Omit) -> Field {
         self.omit.insert(condition);
+        self
+    }
+
+    /// The field, with its value (an integer, instant or duration) rounded
+    /// down to a multiple of `step`, in nanoseconds for instants and
+    /// durations (spec 5.6).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use quiddity::identity::{Field, Identity, Kind};
+    /// # use serde_json::json;
+    /// let id = Identity::new(Kind::object([("count", Field::new(Kind::Integer).quantize(100))])?)?;
+    /// // 100 to 199 are one value; 99 is another.
+    /// assert_eq!(id.digest(&json!({"count": 100}))?, id.digest(&json!({"count": 149}))?);
+    /// assert_ne!(id.digest(&json!({"count": 99}))?, id.digest(&json!({"count": 100}))?);
+    ///
+    /// // Instants to the second.
+    /// let at = Identity::new(Kind::object([("at", Field::new(Kind::instant()).quantize(1_000_000_000))])?)?;
+    /// assert_eq!(
+    ///     at.digest(&json!({"at": "2024-01-01T00:00:00Z"}))?,
+    ///     at.digest(&json!({"at": "2024-01-01T00:00:00.75Z"}))?,
+    /// );
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn quantize(mut self, step: u64) -> Field {
+        self.quantize = Some(step);
+        self
+    }
+
+    /// The field, with its value (a number) rounded down to a multiple of
+    /// 10^−`decimals` (spec 5.6). A float is taken as the shortest decimal
+    /// that rounds to it, as JSON writes it.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use quiddity::identity::{Field, Identity, Kind};
+    /// # use serde_json::json;
+    /// let id = Identity::new(Kind::object([("price", Field::new(Kind::Number).decimals(2))])?)?;
+    /// assert_eq!(id.digest(&json!({"price": 12.98}))?, id.digest(&json!({"price": 12.989}))?);
+    /// assert_eq!(id.digest(&json!({"price": 2.67}))?, id.digest(&json!({"price": 2.675}))?);
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn decimals(mut self, decimals: i32) -> Field {
+        self.decimals = Some(decimals);
         self
     }
 }

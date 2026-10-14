@@ -614,11 +614,14 @@ A field has these members:
 | `kind` | yes | The field's kind. |
 | `rename` | no | The field's key in the result, if not its name. |
 | `omit` | no | An array of conditions, each `"none"` or `"empty"`, each at most once: the field's entry is left out when its value is null (`"none"`), or an empty string, list, set or map (`"empty"`). Its order does not matter. |
+| `quantize` | no | A positive integer `q`: the field's value, an integer, instant or duration, is quantized to a multiple of `q` (in nanoseconds for instants and durations); see below. `1` is the default. |
+| `decimals` | no | An integer `d` from −300 to 300: the field's value, a number, is quantized to a multiple of `10^−d`; see below. |
 
 To apply an object kind to a source object:
 
 1. For each field, the source value is the member with the field's name,
-   or null if there is none. It is read with the field's kind.
+   or null if there is none. It is read with the field's kind, and then
+   quantized, if the field says so.
 2. The field is omitted if its value meets one of its `omit` conditions.
 3. Without `order`, the result is the map from each field's key (its
    `rename`, or else its name) to its value, for the fields not omitted.
@@ -628,6 +631,41 @@ A missing member is read as null, so a field whose kind does not accept
 null (such as `"string"`) makes a missing member an error; `{"union":
 ["null", "string"]}` accepts it. This is the static rule for `Option`
 fields (6.3, 6.5).
+
+**Quantization.** A field with `quantize` or `decimals` maps its value onto
+a grid, so that values differing only below the grid's step have the same
+digest. The value `v` becomes the greatest multiple of the step that is not
+greater than `v` (it is rounded toward negative infinity), computed
+exactly:
+
+- With `quantize` `q`, an integer `v` becomes `⌊v / q⌋ × q`; an instant or
+  duration, as integer nanoseconds (2.6), likewise.
+- With `decimals` `d`, a number `v` becomes `⌊v × 10^d⌋ × 10^−d`, computed
+  exactly on the decimal value of `v`: an integer's own value, or, for a
+  float, the shortest decimal that rounds to it (among the shortest, the
+  one nearest its exact value), which is the decimal a JSON writer emits.
+  The result is the integer it equals, or else the binary64 value nearest
+  it, normalized by 2.2. NaN and the infinities are unchanged. With `d`
+  negative, the step is `10^|d|`.
+- Null is unchanged.
+
+A value already on the grid is unchanged, so quantization does not alter
+values that already conform. For example, with `quantize` 100, 51 and 99
+become 0 and 100 and 149 become 100, and −1 becomes −100; with `decimals`
+2, 12.989 becomes 12.98, 2.675 becomes 2.67, and 2.67 stays 2.67.
+
+(Informative: a float's exact binary64 value is not used, because a
+decimal such as 2.67 is usually stored slightly above or below its written
+value, and rounding down the value stored for 2.67, which is slightly less,
+would give 2.66. The shortest decimal is the one Python's `repr`,
+JavaScript's `Number.prototype.toString`, Go's `strconv.FormatFloat` with
+precision −1 and Rust's `Display` produce.)
+
+`quantize` is allowed only on a field whose kind is `"integer"`,
+`{"instant": …}` or `{"duration": …}`, and `decimals` only on one whose
+kind is `"number"`; either kind may also be the one alternative besides
+`"null"` of a union, or reached through a `ref`. A field has at most one of
+them.
 
 ### 5.7 Unions
 
@@ -735,6 +773,9 @@ When an implementation loads a document, it MUST reject it if:
   strings (5.4);
 - two fields of an object have the same key, an object has both `order` and
   a field with `omit`, or `order` does not name every field exactly once;
+- a field has `quantize` that is not a positive integer, `decimals` that is
+  not an integer from −300 to 300, both, or either on a kind it does not
+  apply to (5.6);
 - two variants have the same label, `tag` or `content` is missing or given
   where not allowed, `discriminant` is missing or given where not allowed,
   or an internally tagged variant's kind is not as 5.8 requires.
@@ -968,6 +1009,8 @@ Field attributes:
 | `omit_none` | When the field is null, the field's entry is omitted: `None`, `()`, a `serde_json::Value` that is `Null`, or such a value behind a reference or smart pointer. `Some(x)` is not omitted, even when `x` is null. The field's type MUST be one of these; otherwise compile error. |
 | `omit_empty` | When the field's value is an empty string, list, set or map, the field's entry is omitted; for an `Option<T>`, when it is `Some` of such a value. The field's type MUST be one that encodes as a string, list, set or map, or an `Option` of one; otherwise compile error. |
 | `omit_if = path` | When `path(&field)` returns `true`, the field's entry is omitted. |
+| `quantize = q` | The field's value is quantized to a multiple of `q` (5.6). The field's type MUST be an integer type, `Duration` or `SystemTime` (in nanoseconds), or an `Option` of one; otherwise compile error. |
+| `decimals = d` | The field's value is quantized to a multiple of `10^−d` (5.6), `d` from −300 to 300. The field's type MUST be `f32`, `f64` or an `Option` of one; otherwise compile error. An `f32` stands for the shortest decimal that rounds to it as a binary32. |
 | `encode_as = set` | The field's value is a set of the items of the sequence it holds, each encoded under its primary identity. The field's type MUST be one whose shared reference iterates over references to items (`Vec<T>`, `[T]`, `[T; N]`, `VecDeque<T>`, …); otherwise compile error. |
 | `encode_as = display` | As the type attribute, for the field's value. |
 | `encode_as = serde` | As the type attribute, for the field's value. |
@@ -1098,7 +1141,8 @@ exported identity.
 | `serde_json::Number` | `"number"` |
 | a derived struct or enum | `{"ref": name}`, with the type's kind under the field's identity added to `definitions` |
 
-A field with `omit_none` exports with the condition `"none"`. A field with
+A field with `quantize` or `decimals` exports with the same member. A field
+with `omit_none` exports with the condition `"none"`. A field with
 `omit_empty` exports as `{"union": ["null", k]}` with the conditions
 `"none"` and `"empty"`: serde leaves such a field out when told to skip
 empty values (`skip_serializing_if`), and a missing member reads as null
@@ -1289,7 +1333,9 @@ computed under itself.
     "Field": {"object": {"fields": {
       "kind": {"kind": {"ref": "Kind"}},
       "rename": {"kind": {"union": ["null", "string"]}, "omit": ["none"]},
-      "omit": {"kind": {"union": ["null", {"set": "string"}]}, "omit": ["none", "empty"]}
+      "omit": {"kind": {"union": ["null", {"set": "string"}]}, "omit": ["none", "empty"]},
+      "quantize": {"kind": {"union": ["null", "integer"]}, "omit": ["none"]},
+      "decimals": {"kind": {"union": ["null", "integer"]}, "omit": ["none"]}
     }}},
     "Tagged": {"object": {"fields": {
       "variants": {"kind": {"map": {"key": "string", "value": {"ref": "Variant"}}}},

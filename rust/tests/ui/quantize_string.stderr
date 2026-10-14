@@ -1,0 +1,20 @@
+error[E0277]: `quantize` applies to integers, `Duration` and `SystemTime` (or an `Option` of one), not `String`
+ --> tests/ui/quantize_string.rs:3:10
+  |
+3 | #[derive(Quiddity)]
+  |          ^^^^^^^^ cannot be quantized
+...
+6 |     text: String,
+  |           ------ required by a bound introduced by this call
+  |
+  = help: the trait `quiddity::__private::Quantize` is not implemented for `String`
+  = help: the following other types implement trait `quiddity::__private::Quantize`:
+            &T
+            Duration
+            NonZero<i128>
+            NonZero<i16>
+            NonZero<i32>
+            NonZero<i64>
+            NonZero<i8>
+            NonZero<isize>
+          and $N others

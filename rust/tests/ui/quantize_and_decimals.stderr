@@ -1,0 +1,5 @@
+error: `with`, `encode_as`, `identity`, `quantize` and `decimals` cannot be combined (identity `Primary`)
+ --> tests/ui/quantize_and_decimals.rs:6:8
+  |
+6 |     p: f64,
+  |        ^^^

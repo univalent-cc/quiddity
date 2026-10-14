@@ -155,6 +155,30 @@ fn string(item: &Item) -> syn::Result<LitStr> {
     }
 }
 
+/// An integer literal, possibly negated.
+fn integer(item: &Item) -> syn::Result<i128> {
+    match value(item) {
+        Some(Expr::Lit(ExprLit {
+            lit: Lit::Int(i), ..
+        })) => i.base10_parse(),
+        Some(Expr::Unary(syn::ExprUnary {
+            op: syn::UnOp::Neg(_),
+            expr,
+            ..
+        })) => match &**expr {
+            Expr::Lit(ExprLit {
+                lit: Lit::Int(i), ..
+            }) => i.base10_parse::<i128>().map(|n| -n),
+            other => Err(syn::Error::new_spanned(other, "expected an integer")),
+        },
+        Some(other) => Err(syn::Error::new_spanned(other, "expected an integer")),
+        None => Err(syn::Error::new(
+            item.name.span(),
+            format!("expected `{} = <integer>`", item.name),
+        )),
+    }
+}
+
 fn path(item: &Item) -> syn::Result<Path> {
     match value(item) {
         Some(Expr::Path(p)) if p.qself.is_none() => Ok(p.path.clone()),
@@ -428,6 +452,8 @@ pub struct FieldAttrs {
     pub omit_none: Scoped<bool>,
     pub omit_empty: Scoped<bool>,
     pub omit_if: Scoped<Path>,
+    pub quantize: Scoped<u64>,
+    pub decimals: Scoped<i32>,
     pub encode_as: Scoped<(EncodeAs, Span)>,
 }
 
@@ -451,6 +477,23 @@ impl FieldAttrs {
                 "omit_none" => out.omit_none.set(item, flag(item)?, ids)?,
                 "omit_empty" => out.omit_empty.set(item, flag(item)?, ids)?,
                 "omit_if" => out.omit_if.set(item, path(item)?, ids)?,
+                "quantize" => {
+                    let q = integer(item)?;
+                    let q = u64::try_from(q).ok().filter(|q| *q >= 1).ok_or_else(|| {
+                        syn::Error::new(item.name.span(), "`quantize` must be a positive integer")
+                    })?;
+                    out.quantize.set(item, q, ids)?;
+                }
+                "decimals" => {
+                    let d = integer(item)?;
+                    let d = i32::try_from(d)
+                        .ok()
+                        .filter(|d| (-300..=300).contains(d))
+                        .ok_or_else(|| {
+                            syn::Error::new(item.name.span(), "`decimals` must be from -300 to 300")
+                        })?;
+                    out.decimals.set(item, d, ids)?;
+                }
                 "encode_as" => {
                     let (shape, span) = encode_as(item)?;
                     if !matches!(shape, EncodeAs::Display | EncodeAs::Serde | EncodeAs::Set) {

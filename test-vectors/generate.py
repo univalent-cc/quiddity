@@ -359,6 +359,40 @@ IDENTITIES = [
         ("x",),
         ({"x": 1}, ERR), ({"x": 1, "y": 2, "q": 0}, ERR), ({"w": 1, "label": "r"}, ERR), ({}, ERR),
     ]),
+    ("quantize an integer", doc({"object": {"fields": {"n": {"kind": "integer", "quantize": 100}}}}), [
+        ({"n": 100}, {"n": 149}, {"n": "120"}, {"n": 100.0}),
+        ({"n": 0}, {"n": 51}, {"n": 99}),
+        ({"n": -1}, {"n": -100}),
+        ({"n": -101},),
+        ({"n": None}, ERR), ({"n": 1.5}, ERR),
+    ]),
+    ("quantize to decimals", doc({"object": {"fields": {"x": {"kind": "number", "decimals": 2}}}}), [
+        ({"x": 12.98}, {"x": 12.989}, {"x": "12.9899"}),
+        ({"x": 2.67}, {"x": 2.675}),
+        ({"x": -0.01}, {"x": -0.001}),
+        ({"x": 0.3}, {"x": 0.30000000000000004}),
+        ({"x": 1234}, {"x": 1234.001}),
+        ({"x": 0}, {"x": 0.001}, {"x": -0.0}),
+        ({"x": "nan"},), ({"x": "-inf"},),
+    ]),
+    ("quantize to tens of decimals", doc({"object": {"fields": {"x": {"kind": "number", "decimals": -2}}}}), [
+        ({"x": 1200}, {"x": 1234}, {"x": 1299.99}, {"x": "1250"}),
+        ({"x": -100}, {"x": -1}, {"x": -0.5}),
+    ]),
+    ("quantize an instant", doc({"object": {"fields": {"at": {"kind": {"instant": {}}, "quantize": 1000000000}}}}), [
+        ({"at": "2024-01-01T00:00:00Z"}, {"at": "2024-01-01T00:00:00.999999999Z"},
+         {"at": "2024-01-01T01:00:00.5+01:00"}),
+        ({"at": "1969-12-31T23:59:59Z"}, {"at": "1969-12-31T23:59:59.5Z"}),
+    ]),
+    ("quantize a duration", doc({"object": {"fields": {"d": {"kind": {"duration": {}}, "quantize": 60000000000}}}}), [
+        ({"d": "PT1M"}, {"d": "PT1M59.9S"}, {"d": {"secs": 100, "nanos": 0}}),
+        ({"d": "PT0S"}, {"d": "PT59S"}),
+    ]),
+    ("quantize an optional integer", doc({"object": {"fields": {
+        "n": {"kind": {"union": ["null", "integer"]}, "quantize": 10, "omit": ["none"]}}}}), [
+        ({"n": 12}, {"n": 19}),
+        ({}, {"n": None}),
+    ]),
     ("bool or string", doc({"union": ["bool", "string"]}), [
         (True,), ("yes",), ("true",), ("TRUE",),
     ]),
@@ -442,6 +476,13 @@ INVALID_DOCUMENTS = [
     ("internal variant with the tag field", doc({"tagged": {"style": "internal", "tag": "t", "variants": {"A": {"kind": {"object": {"fields": {"t": {"kind": "string"}}}}}}}})),
     ("duplicate label", doc({"tagged": {"variants": {"A": {}, "B": {"rename": "A"}}}})),
     ("missing discriminant", doc({"tagged": {"encode_as": "int", "variants": {"A": {}}}})),
+    ("quantize a string", doc({"object": {"fields": {"s": {"kind": "string", "quantize": 10}}}})),
+    ("decimals on an integer", doc({"object": {"fields": {"n": {"kind": "integer", "decimals": 2}}}})),
+    ("quantize zero", doc({"object": {"fields": {"n": {"kind": "integer", "quantize": 0}}}})),
+    ("decimals out of range", doc({"object": {"fields": {"x": {"kind": "number", "decimals": 301}}}})),
+    ("quantize and decimals", doc({"object": {"fields": {"x": {"kind": "number", "quantize": 10, "decimals": 2}}}})),
+    ("quantize a union of two kinds", doc({"object": {"fields": {
+        "n": {"kind": {"union": ["integer", "string"]}, "quantize": 10}}}})),
     ("discriminant beyond 64 bits", doc({"tagged": {"encode_as": "int", "variants": {"A": {"discriminant": 2**64}}}})),
     ("discriminant without int", doc({"tagged": {"variants": {"A": {"discriminant": 1}}}})),
 ]
@@ -456,6 +497,9 @@ SAME_IDENTITY = [
          "b": {"kind": {"bytes": {"text": "base64"}}, "rename": "b"},
          "a": {"omit": ["empty", "none"], "kind": {"union": ["string", {"union": ["null", "string"]}]}}}}}}),
     ("a union of one", doc({"union": ["null", "null"]}), doc("null")),
+    ("quantize 1 is the default",
+     doc({"object": {"fields": {"n": {"kind": "integer", "quantize": 1}}}}),
+     doc({"object": {"fields": {"n": {"kind": "integer"}}}})),
     ("unreachable definitions",
      doc({"ref": "A"}, definitions={"A": "string", "Unused": "integer"}),
      doc({"ref": "A"}, definitions={"A": "string"})),

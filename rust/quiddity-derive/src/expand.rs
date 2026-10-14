@@ -40,6 +40,10 @@ enum ValueEncoding {
     Serde,
     /// The items of a sequence, as a set.
     Set,
+    /// Quantized to a multiple of a step.
+    Quantize(u64),
+    /// Quantized to a number of decimals.
+    Decimals(i32),
 }
 
 /// The shape a list of fields is written in.
@@ -261,16 +265,32 @@ impl Field {
     fn encoding(&self, key: &str) -> syn::Result<ValueEncoding> {
         let a = &self.attrs;
         let (with, shape, identity) = (a.with.get(key), a.encode_as.get(key), a.identity.get(key));
-        if [with.is_some(), shape.is_some(), identity.is_some()]
-            .iter()
-            .filter(|b| **b)
-            .count()
+        let (quantize, decimals) = (a.quantize.get(key), a.decimals.get(key));
+        if [
+            with.is_some(),
+            shape.is_some(),
+            identity.is_some(),
+            quantize.is_some(),
+            decimals.is_some(),
+        ]
+        .iter()
+        .filter(|b| **b)
+        .count()
             > 1
         {
             return Err(syn::Error::new_spanned(
                 &self.ty,
-                format!("`with`, `encode_as` and `identity` cannot be combined (identity `{key}`)"),
+                format!(
+                    "`with`, `encode_as`, `identity`, `quantize` and `decimals` cannot be \
+                     combined (identity `{key}`)"
+                ),
             ));
+        }
+        if let Some(q) = quantize {
+            return Ok(ValueEncoding::Quantize(*q));
+        }
+        if let Some(d) = decimals {
+            return Ok(ValueEncoding::Decimals(*d));
         }
         Ok(match (with, shape, identity) {
             (Some(path), _, _) => ValueEncoding::With(path.clone()),
@@ -293,6 +313,12 @@ impl Field {
             ValueEncoding::With(path) => quote!(#path(#b, __e);),
             ValueEncoding::Display => quote!(__e.display(#b);),
             ValueEncoding::Serde => quote!(::quiddity::__encode_serde!(#b, __e);),
+            ValueEncoding::Quantize(q) => quote_spanned!(ty.span()=>
+                ::quiddity::__private::Quantize::encode_quantized(#b, #q, __e);
+            ),
+            ValueEncoding::Decimals(d) => quote_spanned!(ty.span()=>
+                ::quiddity::__private::Decimals::encode_decimals(#b, #d, __e);
+            ),
             ValueEncoding::Set => {
                 // The items are written under their primary identity.
                 bounds.add(ty, &quote!(::quiddity::Primary));
@@ -849,6 +875,14 @@ fn describe_fields(
 ) -> syn::Result<TokenStream> {
     let participating: Vec<&Field> = fields.iter().filter(|f| f.participates(key)).collect();
     let null = quote!(::quiddity::identity::Kind::Null);
+    if !matches!(form, Fields::Named(_)) && participating.iter().any(|f| f.is_quantized(key)) {
+        return Ok(quote!(
+            return ::core::result::Result::Err(__cx.unsupported_attribute(
+                ::core::any::type_name::<Self>(),
+                "quantize or decimals on a field without a name"
+            ))
+        ));
+    }
     match shape {
         Shape::Single | Shape::Transparent => match participating.as_slice() {
             [f] => f.describe_value(key),
@@ -867,7 +901,10 @@ fn describe_fields(
                     .clone();
                 let kind = within(&name, f.describe_value(key)?);
                 items.push(
-                    quote!((#name, ::quiddity::identity::export::field(#kind, false, false))),
+                    {
+                        let (q, d) = f.quantization(key);
+                        quote!((#name, ::quiddity::identity::export::field_quantized(#kind, false, false, #q, #d)))
+                    },
                 );
             }
             Ok(quote!(::quiddity::identity::export::object(
@@ -899,7 +936,8 @@ fn describe_fields(
                         )
                     ));
                 }
-                items.push(quote!((#name, ::quiddity::identity::export::field(#kind, #omit_none, #omit_empty))));
+                let (q, d) = f.quantization(key);
+                items.push(quote!((#name, ::quiddity::identity::export::field_quantized(#kind, #omit_none, #omit_empty, #q, #d))));
             }
             Ok(quote!(::quiddity::identity::export::object(
                 ::quiddity::__private::vec![#(#items),*],
@@ -916,6 +954,24 @@ fn within(step: &str, kind: TokenStream) -> TokenStream {
 }
 
 impl Field {
+    /// The field's `quantize` and `decimals`, as `Option` expressions.
+    fn quantization(&self, key: &str) -> (TokenStream, TokenStream) {
+        let opt = |v: Option<TokenStream>| match v {
+            Some(v) => quote!(::core::option::Option::Some(#v)),
+            None => quote!(::core::option::Option::None),
+        };
+        (
+            opt(self.attrs.quantize.get(key).map(|q| quote!(#q))),
+            opt(self.attrs.decimals.get(key).map(|d| quote!(#d))),
+        )
+    }
+
+    /// Whether the field is quantized under `key`, which a document can
+    /// express only for fields with names.
+    fn is_quantized(&self, key: &str) -> bool {
+        self.attrs.quantize.get(key).is_some() || self.attrs.decimals.get(key).is_some()
+    }
+
     /// An expression giving the kind of the field's value.
     fn describe_value(&self, key: &str) -> syn::Result<TokenStream> {
         let ty = &self.ty;
@@ -926,6 +982,9 @@ impl Field {
         };
         Ok(match self.encoding(key)? {
             ValueEncoding::Own(j) => quote!(__cx.describe::<#ty, #j>()?),
+            ValueEncoding::Quantize(_) | ValueEncoding::Decimals(_) => {
+                quote!(__cx.describe::<#ty, ::quiddity::Primary>()?)
+            }
             ValueEncoding::Set => quote!({
                 let __kind = __cx.describe::<#ty, ::quiddity::Primary>()?;
                 ::quiddity::identity::export::as_set(__cx, __kind, ::core::any::type_name::<#ty>())?
