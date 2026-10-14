@@ -1068,6 +1068,41 @@ Findings:
   wording (fixed sets of strings become tagged unions) but gives the same
   digests on every canonical document; tested on all the vectors.
 
+### The Rust API for composing and changing identities
+
+Decided and implemented 2026-10-14. Not a builder: an `Identity` can be
+changed at any time, and every state the API reaches is valid.
+
+- **Nesting, not names.** A field's kind can be another `Identity`
+  (`Kind::list(row)`); it becomes a definition of the identity it is placed
+  in, under its name (`Identity::named`) or, without one, inlined. Equal
+  definitions are reused, and different ones with the same name get a
+  suffix (`Row_2`). `Kind::Ref` holds an opaque `RefName` that only nesting
+  and recursion create, so no reference can refer to a missing definition.
+  `named` was kept so that people inspecting an identity's definitions see
+  type names rather than generated ones.
+- **Recursion:** `Kind::recursive()` is the identity being built; its root
+  becomes its own definition. Mutual recursion comes only from documents
+  and export.
+- **Constructors check what they build** and return `Result`:
+  `Kind::object(fields)` and `object_as_list(fields)` take every field at
+  once from an iterator (so a list-encoded object's order is the order
+  given), `union`, `tuple`, `map`, `externally_tagged`,
+  `internally_tagged(tag, …)`, `adjacently_tagged(tag, content, …)` and
+  `by_discriminant`. Empty unions and tuples are errors. A kind containing
+  `recursive()` is checked once placed in an identity. `list`, `set`,
+  `optional` and the scalars cannot fail.
+- **`Field`** is the one helper struct: `Field::new`, `Field::optional`
+  (`null | k`, omitted when null), `Field::omit_empty`, `.rename(key)`.
+- **Changes:** `set_root`, `set_field`/`remove_field` (root object),
+  `set_field_in`/`remove_field_in` (a defined object), `set_domain`,
+  `clear_domain`. Each re-checks the whole identity; one that fails changes
+  nothing. `definition(name)` returns a definition as an identity of its
+  own, as it was before it was nested.
+- **Unreachable definitions drop out** of the canonical form (spec 5.3),
+  so removing the last use of a type removes its definition, and an
+  identity's digest reflects only what affects value digests.
+
 ### Authoring: a normalized format, with convenience in each language
 
 Decided 2026-10-13. The identity document keeps exactly one spelling per

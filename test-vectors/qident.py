@@ -277,7 +277,41 @@ def load(doc):
     if canon_defs:
         out["definitions"] = canon_defs
     check_semantics(out)
+    # Definitions the root does not reach are not part of the identity.
+    reached = set()
+    reach(out["root"], canon_defs, reached)
+    canon_defs = {n: k for n, k in canon_defs.items() if n in reached}
+    if canon_defs:
+        out["definitions"] = canon_defs
+    else:
+        out.pop("definitions", None)
     return out
+
+
+def reach(k, defs, reached):
+    """Adds the names of the definitions k reaches to reached."""
+    if isinstance(k, str):
+        return
+    (name, v), = k.items()
+    if name == "ref":
+        if v not in reached:
+            reached.add(v)
+            reach(defs[v], defs, reached)
+    elif name in ("list", "set"):
+        reach(v, defs, reached)
+    elif name in ("tuple", "union"):
+        for x in v:
+            reach(x, defs, reached)
+    elif name == "map":
+        reach(v["key"], defs, reached)
+        reach(v["value"], defs, reached)
+    elif name == "object":
+        for f in v["fields"].values():
+            reach(f["kind"], defs, reached)
+    elif name == "tagged":
+        for var in v["variants"].values():
+            if "kind" in var:
+                reach(var["kind"], defs, reached)
 
 
 def check_semantics(doc):

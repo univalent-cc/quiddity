@@ -7,6 +7,12 @@
 //! a value. An `Identity` is itself digested with
 //! [`quiddity()`](crate::QuiddityExt::quiddity), under the identity of
 //! identity documents (spec 5.10).
+//!
+//! Kinds nest: a field's kind can be another `Identity`, which becomes one
+//! of the identity's definitions, under its [name](Identity::named) or a
+//! generated one, and [`Kind::recursive`] refers to the identity being
+//! built. Every `Identity` is valid (spec 5.9): the functions that build or
+//! change one check it, and an operation that fails changes nothing.
 
 use alloc::boxed::Box;
 use alloc::collections::{BTreeMap, BTreeSet};
@@ -17,6 +23,7 @@ use core::fmt;
 use crate::{Digest, Quiddity};
 
 mod apply;
+mod compose;
 #[doc(hidden)]
 pub mod export;
 mod load;
@@ -26,18 +33,20 @@ mod value;
 pub use export::ExportError;
 pub use load::InvalidIdentity;
 
-/// An identity (spec 5): the kind of the value being digested, the named
-/// kinds that `Kind::Ref` refers to, and a domain.
+/// An identity (spec 5): the kind of the value being digested, the
+/// definitions that its references refer to, and a domain.
 ///
 /// An `Identity` is always valid (spec 5.9) and in canonical form (spec
-/// 5.3): [`Identity::new`] and [`Identity::from_json`] check and normalize
-/// it. To change one, take it apart with [`Identity::into_parts`] and build
-/// it again.
-#[derive(Clone, Debug, PartialEq, Eq, Quiddity)]
+/// 5.3).
+#[derive(Clone, Debug, Quiddity)]
 #[quiddity(domain = "quiddity.identity")]
 pub struct Identity {
     #[quiddity(rename = "quiddity")]
     version: u32,
+    /// The name of the definition the identity becomes when nested; not
+    /// part of the identity's document.
+    #[quiddity(skip)]
+    name: Option<String>,
     #[quiddity(omit_none)]
     domain: Option<String>,
     root: Kind,
@@ -85,9 +94,52 @@ pub enum Kind {
     Union(#[quiddity(encode_as = set)] Vec<Kind>),
     /// One of several named variants (spec 5.8).
     Tagged(TaggedKind),
-    /// The kind defined under this name in the identity.
-    Ref(String),
+    /// The kind defined under this name in the identity. References are
+    /// made by nesting identities and by [`Kind::recursive`], never by
+    /// hand, so that none can refer to a missing definition.
+    Ref(RefName),
+    /// An identity nested in a kind being built: it becomes a definition of
+    /// the identity the kind is placed in, and a reference to it. It is
+    /// never found inside an `Identity`.
+    Identity(Box<Identity>),
+    /// The identity a kind is being built for: it becomes a reference to
+    /// that identity's own definition. It is never found inside an
+    /// `Identity`.
+    Recursive,
 }
+
+/// The name of a definition that a [`Kind::Ref`] refers to.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Quiddity)]
+pub struct RefName(String);
+
+impl RefName {
+    pub(crate) fn new(name: String) -> RefName {
+        RefName(name)
+    }
+
+    /// The name.
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl fmt::Display for RefName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+/// Two identities are equal if their documents are; a name used only when
+/// nesting is not compared.
+impl PartialEq for Identity {
+    fn eq(&self, other: &Identity) -> bool {
+        self.domain == other.domain
+            && self.root == other.root
+            && self.definitions == other.definitions
+    }
+}
+
+impl Eq for Identity {}
 
 /// The options of [`Kind::Bytes`].
 #[derive(Clone, Debug, Default, PartialEq, Eq, Quiddity)]
@@ -245,50 +297,176 @@ pub struct Variant {
 
 impl Kind {
     /// A list of `item`.
-    pub fn list(item: Kind) -> Kind {
-        Kind::List(Box::new(item))
+    pub fn list(item: impl Into<Kind>) -> Kind {
+        Kind::List(Box::new(item.into()))
     }
 
     /// A set of `member`.
-    pub fn set(member: Kind) -> Kind {
-        Kind::Set(Box::new(member))
-    }
-
-    /// A map from `key` to `value`.
-    pub fn map(key: Kind, value: Kind) -> Kind {
-        Kind::Map(MapKind {
-            key: Box::new(key),
-            value: Box::new(value),
-        })
+    pub fn set(member: impl Into<Kind>) -> Kind {
+        Kind::Set(Box::new(member.into()))
     }
 
     /// `kind` or null.
-    pub fn optional(kind: Kind) -> Kind {
-        Kind::Union(alloc::vec![Kind::Null, kind])
+    pub fn optional(kind: impl Into<Kind>) -> Kind {
+        Kind::Union(alloc::vec![Kind::Null, kind.into()])
     }
 
-    /// A reference to the definition `name`.
-    pub fn reference(name: impl Into<String>) -> Kind {
-        Kind::Ref(name.into())
+    /// The identity this kind is placed in, for recursive types: a tree
+    /// node's `children` field is `Kind::list(Kind::recursive())`.
+    pub fn recursive() -> Kind {
+        Kind::Recursive
     }
 
-    /// An object with the given fields, encoded as a map.
-    pub fn object<N: Into<String>>(fields: impl IntoIterator<Item = (N, Field)>) -> Kind {
-        Kind::Object(ObjectKind {
-            fields: fields.into_iter().map(|(n, f)| (n.into(), f)).collect(),
-            order: None,
+    /// Bytes, read from text as base64.
+    pub fn bytes() -> Kind {
+        Kind::Bytes(BytesOptions::default())
+    }
+
+    /// Bytes, read from text as hexadecimal digits.
+    pub fn bytes_hex() -> Kind {
+        Kind::Bytes(BytesOptions {
+            text: Some(BytesText::Hex),
         })
+    }
+
+    /// An instant, read from RFC 3339 text or serde's `SystemTime` form.
+    pub fn instant() -> Kind {
+        Kind::Instant(TimeOptions::default())
+    }
+
+    /// An instant, also read from a number of `unit`s since the Unix epoch.
+    pub fn instant_in(unit: Unit) -> Kind {
+        Kind::Instant(TimeOptions { unit: Some(unit) })
+    }
+
+    /// A duration, read from ISO 8601 text or serde's `Duration` form.
+    pub fn duration() -> Kind {
+        Kind::Duration(TimeOptions::default())
+    }
+
+    /// A duration, also read from a number of `unit`s.
+    pub fn duration_in(unit: Unit) -> Kind {
+        Kind::Duration(TimeOptions { unit: Some(unit) })
+    }
+
+    /// A map from `key` to `value`. In JSON every key is a string, so `key`
+    /// must accept strings.
+    pub fn map(key: impl Into<Kind>, value: impl Into<Kind>) -> Result<Kind, InvalidIdentity> {
+        compose::checked(Kind::Map(MapKind {
+            key: Box::new(key.into()),
+            value: Box::new(value.into()),
+        }))
+    }
+
+    /// An object with the given fields, encoded as a map from their keys.
+    pub fn object<N, F>(fields: impl IntoIterator<Item = (N, F)>) -> Result<Kind, InvalidIdentity>
+    where
+        N: Into<String>,
+        F: Into<Field>,
+    {
+        compose::object(fields, false)
+    }
+
+    /// An object with the given fields, encoded as the list of their values
+    /// in the order given. Its fields cannot be omitted.
+    pub fn object_as_list<N, F>(
+        fields: impl IntoIterator<Item = (N, F)>,
+    ) -> Result<Kind, InvalidIdentity>
+    where
+        N: Into<String>,
+        F: Into<Field>,
+    {
+        compose::object(fields, true)
+    }
+
+    /// One of several kinds, told apart by the value's type, or objects by
+    /// their keys (spec 5.7).
+    pub fn union<K: Into<Kind>>(
+        alternatives: impl IntoIterator<Item = K>,
+    ) -> Result<Kind, InvalidIdentity> {
+        compose::checked(Kind::Union(
+            alternatives.into_iter().map(Into::into).collect(),
+        ))
+    }
+
+    /// A fixed-length array, each item of the kind in its position.
+    pub fn tuple<K: Into<Kind>>(
+        items: impl IntoIterator<Item = K>,
+    ) -> Result<Kind, InvalidIdentity> {
+        compose::checked(Kind::Tuple(items.into_iter().map(Into::into).collect()))
+    }
+
+    /// Variants written as `{"Name": value}`, or `"Name"` for a unit
+    /// variant (`None`), as serde writes enums by default.
+    pub fn externally_tagged<N: Into<String>>(
+        variants: impl IntoIterator<Item = (N, Option<Kind>)>,
+    ) -> Result<Kind, InvalidIdentity> {
+        compose::tagged(variants, None, None, None)
+    }
+
+    /// Variants written as objects whose member `tag` names the variant,
+    /// as serde's `#[serde(tag = "…")]` does. Each variant is a unit
+    /// variant (`None`) or an object kind.
+    pub fn internally_tagged<N: Into<String>>(
+        tag: impl Into<String>,
+        variants: impl IntoIterator<Item = (N, Option<Kind>)>,
+    ) -> Result<Kind, InvalidIdentity> {
+        compose::tagged(variants, Some(Style::Internal), Some(tag.into()), None)
+    }
+
+    /// Variants written as `{tag: "Name", content: value}`, as serde's
+    /// `#[serde(tag = "…", content = "…")]` does.
+    pub fn adjacently_tagged<N: Into<String>>(
+        tag: impl Into<String>,
+        content: impl Into<String>,
+        variants: impl IntoIterator<Item = (N, Option<Kind>)>,
+    ) -> Result<Kind, InvalidIdentity> {
+        compose::tagged(
+            variants,
+            Some(Style::Adjacent),
+            Some(tag.into()),
+            Some(content.into()),
+        )
+    }
+
+    /// The tagged union `self`, with each variant identified in the result
+    /// by the given discriminant rather than its name.
+    pub fn by_discriminant<N: AsRef<str>>(
+        self,
+        discriminants: impl IntoIterator<Item = (N, i128)>,
+    ) -> Result<Kind, InvalidIdentity> {
+        compose::by_discriminant(self, discriminants)
+    }
+}
+
+impl From<Identity> for Kind {
+    fn from(identity: Identity) -> Kind {
+        Kind::Identity(Box::new(identity))
     }
 }
 
 impl Field {
     /// A field of the given kind, under its own name, never omitted.
-    pub fn new(kind: Kind) -> Field {
+    pub fn new(kind: impl Into<Kind>) -> Field {
         Field {
-            kind,
+            kind: kind.into(),
             rename: None,
             omit: BTreeSet::new(),
         }
+    }
+
+    /// A field of `kind` or null, omitted when null: an `Option` that
+    /// serde leaves out when it is `None`.
+    pub fn optional(kind: impl Into<Kind>) -> Field {
+        Field::new(Kind::optional(kind)).omit(Omit::None)
+    }
+
+    /// A field omitted when it is empty or missing: a collection that
+    /// serde leaves out when it is empty.
+    pub fn omit_empty(kind: impl Into<Kind>) -> Field {
+        Field::new(Kind::optional(kind))
+            .omit(Omit::None)
+            .omit(Omit::Empty)
     }
 
     /// The field, with its key in the result changed to `key`.
@@ -310,21 +488,29 @@ impl From<Kind> for Field {
     }
 }
 
+impl From<Identity> for Field {
+    fn from(identity: Identity) -> Field {
+        Field::new(identity)
+    }
+}
+
 impl Identity {
-    /// An identity with the given root kind, and no definitions or domain.
-    pub fn new(root: Kind) -> Result<Identity, InvalidIdentity> {
-        Identity::from_parts(root, BTreeMap::new(), None)
+    /// An identity whose root is `kind`. Identities nested in `kind` become
+    /// its definitions.
+    pub fn new(kind: impl Into<Kind>) -> Result<Identity, InvalidIdentity> {
+        compose::identity(kind.into(), None, None)
     }
 
-    /// An identity from its parts: the root kind, the definitions that
-    /// references refer to, and the domain. It is checked (spec 5.9) and
-    /// put in canonical form (spec 5.3).
-    pub fn from_parts(
-        root: Kind,
-        definitions: BTreeMap<String, Kind>,
-        domain: Option<String>,
-    ) -> Result<Identity, InvalidIdentity> {
-        load::build(root, definitions, domain)
+    /// The identity, with the name it has as a definition when nested in
+    /// another identity, and as its own definition if it is recursive.
+    /// Without a name, one is generated.
+    pub fn named(self, name: impl Into<String>) -> Identity {
+        compose::named(self, name.into())
+    }
+
+    /// The name given with [`Identity::named`], if any.
+    pub fn name(&self) -> Option<&str> {
+        self.name.as_deref()
     }
 
     /// The identity's root kind.
@@ -332,9 +518,14 @@ impl Identity {
         &self.root
     }
 
-    /// The identity's definitions.
+    /// The identity's definitions, by name.
     pub fn definitions(&self) -> &BTreeMap<String, Kind> {
         &self.definitions
+    }
+
+    /// The definition `name`, as an identity of its own.
+    pub fn definition(&self, name: &str) -> Option<Identity> {
+        compose::definition(self, name)
     }
 
     /// The identity's domain, if any.
@@ -342,10 +533,86 @@ impl Identity {
         self.domain.as_deref()
     }
 
-    /// The root kind, the definitions and the domain, to build a changed
-    /// identity from.
-    pub fn into_parts(self) -> (Kind, BTreeMap<String, Kind>, Option<String>) {
-        (self.root, self.definitions, self.domain)
+    /// Places digests under this identity in `domain` (spec 4.2), which
+    /// must not be empty.
+    pub fn set_domain(&mut self, domain: impl Into<String>) -> Result<(), InvalidIdentity> {
+        let domain = domain.into();
+        if domain.is_empty() {
+            return Err(load::invalid("$.domain", "a domain is non-empty"));
+        }
+        self.domain = Some(domain);
+        Ok(())
+    }
+
+    /// Removes the identity's domain.
+    pub fn clear_domain(&mut self) {
+        self.domain = None;
+    }
+
+    /// Replaces the root kind.
+    pub fn set_root(&mut self, kind: impl Into<Kind>) -> Result<(), InvalidIdentity> {
+        let next = compose::identity(kind.into(), self.domain.clone(), self.name.clone())?;
+        *self = next;
+        Ok(())
+    }
+
+    /// Adds or replaces the field `name` of the root object.
+    pub fn set_field(
+        &mut self,
+        name: impl Into<String>,
+        field: impl Into<Field>,
+    ) -> Result<(), InvalidIdentity> {
+        let field = field.into();
+        let recursive = compose::field_is_recursive(&field);
+        compose::edit_object(self, None, recursive, |o, defs, me| {
+            compose::set_field(o, name.into(), field, defs, me)
+        })
+    }
+
+    /// Removes the field `name` of the root object, if it has one.
+    pub fn remove_field(&mut self, name: &str) -> Result<(), InvalidIdentity> {
+        compose::edit_object(self, None, false, |o, _, _| {
+            o.fields.remove(name);
+            if let Some(order) = &mut o.order {
+                order.retain(|n| n != name);
+            }
+            Ok(())
+        })
+    }
+
+    /// Adds or replaces the field `name` of the object defined as
+    /// `definition`.
+    pub fn set_field_in(
+        &mut self,
+        definition: &str,
+        name: impl Into<String>,
+        field: impl Into<Field>,
+    ) -> Result<(), InvalidIdentity> {
+        let field = field.into();
+        let recursive = compose::field_is_recursive(&field);
+        compose::edit_object(self, Some(definition), recursive, |o, defs, me| {
+            compose::set_field(o, name.into(), field, defs, me)
+        })
+    }
+
+    /// Removes the field `name` of the object defined as `definition`.
+    pub fn remove_field_in(&mut self, definition: &str, name: &str) -> Result<(), InvalidIdentity> {
+        compose::edit_object(self, Some(definition), false, |o, _, _| {
+            o.fields.remove(name);
+            if let Some(order) = &mut o.order {
+                order.retain(|n| n != name);
+            }
+            Ok(())
+        })
+    }
+
+    /// An identity from its parts, as export builds it.
+    pub(crate) fn from_parts(
+        root: Kind,
+        definitions: BTreeMap<String, Kind>,
+        domain: Option<String>,
+    ) -> Result<Identity, InvalidIdentity> {
+        load::build(root, definitions, domain)
     }
 
     /// Loads an identity document (spec 5.3).

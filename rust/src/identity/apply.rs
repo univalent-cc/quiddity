@@ -76,6 +76,8 @@ fn kind_name(k: &Kind) -> &'static str {
         Kind::Union(_) => "union",
         Kind::Tagged(_) => "tagged union",
         Kind::Ref(_) => "reference",
+        Kind::Identity(_) => "nested identity",
+        Kind::Recursive => "recursive kind",
     }
 }
 

@@ -35,7 +35,7 @@ impl fmt::Display for InvalidIdentity {
 #[cfg(feature = "std")]
 impl std::error::Error for InvalidIdentity {}
 
-fn invalid(path: &str, message: impl Into<String>) -> InvalidIdentity {
+pub(crate) fn invalid(path: &str, message: impl Into<String>) -> InvalidIdentity {
     InvalidIdentity {
         path: path.to_owned(),
         message: message.into(),
@@ -180,7 +180,7 @@ fn kind(v: &Value, path: &str) -> Result<Kind> {
         "object" => Kind::Object(object(opts, &p)?),
         "union" => Kind::Union(kinds(opts, &p)?),
         "tagged" => Kind::Tagged(tagged(opts, &p)?),
-        "ref" => Kind::Ref(string(opts, &p)?),
+        "ref" => Kind::Ref(super::RefName::new(string(opts, &p)?)),
         _ => return Err(invalid(path, format!("unknown kind `{name}`"))),
     })
 }
@@ -370,10 +370,16 @@ fn canonical(k: Kind, path: &str) -> Result<Kind> {
         }
         Kind::Tagged(t) => Kind::Tagged(canonical_tagged(t, path)?),
         Kind::Ref(name) => {
-            if name.is_empty() {
+            if name.as_str().is_empty() {
                 return Err(invalid(path, "a reference's name is empty"));
             }
             Kind::Ref(name)
+        }
+        Kind::Identity(_) | Kind::Recursive => {
+            return Err(invalid(
+                path,
+                "a nested identity or a recursive kind outside an identity",
+            ));
         }
         k @ (Kind::Null
         | Kind::Bool
@@ -518,12 +524,56 @@ pub(crate) fn build(
     for (name, k) in &defs {
         check(k, &defs, &format!("$.definitions.{name}"))?;
     }
+    // Definitions the root does not reach are not part of the identity
+    // (spec 5.3).
+    let mut reached = BTreeSet::new();
+    reach(&root, &defs, &mut reached);
+    defs.retain(|name, _| reached.contains(name));
     Ok(Identity {
         version: 1,
+        name: None,
         domain,
         root,
         definitions: defs,
     })
+}
+
+/// Whether `k` reaches the definition `name`.
+pub(crate) fn reaches(k: &Kind, defs: &BTreeMap<String, Kind>, name: &str) -> bool {
+    let mut reached = BTreeSet::new();
+    reach(k, defs, &mut reached);
+    reached.contains(name)
+}
+
+/// Adds the names of the definitions `k` reaches to `reached`.
+pub(crate) fn reach(k: &Kind, defs: &BTreeMap<String, Kind>, reached: &mut BTreeSet<String>) {
+    match k {
+        Kind::Ref(name) => {
+            if reached.insert(name.as_str().to_owned()) {
+                if let Some(d) = defs.get(name.as_str()) {
+                    reach(d, defs, reached);
+                }
+            }
+        }
+        Kind::List(i) | Kind::Set(i) => reach(i, defs, reached),
+        Kind::Tuple(items) | Kind::Union(items) => {
+            items.iter().for_each(|i| reach(i, defs, reached))
+        }
+        Kind::Map(m) => {
+            reach(&m.key, defs, reached);
+            reach(&m.value, defs, reached);
+        }
+        Kind::Object(o) => o
+            .fields
+            .values()
+            .for_each(|f| reach(&f.kind, defs, reached)),
+        Kind::Tagged(t) => t
+            .variants
+            .values()
+            .filter_map(|v| v.kind.as_ref())
+            .for_each(|k| reach(k, defs, reached)),
+        _ => {}
+    }
 }
 
 // --- Claims (spec 5.7) ---------------------------------------------------------
@@ -613,8 +663,11 @@ pub(crate) fn claims(
             }
             c(native, T::NONE)
         }
+        Kind::Identity(id) => claims(&id.root, &id.definitions, &mut Vec::new()),
+        Kind::Recursive => Err("a recursive kind outside an identity".into()),
         Kind::Ref(name) => {
-            if visiting.contains(name) {
+            let name = name.as_str();
+            if visiting.iter().any(|v| v == name) {
                 return Err(format!(
                     "a cycle of references through `{name}` without structure"
                 ));
@@ -622,7 +675,7 @@ pub(crate) fn claims(
             let def = defs
                 .get(name)
                 .ok_or_else(|| format!("reference to undefined `{name}`"))?;
-            visiting.push(name.clone());
+            visiting.push(name.to_owned());
             let r = claims(def, defs, visiting);
             visiting.pop();
             r
@@ -723,7 +776,7 @@ fn fits_keys(names: &[&str], o: &ObjectKind) -> bool {
 pub(crate) fn resolve<'k>(mut k: &'k Kind, defs: &'k BTreeMap<String, Kind>) -> &'k Kind {
     let mut steps = 0;
     while let Kind::Ref(name) = k {
-        match defs.get(name) {
+        match defs.get(name.as_str()) {
             Some(d) if steps <= defs.len() => {
                 k = d;
                 steps += 1;
@@ -939,6 +992,9 @@ fn kind_json(k: &Kind) -> Value {
             }
             one("tagged", Value::Object(obj))
         }
-        Kind::Ref(name) => one("ref", json!(name)),
+        Kind::Ref(name) => one("ref", json!(name.as_str())),
+        Kind::Identity(_) | Kind::Recursive => {
+            unreachable!("an identity holds no nested identities or recursive kinds")
+        }
     }
 }

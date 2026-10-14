@@ -475,7 +475,7 @@ pub(crate) mod alloc_impls {
     }
 
     impl<I: IdentityMarker, K: Quiddity<I>, V: Quiddity<I>> Quiddity<I> for BTreeMap<K, V> {
-        describe!(|cx| Kd::map(cx.describe::<K, I>()?, cx.describe::<V, I>()?));
+        describe!(|cx| X::map(cx.describe::<K, I>()?, cx.describe::<V, I>()?));
 
         fn encode(&self, e: &mut Encoder) {
             map::<I, K, V>(e, self);
@@ -540,7 +540,7 @@ mod std_impls {
     }
 
     impl<I: IdentityMarker, K: Quiddity<I>, V: Quiddity<I>, S> Quiddity<I> for HashMap<K, V, S> {
-        describe!(|cx| Kd::map(cx.describe::<K, I>()?, cx.describe::<V, I>()?));
+        describe!(|cx| X::map(cx.describe::<K, I>()?, cx.describe::<V, I>()?));
 
         fn encode(&self, e: &mut Encoder) {
             map::<I, K, V>(e, self);

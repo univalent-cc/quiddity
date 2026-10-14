@@ -456,6 +456,9 @@ SAME_IDENTITY = [
          "b": {"kind": {"bytes": {"text": "base64"}}, "rename": "b"},
          "a": {"omit": ["empty", "none"], "kind": {"union": ["string", {"union": ["null", "string"]}]}}}}}}),
     ("a union of one", doc({"union": ["null", "null"]}), doc("null")),
+    ("unreachable definitions",
+     doc({"ref": "A"}, definitions={"A": "string", "Unused": "integer"}),
+     doc({"ref": "A"}, definitions={"A": "string"})),
 ]
 
 d0 = digest(None)

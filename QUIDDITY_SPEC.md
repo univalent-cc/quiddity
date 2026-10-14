@@ -476,8 +476,10 @@ not define. Ignoring one would change digests without notice.
 Optional members have defaults. An implementation MUST treat an optional
 member whose value is its default as absent. The **canonical form** of a
 document omits every such member, and the members `domain` and
-`definitions` when they are absent or empty; and its unions are flattened
-and merged (5.7).
+`definitions` when they are absent or empty; it omits every definition
+that the root does not reach, directly or through other definitions; and
+its unions are flattened and merged (5.7). A definition that is not
+reached is still validated (5.9).
 
 ### 5.4 Kinds
 

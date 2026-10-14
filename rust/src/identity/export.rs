@@ -73,7 +73,7 @@ impl Exporter {
     ) -> Result<Kind, ExportError> {
         let key = (type_name::<T>(), type_name::<J>());
         if let Some(name) = self.names.get(&key) {
-            return Ok(Kind::Ref(name.clone()));
+            return Ok(Kind::Ref(super::RefName::new(name.clone())));
         }
         let suffix = if key.1 == type_name::<Primary>() {
             String::new()
@@ -87,7 +87,7 @@ impl Exporter {
         self.names.insert(key, name.clone());
         let kind = build(self)?;
         self.definitions.insert(name.clone(), kind);
-        Ok(Kind::Ref(name))
+        Ok(Kind::Ref(super::RefName::new(name)))
     }
 
     /// The error for a type that does not describe itself.
@@ -138,6 +138,15 @@ pub fn object(fields: Vec<(&'static str, Field)>, list: bool) -> Kind {
     Kind::Object(ObjectKind {
         fields: fields.into_iter().map(|(n, f)| (n.to_owned(), f)).collect(),
         order,
+    })
+}
+
+/// A map kind, not checked until the whole identity is (export refers to
+/// definitions it has not finished collecting).
+pub fn map(key: Kind, value: Kind) -> Kind {
+    Kind::Map(super::MapKind {
+        key: alloc::boxed::Box::new(key),
+        value: alloc::boxed::Box::new(value),
     })
 }
 

@@ -4419,6 +4419,31 @@
         }
       ],
       "identity_digest": "sha256:c83f05022b47a0921d44bc3f5266322a8183f9416b0bf3609ec3911da7713d2d"
+    },
+    {
+      "name": "unreachable definitions",
+      "documents": [
+        {
+          "quiddity": 1,
+          "root": {
+            "ref": "A"
+          },
+          "definitions": {
+            "A": "string",
+            "Unused": "integer"
+          }
+        },
+        {
+          "quiddity": 1,
+          "root": {
+            "ref": "A"
+          },
+          "definitions": {
+            "A": "string"
+          }
+        }
+      ],
+      "identity_digest": "sha256:1d4c423b132e4451ed7cb750ee2ea4d4dff786210367db3eebbac02ae5a1af2f"
     }
   ],
   "text_forms": [
