@@ -1,4 +1,4 @@
-//! The derive's compile errors (spec 5.3–5.5).
+//! The derive's compile errors (spec 6.3–6.5).
 
 #![cfg(all(feature = "derive", not(feature = "serde")))]
 

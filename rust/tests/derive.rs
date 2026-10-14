@@ -1,4 +1,4 @@
-//! `#[derive(Quiddity)]` (spec 5.3–5.5): each derived digest is compared
+//! `#[derive(Quiddity)]` (spec 6.3–6.5): each derived digest is compared
 //! with the digest of an equivalent value built from std types.
 
 #![cfg(all(feature = "std", feature = "derive"))]

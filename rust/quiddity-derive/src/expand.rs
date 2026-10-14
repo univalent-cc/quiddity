@@ -1,4 +1,4 @@
-//! `#[derive(Quiddity)]`: one `impl Quiddity<I>` per identity (spec 5.3–5.5).
+//! `#[derive(Quiddity)]`: one `impl Quiddity<I>` per identity (spec 6.3–6.5).
 
 use std::collections::BTreeSet;
 
@@ -26,7 +26,7 @@ struct Field {
     binding: Ident,
     ty: Type,
     attrs: FieldAttrs,
-    /// Written as `PhantomData<…>`: never participates (spec 5.3). Other
+    /// Written as `PhantomData<…>`: never participates (spec 6.3). Other
     /// spellings are caught at run time by `ABSENT_AS_FIELD`.
     phantom: bool,
 }

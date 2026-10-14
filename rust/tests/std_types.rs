@@ -1,4 +1,4 @@
-//! The standard library mappings of spec 5.2, and the equivalences the README
+//! The standard library mappings of spec 6.2, and the equivalences the README
 //! states for them.
 
 #![cfg(feature = "std")]

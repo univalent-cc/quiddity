@@ -1,6 +1,6 @@
 //! With serde_json's `arbitrary_precision` feature, a `Number` keeps its
 //! decimal text. Its digest must be the one it would have without the
-//! feature (spec 5.6): an integer within `i64` or `u64` is that integer, and
+//! feature (spec 6.6): an integer within `i64` or `u64` is that integer, and
 //! anything else is rounded to the nearest `f64`, then normalized.
 
 #[cfg(test)]

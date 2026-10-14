@@ -1,4 +1,4 @@
-//! `Quiddity` for other crates' types, each behind a feature (spec 5.6).
+//! `Quiddity` for other crates' types, each behind a feature (spec 6.6).
 
 #[cfg(feature = "serde_json")]
 mod serde_json_impls {
@@ -30,7 +30,7 @@ mod serde_json_impls {
     }
 
     /// The value the number would have without serde_json's
-    /// `arbitrary_precision` feature (spec 5.6): an integer within `i64` or
+    /// `arbitrary_precision` feature (spec 6.6): an integer within `i64` or
     /// `u64`, or else the nearest `f64`.
     impl<I: IdentityMarker> Quiddity<I> for Number {
         fn encode(&self, e: &mut Encoder) {

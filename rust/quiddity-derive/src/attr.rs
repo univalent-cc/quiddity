@@ -1,5 +1,5 @@
 //! Parsing `#[quiddity(…)]` attributes, each of the form
-//! `name[(Identity, …)] [= value]` (spec 5.5).
+//! `name[(Identity, …)] [= value]` (spec 6.5).
 
 use proc_macro2::Span;
 use quote::ToTokens;

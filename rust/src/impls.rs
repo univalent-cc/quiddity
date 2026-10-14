@@ -1,4 +1,4 @@
-//! `Quiddity` for standard library types (spec 5.2). Every impl covers
+//! `Quiddity` for standard library types (spec 6.2). Every impl covers
 //! every identity, encoding elements and fields under the same identity, so
 //! that `identity = I` reaches through containers.
 
@@ -240,7 +240,7 @@ impl<I: IdentityMarker> Quiddity<I> for core::convert::Infallible {
     }
 }
 
-/// Ranges are maps of their bounds, as serde writes them in JSON (spec 5.2).
+/// Ranges are maps of their bounds, as serde writes them in JSON (spec 6.2).
 mod ranges {
     use core::ops::{Bound, Range, RangeFrom, RangeInclusive, RangeTo, RangeToInclusive};
 
@@ -298,7 +298,7 @@ impl<I: IdentityMarker> Quiddity<I> for core::time::Duration {
     }
 }
 
-/// IP and socket addresses are strings of their `Display` forms (spec 5.2).
+/// IP and socket addresses are strings of their `Display` forms (spec 6.2).
 macro_rules! addresses {
     ($($ty:ident)*) => {$(
         impl<I: IdentityMarker> Quiddity<I> for core::net::$ty {
@@ -445,7 +445,7 @@ mod std_impls {
     }
 
     /// The platform's bytes for the string: as they are on Unix, and WTF-8
-    /// on Windows (spec 5.2).
+    /// on Windows (spec 6.2).
     impl<I: IdentityMarker> Quiddity<I> for OsStr {
         fn encode(&self, e: &mut Encoder) {
             #[cfg(unix)]
@@ -476,7 +476,7 @@ mod std_impls {
     }
 }
 
-/// A digest used as a value is the string of its text form (spec 5.2).
+/// A digest used as a value is the string of its text form (spec 6.2).
 macro_rules! digests {
     ($($t:ty)*) => {$(
         impl<I: IdentityMarker> Quiddity<I> for $t {

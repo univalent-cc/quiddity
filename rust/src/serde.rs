@@ -1,4 +1,4 @@
-//! Digests of any `Serialize` value (spec 5.7), with the `serde` feature.
+//! Digests of any `Serialize` value (spec 6.7), with the `serde` feature.
 //!
 //! A serializer that writes serde's data model into an [`Encoder`], in the
 //! shapes serde gives values: so a `Serialize` value has the same digest as

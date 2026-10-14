@@ -6,20 +6,24 @@ Version 1 — Draft
 
 ### 1.1 Scope
 
-This document specifies how a quiddity digest is computed. It has four
+This document specifies how a quiddity digest is computed. It has five
 layers:
 
 1. **Data model** (section 2): the values a digest is computed over.
 2. **Encoding** (section 3): how a value is turned into bytes.
 3. **Digests** (section 4): how bytes become a digest, how a digest is
    placed in a domain, shortened, and written as text.
-4. **Rust mapping** (section 5): how Rust types, the derive macro and its
-   attributes, and the crate's optional features map onto the data model.
+4. **Identities** (section 5): which parts of a source value, such as a
+   JSON document, are digested and how, written as a document that every
+   implementation can read.
+5. **Rust mapping** (section 6): how Rust types, the derive macro and its
+   attributes, and the crate's optional features map onto the data model
+   and onto identities.
 
-Sections 2 to 4 are normative for every implementation, in any language.
-Section 5 is normative for the Rust crate `quiddity` only. An
+Sections 2 to 5 are normative for every implementation, in any language.
+Section 6 is normative for the Rust crate `quiddity` only. An
 implementation in another language defines its own mapping onto the data
-model and MUST then follow sections 2 to 4.
+model and MUST then follow sections 2 to 5.
 
 Design rationale is recorded in `history/DESIGN.md` and is not repeated here.
 
@@ -59,7 +63,7 @@ Normative:
 - **[RFC 3629]** *UTF-8, a transformation format of ISO 10646*.
 - **[RFC 5234]** *Augmented BNF for Syntax Specifications: ABNF*.
 - **[RFC 5952]** *A Recommendation for IPv6 Address Text Representation*,
-  section 4. Section 5.2 states its own rule for dotted notation.
+  section 4. Section 6.2 states its own rule for dotted notation.
 - **[RFC 8259]** *The JavaScript Object Notation (JSON) Data Interchange
   Format*.
 
@@ -386,13 +390,351 @@ size of the digest being parsed.
   2^32 for 64-bit digests. 64-bit digests MUST NOT be relied on where an
   adversary may choose values.
 
-## 5. Rust mapping
+## 5. Identities
+
+*Draft. Not yet implemented.*
+
+### 5.1 Overview
+
+An **identity** describes how a value from a source, such as a parsed JSON
+document, becomes a data-model value: which members of an object count,
+under which keys, what kind each value has, and how it is converted. An
+identity is written as an **identity document**, a JSON text (5.3), so
+that every implementation can read the same identity.
+
+Applying an identity to a source value gives a data-model value, or an
+error if the source value does not have the shape the identity describes.
+The **digest of a source value under an identity** is the digest (4.1) of
+that data-model value, in the document's domain (4.2) if it has one.
+
+Section 6 describes how Rust types define identities statically and how a
+Rust type exports them as documents (6.8). An implementation in a language
+without static types MAY let an identity hold functions as extensions; an
+identity that holds one has no document and no digest (5.10).
+
+### 5.2 Source values
+
+A source value has one of these **source types**:
+
+- the JSON types (RFC 8259): **null**, **boolean**, **number**,
+  **string**, **array** and **object**. A JSON number's value is the one
+  2.7 gives it. An object's members are its keys, which are strings, and
+  their values.
+- for sources other than JSON, which can hold more: **bytes**, **set**,
+  **instant** and **duration**, and objects whose keys are of any source
+  type.
+
+An implementation reading a source other than JSON maps each of its values
+to one of these source types. A value that is already a data-model value of
+a kind's result (such as bytes for `bytes`, or an instant for `instant`) is
+taken as it is.
+
+### 5.3 Identity documents
+
+An identity document is a JSON object (I-JSON, RFC 7493) with these
+members:
+
+| Member | Required | Value |
+|---|---|---|
+| `quiddity` | yes | The integer `1`: the version of this section. |
+| `root` | yes | The kind (5.4) of the value being digested. |
+| `domain` | no | A non-empty string: the domain (4.2) of digests under this identity. |
+| `definitions` | no | An object mapping names (non-empty strings) to kinds, which `ref` kinds refer to. |
+
+Example:
+
+```json
+{
+  "quiddity": 1,
+  "domain": "example.question",
+  "root": {"ref": "Question"},
+  "definitions": {
+    "Question": {"object": {"fields": {
+      "brief": {"kind": "string"},
+      "rows": {"kind": {"list": {"ref": "Row"}}},
+      "tags": {"kind": {"set": "string"}, "omit": ["empty"]},
+      "note": {"kind": {"union": ["null", "string"]}, "omit": ["none"]},
+      "asked_at": {"kind": {"instant": {}}},
+      "kind": {"kind": "string", "rename": "type"}
+    }}},
+    "Row": {"object": {"fields": {
+      "label": {"kind": "string"},
+      "value": {"kind": "number"}
+    }}}
+  }
+}
+```
+
+Every definition lives at the document's top level, and every `ref`
+resolves there; a `ref` to a name that is not defined is an error.
+
+An implementation MUST reject a document with a member, or a string value
+in a place that takes one of a fixed set of strings, that this section does
+not define. Ignoring one would change digests without notice.
+
+Optional members have defaults. An implementation MUST treat an optional
+member whose value is its default as absent. The **canonical form** of a
+document omits every such member, and the members `domain` and
+`definitions` when they are absent or empty; and its unions are flattened
+and merged (5.7).
+
+### 5.4 Kinds
+
+A kind is written either as a string, for kinds without options, or as an
+object with exactly one member, whose name is the kind and whose value
+gives its options.
+
+Each kind accepts some source types **natively** and others **by
+conversion** (5.5). A source value of any other type is an error.
+
+| Kind | Written | Native | By conversion | Data-model value |
+|---|---|---|---|---|
+| null | `"null"` | null | | null |
+| bool | `"bool"` | boolean | string | boolean |
+| integer | `"integer"` | number | string | integer |
+| number | `"number"` | number | string | integer or float (2.2) |
+| string | `"string"` | string | | string |
+| uuid | `"uuid"` | string | | string: the canonical form (5.5) |
+| path | `"path"` | string | object | string: the path's bytes (5.5) |
+| bytes | `{"bytes": {"text": "hex"}}` | bytes | array, string | string: the bytes |
+| instant | `{"instant": {"unit": u}}` | instant | string, object; number if `unit` | integer: nanoseconds (2.6) |
+| duration | `{"duration": {"unit": u}}` | duration | string, object; number if `unit` | integer: nanoseconds (2.6) |
+| list | `{"list": k}` | array | | list of `k` |
+| set | `{"set": k}` | array, set | | set of `k` |
+| tuple | `{"tuple": [k1, …, kn]}` | array | | list |
+| map | `{"map": {"key": k, "value": k}}` | object | | map |
+| object | `{"object": {…}}` | object | | map or list (5.6) |
+| union | `{"union": [k1, …, kn]}` | (5.7) | (5.7) | the chosen alternative's value |
+| tagged | `{"tagged": {…}}` | (5.8) | | (5.8) |
+| ref | `{"ref": "name"}` | as the definition | as the definition | as the definition |
+| any | `"any"` | every type | | the source value as it is: by 2.7 for JSON |
+
+Options:
+
+- `bytes`: `text` is `"base64"` (the default) or `"hex"`: how a string
+  source is read.
+- `instant`, `duration`: `unit` is `"s"`, `"ms"`, `"us"` or `"ns"`: the
+  unit of a number source. Without `unit`, a number source is an error.
+  Both kinds are written as objects even without options: `{"instant": {}}`.
+- `tuple`: a non-empty array of kinds; the source array MUST have that
+  many items, each read with the kind in the same position.
+- `map`: the source object's keys are read with `key`, and its values with
+  `value`. In a JSON source every key is a string, so `key` MUST accept
+  strings, natively or by conversion; if it is a union, at most one of its
+  alternatives may accept strings.
+- `list` and `tuple` do not accept a set source, which has no order.
+
+### 5.5 Conversions
+
+A conversion recognizes a value of the kind written in another form, such
+as an instant written as text; each accepted form denotes exactly one
+value. No conversion renders a value as text: `string` accepts only
+strings, since rendering `true` or `5` would choose a spelling (`"True"`,
+`"5.0"`) that the source did not.
+
+Before a string source is converted, ASCII whitespace (U+0009, U+000A,
+U+000D, U+0020) is removed from both ends. "Decimal text" below is a
+number in the syntax of RFC 8259, section 6, optionally preceded by `+`.
+
+- **bool** from a string, matched case-insensitively: `true`, `t`, `yes`,
+  `y`, `on` and `1` are true; `false`, `f`, `no`, `n`, `off` and `0` are
+  false.
+- **integer** from a number: the number's data-model value, which MUST be
+  an integer. From a string: decimal text whose value is an integer, such
+  as `5`, `5.0` or `1e3`, as that exact integer, of any size.
+- **number** from a string, matched case-insensitively: `nan`, `+nan` and
+  `-nan` are NaN; `inf`, `+inf`, `infinity`, `+infinity`, `∞` and `+∞` are
+  `+∞`; `-inf`, `-infinity` and `-∞`, and the same with U+2212 `−` in
+  place of `-`, are `−∞`. Decimal text is the value 2.7 gives that text as
+  a JSON number.
+- **uuid** from a string, case-insensitively: 32 hexadecimal digits, either
+  in groups of 8, 4, 4, 4 and 12 separated by `-` or ungrouped; either form
+  enclosed in `{` and `}`; or the grouped form preceded by `urn:uuid:`.
+  The canonical form is the grouped form in lowercase.
+- **path**: a file system path or operating system string. A string
+  source is its UTF-8 bytes. From an object, as serde writes Rust's
+  `OsStr` and `OsString`: exactly one member, either `Unix` with an array
+  of integers from 0 to 255, which are the bytes, or `Windows` with an
+  array of integers from 0 to 65 535, which are UTF-16 code units and are
+  converted to WTF-8 (2.3). A path that is valid Unicode text is therefore
+  the same string whichever form it comes in. Paths are not normalized.
+- **bytes** from an array: each item MUST be a number whose value is an
+  integer from 0 to 255. From a string with `text` `"hex"`: an even number
+  of hexadecimal digits, in either case. From a string otherwise: base64
+  (RFC 4648), in the standard alphabet (section 4) or the URL-safe one
+  (section 5) but not both, with padding either correct or absent, and no
+  other characters.
+- **instant** from a string: a date-time in the syntax of RFC 3339, section
+  5.6, with these allowances: the separator between date and time may be
+  `T`, `t` or a space; the offset may be `Z`, `z`, `±hh:mm`, `±hhmm` or
+  `±hh`; the fraction of a second has 1 to 9 digits. A second of `60` (a
+  leap second) is an error, as it is in the standard date-time parsers of
+  Python, JavaScript, Go and Elixir, which cannot represent one. A
+  date-time without an offset is an error (2.6). The result is the
+  instant's nanoseconds since the Unix epoch. With `unit`, a string that is
+  decimal text is read instead as that number of units. From an object: exactly the members `secs_since_epoch` (an integer,
+  at least 0) and `nanos_since_epoch` (an integer from 0 to 999 999 999),
+  as serde writes Rust's `SystemTime`; the result is
+  `secs_since_epoch × 10^9 + nanos_since_epoch`.
+- **duration** from a string: an ISO 8601 duration, optionally preceded by
+  `+` or `-`: `P`, then any of `nW` and `nD`, then optionally `T` and any of
+  `nH`, `nM` and `n.fS`, with at least one component, designators in either
+  case, whole-number counts, and a fraction of 1 to 9 digits on seconds
+  only. A week is 7 days and a day 86 400 seconds. Years and months, which
+  have no fixed length, are an error. With `unit`, a string that is decimal
+  text is read instead as that number of units. From an object: exactly the
+  members `secs` (an integer, at least 0) and `nanos` (an integer from 0 to
+  999 999 999), as serde writes Rust's `Duration`.
+- **instant** and **duration** from a number, or from decimal text, with
+  `unit`: the value times the unit MUST be a whole number of nanoseconds,
+  computed exactly (a string is read as an exact decimal; a number as its
+  data-model value).
+
+An implementation MAY limit the size of values it converts, such as the
+exponent of decimal text, and MUST report a value it cannot convert as an
+error (3.8).
+
+### 5.6 Objects
+
+`{"object": {…}}` has these members:
+
+| Member | Required | Value |
+|---|---|---|
+| `fields` | yes | An object mapping each field's name to the field (below). It may be empty. |
+| `unlisted` | no | What happens to source members whose names are not in `fields`: `"skip"` (the default), they are ignored. No other value is defined yet. |
+| `order` | no | An array naming every field exactly once: the value is then the list of the fields' values in this order, rather than a map. |
+
+A field has these members:
+
+| Member | Required | Value |
+|---|---|---|
+| `kind` | yes | The field's kind. |
+| `rename` | no | The field's key in the result, if not its name. |
+| `omit` | no | An array of conditions, each `"none"` or `"empty"`, each at most once: the field's entry is left out when its value is null (`"none"`), or an empty string, list, set or map (`"empty"`). Its order does not matter. |
+
+To apply an object kind to a source object:
+
+1. For each field, the source value is the member with the field's name,
+   or null if there is none. It is read with the field's kind.
+2. The field is omitted if its value meets one of its `omit` conditions.
+3. Without `order`, the result is the map from each field's key (its
+   `rename`, or else its name) to its value, for the fields not omitted.
+   With `order`, it is the list of the fields' values in that order.
+
+A missing member is read as null, so a field whose kind does not accept
+null (such as `"string"`) makes a missing member an error; `{"union":
+["null", "string"]}` accepts it. This is the static rule for `Option`
+fields (6.3, 6.5).
+
+### 5.7 Unions
+
+`{"union": [k1, …, kn]}`, with one or more alternatives, accepts a value
+that one of its alternatives accepts. The order of the alternatives does
+not matter.
+
+An alternative **claims** the source types it accepts natively, and those
+it accepts by conversion (5.4); a `ref` claims what its definition claims,
+and a nested union what its alternatives claim. Nested unions are
+flattened into the union containing them, and alternatives that are equal
+in canonical form are merged; a union left with one alternative is that
+alternative, so `["null", "null"]`, the export of `Option<()>`, is
+`"null"`. A union is valid only if no source type is
+claimed natively by two alternatives, and none is claimed by conversion by
+two alternatives.
+
+A source value is read with the alternative that claims its source type
+natively, or, if none does, with the one that claims it by conversion. The
+result is that alternative's value; no tag is added. So under
+`{"union": ["integer", "string"]}`, the number `5` is the integer 5 and the
+string `"5"` is the string `"5"`; under `{"union": ["bool", "string"]}`,
+the string `"yes"` is the string `"yes"`, while under `"bool"` alone it is
+`true`. A conversion applies only where no alternative accepts the value
+as it is.
+
+Valid: `["bool", "string"]`, `["integer", "string"]`, `["null", k]` for
+any `k` that does not accept null, `["string", {"ref": "Row"}]` where `Row`
+is an object. Not valid: two objects or references to objects, two lists,
+`"string"` and `"uuid"`, or `"any"` with anything. A union that needs to
+tell objects apart is a tagged union (5.8).
+
+### 5.8 Tagged unions
+
+`{"tagged": {…}}` describes a value that is one of several named variants,
+in one of the forms serde writes Rust enums in. It has these members:
+
+| Member | Required | Value |
+|---|---|---|
+| `variants` | yes | A non-empty object mapping each variant's name to the variant (below). |
+| `style` | no | `"external"` (the default), `"internal"` or `"adjacent"`. |
+| `tag` | for `internal` and `adjacent` | The name of the member holding the variant's name. |
+| `content` | for `adjacent` | The name of the member holding the variant's value. It differs from `tag`. |
+| `encode_as` | no | `"string"` (the default): a variant is identified in the result by its name; `"int"`: by its discriminant. |
+
+A variant has these members:
+
+| Member | Required | Value |
+|---|---|---|
+| `kind` | no | The variant's kind. A variant without one is a unit variant. |
+| `rename` | no | The variant's name in the result, if not its name. |
+| `discriminant` | with `"int"` only | An integer, different for every variant. |
+
+In the source, a variant is always identified by its name. In the result,
+it is identified by its **label**: its `rename` or else its name, as a
+string, or with `"int"` its discriminant, as an integer.
+
+| Style | Source, unit variant | Source, other variant | Result, unit variant | Result, other variant |
+|---|---|---|---|---|
+| external | the string `name` | an object with exactly one member, `name: v` | the label | `{label: v}`, or with `"int"` the list `[label, v]` |
+| internal | an object with the member `tag: name` | an object with `tag: name` and the variant's other members | `{tag: label}` | the variant's object value, with the entry `tag: label` added |
+| adjacent | an object with `tag: name` | an object with `tag: name` and `content: v` | `{tag: label}` | `{tag: label, content: v}` |
+
+`v` is the source value read with the variant's kind. With `internal`, a
+variant's kind MUST be an object kind, or a `ref` to one, that has no
+`order` and no field named `tag`; it is applied to the source object
+without its `tag` member. Other members of the source object are ignored
+with `internal` and `adjacent`, as unlisted members are.
+
+A tagged union claims natively: with `external`, strings if it has a unit
+variant and objects if it has another; with `internal` and `adjacent`,
+objects.
+
+### 5.9 Validation
+
+When an implementation loads a document, it MUST reject it if:
+
+- a member or string value is not defined by this section (5.3), or a
+  required member is missing;
+- `quiddity` is not `1`, or `domain` is empty;
+- a `ref` names no definition, or a chain of `ref`s leads back to its start
+  without passing through a `list`, `set`, `tuple`, `map`, `object` or
+  `tagged` kind;
+- a union is not valid (5.7), or a map's `key` does not accept strings
+  (5.4);
+- two fields of an object have the same key, an object has both `order` and
+  a field with `omit`, or `order` does not name every field exactly once;
+- two variants have the same label, `tag` or `content` is missing or given
+  where not allowed, `discriminant` is missing or given where not allowed,
+  or an internally tagged variant's kind is not as 5.8 requires.
+
+### 5.10 The digest of an identity
+
+The digest of an identity is the digest, under the identity in Appendix C,
+of its document in canonical form (5.3). Appendix C's identity has the
+domain `quiddity.identity`, and it describes itself: its digest is
+computed with itself.
+
+Two documents that differ only in the order of object members, in the
+order of a union's alternatives or of `omit` conditions, in whitespace, or
+in optional members given at their defaults, have the same digest.
+
+## 6. Rust mapping
 
 This section is normative for the Rust crate `quiddity` only.
 
-### 5.1 Identities
+### 6.1 Identities
 
-An **identity** selects, for a type, which fields are encoded and how. Every
+An **identity** selects, for a type, which fields are encoded and how
+(section 5 describes identities in general). Every
 type that implements `Quiddity` has the **primary** identity, represented by
 the marker type `quiddity::Primary`. A type MAY declare further identities,
 each represented by a zero-sized type implementing `IdentityMarker`. A type
@@ -408,7 +750,7 @@ a value give that value the same digest.
 4.1 and 4.2, with the domain of the type's implementation for that identity,
 if any.
 
-### 5.2 Standard library types
+### 6.2 Standard library types
 
 Each of the following types implements `Quiddity<I>` for every identity `I`,
 encoding its elements or fields, if any, under the same `I`.
@@ -429,7 +771,7 @@ encoding its elements or fields, if any, under the same `I`.
 | `&T`, `&mut T`, `Box<T>`, `Rc<T>`, `Arc<T>`, `Cow<'_, T>`, `Pin<P>` | the value of `T` (for `Pin<P>`, of `P`'s target); at the top level, in its domain, if any |
 | `Wrapping<T>`, `Saturating<T>`, `Reverse<T>`, `Cell<T>` (`T: Copy`) | the value of `T` |
 | `AtomicBool`, `AtomicI8` … `AtomicI64`, `AtomicIsize`, `AtomicU8` … `AtomicU64`, `AtomicUsize` | the loaded value |
-| `PhantomData<T>` | null; as a field of a derived type, absent (5.3) |
+| `PhantomData<T>` | null; as a field of a derived type, absent (6.3) |
 | `Result<T, E>` | `Ok(x)`: map `{"Ok": x}`; `Err(e)`: map `{"Err": e}` |
 | `Infallible` | (has no values) |
 | `Range<T>`, `RangeInclusive<T>` | map `{"start": a, "end": b}` |
@@ -445,9 +787,9 @@ encoding its elements or fields, if any, under the same `I`.
 
 `Vec<u8>` and `[u8; N]` are lists of integers, as they are in serde's JSON.
 Binary data is written as a string by `Encoder::bytes` and the `bytes`
-feature (5.6).
+feature (6.6).
 
-Through the `serde` feature (5.7), a value is encoded as its `Serialize`
+Through the `serde` feature (6.7), a value is encoded as its `Serialize`
 impl writes it, which can differ from this table. For example, serde
 writes a `Duration` as the map `{"secs": s, "nanos": n}`.
 
@@ -488,11 +830,11 @@ operations of its width.
 Every set and map type is encoded with its members or entries in canonical
 order (2.5), whatever its own iteration order.
 
-### 5.3 Derived implementations: structs
+### 6.3 Derived implementations: structs
 
 `#[derive(Quiddity)]` implements `Quiddity<Primary>`, and `Quiddity<I>` for
 each `I` listed in `identities(…)`. For each identity, the **participating
-fields** are the fields not skipped under that identity (5.5).
+fields** are the fields not skipped under that identity (6.5).
 
 A field whose type is `PhantomData<T>` does not participate under any
 identity, as if it were skipped; an attribute on it has no effect. A newtype
@@ -506,7 +848,7 @@ field is a `PhantomData<T>` has the value null.
 | newtype `struct S(T)` | the value of its field | |
 | unit struct | null | |
 
-- **Map.** One entry per participating field that is not omitted (5.5). The
+- **Map.** One entry per participating field that is not omitted (6.5). The
   key is the string of the field's name, or of its `rename` for that
   identity. The value is the field's value. A struct encoded as a map is
   equal to any map with the same entries, including a JSON object.
@@ -524,7 +866,7 @@ the same identity. A newtype struct whose field is skipped under an
 identity is null under that identity. A unit struct, and a struct with no
 fields, is null.
 
-### 5.4 Derived implementations: enums
+### 6.4 Derived implementations: enums
 
 | `encode_as` | Unit variant | Newtype variant | Tuple variant | Struct variant |
 |---|---|---|---|---|
@@ -535,10 +877,10 @@ fields, is null.
 - The **discriminant** is the variant's Rust discriminant: the value written
   explicitly, or else one more than the previous variant's, the first being
   0.
-- A struct variant's fields are encoded as a struct's (5.3), with the same
+- A struct variant's fields are encoded as a struct's (6.3), with the same
   field attributes.
 
-### 5.5 Attributes
+### 6.5 Attributes
 
 All attributes are written `#[quiddity(…)]`.
 
@@ -559,12 +901,12 @@ Type attributes:
 |---|---|
 | `identities(I, …)` | The type also implements `Quiddity<I>` for each listed `I`. |
 | `domain = "L"` | The type's digests are in the domain `L` (4.2). `L` MUST be non-empty. |
-| `transparent` | See 5.3. |
+| `transparent` | See 6.3. |
 | `rename_all = "c"` | On a struct, each field's key is its name in the case convention `c`; on an enum, each variant's name is. The conventions and their rules are serde's: `lowercase`, `UPPERCASE`, `PascalCase`, `camelCase`, `snake_case`, `SCREAMING_SNAKE_CASE`, `kebab-case` and `SCREAMING-KEBAB-CASE`, applied to field names as snake_case and to variant names as PascalCase. A field's or variant's `rename` takes precedence. It does not apply to the fields of struct variants. |
-| `encode_as = map \| list` | Structs with named fields (5.3). `encode_as = set` applies to fields only. |
-| `encode_as = string \| int` | Enums (5.4). |
+| `encode_as = map \| list` | Structs with named fields (6.3). `encode_as = set` applies to fields only. |
+| `encode_as = string \| int` | Enums (6.4). |
 | `encode_as = display` | The value is the string produced by the type's `Display` impl. |
-| `encode_as = serde` | The value is produced from the type's `Serialize` impl (5.7). Requires the `serde` feature. |
+| `encode_as = serde` | The value is produced from the type's `Serialize` impl (6.7). Requires the `serde` feature. |
 
 Field attributes:
 
@@ -596,7 +938,7 @@ field; more than one of `with`, `encode_as` and `identity` on a field under
 the same identity; a scope list naming an identity not declared in
 `identities(…)`; and an attribute given twice for the same identity.
 
-### 5.6 Optional features
+### 6.6 Optional features
 
 | Feature | Types | Data-model value |
 |---|---|---|
@@ -629,7 +971,7 @@ the nearest binary64 value (ties to even) and normalized by 2.2. A decimal
 value that binary64 cannot represent exactly is therefore rounded, as JCS
 (RFC 8785) and I-JSON (RFC 7493) also require.
 
-### 5.7 The `serde` feature
+### 6.7 The `serde` feature
 
 `encode_as = serde` and `quiddity::serde::digest(&value)` encode a value
 through its `Serialize` impl, using a serializer that maps serde's data
@@ -659,10 +1001,73 @@ A `Serialize` impl may return an error. `quiddity::serde::digest` returns
 it. Within `quiddity()` or `quiddity_as()`, which cannot return an error,
 the error causes a panic.
 
-## 6. Conformance
+### 6.8 Exported identities
+
+*Draft. Not yet implemented.*
+
+`Quiddity<I>` has a provided method, `construct_identity()`, that returns
+the identity document (section 5) describing the type's encoding under `I`,
+or an error. The derive implements it, and so does each implementation in
+6.2 and 6.6. Its name says that it builds a structure, which may be costly,
+rather than returning one. The default implementation returns an error.
+
+The exported identity is meant for the type's JSON form as serde writes
+it. For a value whose serde JSON form has the same field and variant names
+as its identity's keys and labels (for example, because the type's serde
+and quiddity attributes use the same `rename_all`),
+`value.quiddity_as::<I>()` equals the digest of its JSON form under the
+exported identity.
+
+| Rust type | Kind |
+|---|---|
+| `bool` | `"bool"` |
+| integers and their `NonZero` forms | `"integer"` |
+| `f32`, `f64` | `"number"` |
+| `char`, `str`, `String` and the string types of 6.2, `Url`, digests | `"string"` |
+| `Uuid` | `"uuid"` |
+| `()` | `"null"` |
+| `Option<T>` | `{"union": ["null", T]}`, flattened (5.7) |
+| `Vec<T>`, slices, arrays, `VecDeque<T>`, `LinkedList<T>` | `{"list": T}` |
+| a field with `encode_as = set` | `{"set": T}` |
+| tuples | `{"tuple": [T1, …, Tn]}` |
+| `BTreeSet<T>`, `HashSet<T>`, `IndexSet<T>` | `{"set": T}` |
+| `BTreeMap<K, V>`, `HashMap<K, V>`, `IndexMap<K, V>` | `{"map": {"key": K, "value": V}}` |
+| pointers, `Wrapping`, `Saturating`, `Reverse`, `Cell`, atomics | the kind of the type they hold |
+| `Duration` | `{"duration": {}}` |
+| `SystemTime` | `{"instant": {}}` |
+| `Bytes`, `BytesMut`, `CStr`, `CString` | `{"bytes": {}}` |
+| `Result<T, E>`, `Bound<T>` | tagged unions with the variants `Ok` and `Err`, and `Included`, `Excluded` and `Unbounded` |
+| the range types | objects with the fields `start` and `end`, as they have |
+| IP and socket addresses | `"string"` |
+| `Path`, `PathBuf`, `OsStr`, `OsString` | `"path"` |
+| `serde_json::Value` | `"any"` |
+| `serde_json::Map` | `{"map": {"key": "string", "value": "any"}}` |
+| `serde_json::Number` | `"number"` |
+| a derived struct or enum | `{"ref": name}`, with the type's kind under the field's identity added to `definitions` |
+
+A derived struct with named fields exports as an object kind, with
+`order` if it is encoded as a list; a newtype or transparent struct as the
+kind of its field; a tuple struct as a tuple; a unit struct as `"null"`; an
+enum as a tagged union in its style, or an untagged enum as a union. A
+definition's name is the type's name, followed by `/` and the identity's
+name if that is not `Primary`; types with the same name are told apart by
+their module paths.
+
+`construct_identity()` returns an error if the identity uses `with`,
+`omit_if = path`, `encode_as = display` or `encode_as = serde`, which have
+no document form; if it reaches a type whose serde JSON form no kind
+describes (`Infallible`); if it reaches a type whose
+implementation does not provide `construct_identity()`; or if the document
+it would return is not valid (5.9), as when an untagged enum has two
+variants that a union cannot tell apart.
+
+## 7. Conformance
 
 An implementation conforms to sections 2 to 4 if, for every value, it
-produces the encoding of section 3 and the digests of section 4.
+produces the encoding of section 3 and the digests of section 4. An
+implementation that reads identity documents also conforms to section 5 if,
+for every document and source value, it gives the data-model value, or the
+error, that section 5 specifies. Vectors for section 5 are to be added.
 
 The normative test vectors are in `test-vectors/quiddity-v1.json`. The file
 is generated by `test-vectors/generate.py`, using the Python implementation
@@ -764,3 +1169,77 @@ languages other than JSON, such as sets, 64-bit integers and binary data,
 are encoded exactly. An encoding can be written straight into a hash
 function, without producing text and without formatting numbers as
 decimals.
+
+## Appendix C. The identity of identity documents
+
+The identity of identity documents (5.3), used for the digest of an
+identity (5.10). It is itself an identity document, and its digest is
+computed under itself.
+
+```json
+{
+  "quiddity": 1,
+  "domain": "quiddity.identity",
+  "root": {"ref": "Document"},
+  "definitions": {
+    "Document": {"object": {"fields": {
+      "quiddity": {"kind": "integer"},
+      "domain": {"kind": {"union": ["null", "string"]}, "omit": ["none"]},
+      "root": {"kind": {"ref": "Kind"}},
+      "definitions": {
+        "kind": {"union": ["null", {"map": {"key": "string", "value": {"ref": "Kind"}}}]},
+        "omit": ["none", "empty"]
+      }
+    }}},
+    "Kind": {"tagged": {"variants": {
+      "null": {}, "bool": {}, "integer": {}, "number": {}, "string": {},
+      "uuid": {}, "path": {}, "any": {},
+      "bytes": {"kind": {"object": {"fields": {
+        "text": {"kind": {"union": ["null", "string"]}, "omit": ["none"]}
+      }}}},
+      "instant": {"kind": {"ref": "Time"}},
+      "duration": {"kind": {"ref": "Time"}},
+      "list": {"kind": {"ref": "Kind"}},
+      "set": {"kind": {"ref": "Kind"}},
+      "tuple": {"kind": {"list": {"ref": "Kind"}}},
+      "map": {"kind": {"object": {"fields": {
+        "key": {"kind": {"ref": "Kind"}},
+        "value": {"kind": {"ref": "Kind"}}
+      }}}},
+      "object": {"kind": {"ref": "Object"}},
+      "union": {"kind": {"set": {"ref": "Kind"}}},
+      "tagged": {"kind": {"ref": "Tagged"}},
+      "ref": {"kind": "string"}
+    }}},
+    "Time": {"object": {"fields": {
+      "unit": {"kind": {"union": ["null", "string"]}, "omit": ["none"]}
+    }}},
+    "Object": {"object": {"fields": {
+      "fields": {"kind": {"map": {"key": "string", "value": {"ref": "Field"}}}},
+      "unlisted": {"kind": {"union": ["null", "string"]}, "omit": ["none"]},
+      "order": {"kind": {"union": ["null", {"list": "string"}]}, "omit": ["none"]}
+    }}},
+    "Field": {"object": {"fields": {
+      "kind": {"kind": {"ref": "Kind"}},
+      "rename": {"kind": {"union": ["null", "string"]}, "omit": ["none"]},
+      "omit": {"kind": {"union": ["null", {"set": "string"}]}, "omit": ["none", "empty"]}
+    }}},
+    "Tagged": {"object": {"fields": {
+      "variants": {"kind": {"map": {"key": "string", "value": {"ref": "Variant"}}}},
+      "style": {"kind": {"union": ["null", "string"]}, "omit": ["none"]},
+      "tag": {"kind": {"union": ["null", "string"]}, "omit": ["none"]},
+      "content": {"kind": {"union": ["null", "string"]}, "omit": ["none"]},
+      "encode_as": {"kind": {"union": ["null", "string"]}, "omit": ["none"]}
+    }}},
+    "Variant": {"object": {"fields": {
+      "kind": {"kind": {"union": ["null", {"ref": "Kind"}]}, "omit": ["none"]},
+      "rename": {"kind": {"union": ["null", "string"]}, "omit": ["none"]},
+      "discriminant": {"kind": {"union": ["null", "integer"]}, "omit": ["none"]}
+    }}}
+  }
+}
+```
+
+A Rust type for identity documents that derives `Quiddity` with portable
+attributes only exports this document (6.8), and its digests equal those
+computed with it.

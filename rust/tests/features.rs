@@ -1,4 +1,4 @@
-//! The optional features (spec 5.6 and 5.7).
+//! The optional features (spec 6.6 and 6.7).
 
 #![cfg(feature = "std")]
 // Shared items are unused when the features using them are off.

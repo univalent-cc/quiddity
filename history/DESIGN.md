@@ -926,6 +926,72 @@ the static and dynamic designs disagree.
   functions as extensions. An identity holding a function has no portable
   document form.
 
+### Choices made while drafting spec section 5
+
+Drafted 2026-10-13 as spec section 5 (Identities), with the Rust export
+rules as 6.8 and the identity of identity documents as Appendix C. The Rust
+mapping moved from section 5 to section 6. Choices made in the draft:
+
+- **Document shape.** Top-level `quiddity` (version 1), `root`,
+  `domain` and `definitions`. The domain belongs to the document, since a
+  domain applies only at the top level (D4); definitions carry none.
+- **Kinds are written externally tagged**: a string for kinds without
+  options, an object with one member otherwise. `instant` and `duration`
+  are always objects (`{"instant": {}}`), so that each kind has one
+  spelling. This is the derive's own enum form, which lets a Rust type for
+  documents derive `Quiddity` directly.
+- **Fields are an object keyed by name**, not an array: field order does
+  not matter for map encoding, and JSON member order is not reliable. A
+  list-encoded object names its order in an `order` array.
+- **A field's name is its key in the source; `rename` is its key in the
+  result.** This mirrors `rename` in the derive. Export assumes a type's
+  serde names equal its quiddity keys, which the README's advice to use
+  the same `rename_all` for both ensures.
+- **Omission is a set of conditions**, `"omit": ["none", "empty"]`, and a
+  union's alternatives are a set: their order never matters.
+- **`unlisted` is optional, with the default `"skip"`.** Rejecting any
+  unknown member or value is what protects older implementations when
+  `"include"` is added; requiring the member explicitly is not needed.
+- **Defaults are normalized on load**, and the digest of an identity is
+  defined on the canonical form, which omits them.
+- **The digest of an identity is its digest under Appendix C's identity**,
+  which describes identity documents and is described by itself, in the
+  domain `quiddity.identity`. Sets (unions, omissions) and maps (fields,
+  variants, definitions) make it independent of order.
+- **A `tuple` kind** was added, for Rust tuples and tuple structs, whose
+  JSON form is a fixed-length array of different kinds.
+- **`uuid` claims strings natively**, so `string | uuid` is not a valid
+  union: both read strings.
+- **Conversions recognize; they never render.** A conversion turns a
+  rendering of a kind's value (text for a time, a number or a boolean) into
+  that value; each accepted form denotes one value, recovering information
+  the text carries. Rendering a value as text would invent a spelling the
+  source did not choose (`true` against `"True"`), so `string` accepts only
+  strings. `bool` accepts `true`, `t`, `yes`, `y`, `on`, `1` and `false`,
+  `f`, `no`, `n`, `off`, `0`, case-insensitively.
+- **Unions stay unordered.** Ordered first-match unions were considered,
+  so that `bool | string` could read `"yes"` as `true`. They were rejected
+  as unneeded complexity: a conversion applies only where no alternative
+  accepts the value as it is, so `"yes"` under `bool | string` is the
+  string, and under `bool` alone it is `true`. This also keeps exported
+  untagged enums faithful to serde without an ordering rule.
+- **Conversions.** A leap second (`:60`) is an error. Parsers disagree:
+  Python, JavaScript, Go and Elixir reject it; Ruby and chrono read it as
+  the next second; jiff clamps it to `:59`, keeping the fraction; the
+  `time` crate clamps it to `23:59:59.999999999`. Quiddity follows the
+  four languages it interoperates with most, which agree, and whose
+  native time types cannot hold a leap second. (Tested 2026-10-13: Python
+  3.12, Node 24, Elixir on OTP 28, Ruby 2.6, chrono 0.4, jiff 0.2, time
+  0.3; Go from its issue tracker.)
+  With a declared unit, an instant or duration also accepts decimal text,
+  read exactly. Integers from text may be of any size; implementations may
+  limit sizes (3.8).
+- **A `path` kind** for `Path`, `PathBuf`, `OsStr` and `OsString`. An
+  identity says that a path is expected, not what it is; the kind reads
+  serde's forms (a string for `Path`; `{"Unix": [bytes]}` or
+  `{"Windows": [UTF-16 units]}` for `OsStr`) and gives the bytes the static
+  encoding gives (6.2): raw on Unix, WTF-8 on Windows.
+
 ### Open questions
 
 1. **Name of the dynamic identity type.** Decided: `Identity`. The spec

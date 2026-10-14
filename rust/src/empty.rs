@@ -1,6 +1,6 @@
 //! `IsEmpty` and `Nullable`, used by the derive's `omit_empty` and
 //! `omit_none`: whether a value is an empty string, list, set or map, and
-//! whether it is null (spec 5.5).
+//! whether it is null (spec 6.5).
 
 /// Whether a value is empty. Implemented for the types that encode as a
 /// string, list, set or map, so that `omit_empty` on any other type fails to
