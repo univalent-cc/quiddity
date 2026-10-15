@@ -101,6 +101,11 @@ Values are digested according to the following rules:
 - Numbers are digested by value, not by type: `5`, `5.0` and `5e0` have
   the same digest. So do `-0.0` and `0`, and every NaN. A boolean is not a
   number: `true` and `1` have different digests.
+- Integers are exact at any size. A JSON number beyond 64 bits is the
+  exception: many JSON parsers cannot hold it, so it is read as the nearest
+  64-bit float, in every language. To send a larger integer in JSON, write
+  it as a string, such as `"18446744073709551617"`. An identity that
+  expects an integer reads that string as the exact integer.
 - A map is digested by its entries, not by the order it lists them in. A
   map with string keys has the same digest as an object with those field
   names.

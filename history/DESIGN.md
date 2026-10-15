@@ -1013,6 +1013,33 @@ structure (`meta_identity`), nested into an export with `Exporter::nest`;
 the vectors check that it equals Appendix C's document. The identity
 errors implement `core::error::Error`, so they need no `std`.
 
+Changed 2026-10-14: `Identity::digest` takes any `Serialize` value. A
+serializer (`identity/source.rs`) builds a source tree in the forms
+serde_json gives values, and the identity is applied to the tree, so a
+value has the digest of its `serde_json::Value`, and a `Value` digests as
+before. Where a `Value` cannot hold a value, the tree keeps it, following
+the spec rather than `Value`: integers beyond 64 bits (spec 2.2) and
+non-finite floats. An `f32` is widened exactly, as serde_json does by
+default; with `arbitrary_precision`, a `Value` holds an `f32`'s shortest
+text instead. A repeated key is an error (spec 2.7 is defined for objects
+without duplicate names), where `serde_json::to_value` keeps the last.
+The tree is a copy, even of a `Value`: an identity needs lookahead (union
+alternatives, internal tags), and stable Rust cannot specialize on a
+`Value` input. `identity` requires `serde`.
+
+Changed 2026-10-14: `identity` no longer requires `serde_json`. `Identity`
+and its parts derive `Serialize` and `Deserialize`, whose shape is the
+document's (as the derived `Quiddity` impls' was, which the fixed point
+confirmed). `Identity` deserializes through `try_from` a `Document`, which
+takes the canonical form and checks the identity (spec 5.3, 5.9);
+`ObjectKind` reads `unlisted` through `from` an `Object`; a repeated `omit`
+condition is an error. The hand-written reader and writer are gone, and
+any serde format reads and writes documents. Structural errors are now
+serde's: with a position when read from text, without a `$` path.
+`from_json` and `to_json` remain behind `serde_json`. Float map keys,
+which serde_json writes as text, are an error when digesting, rather than
+duplicating serde_json's float formatting.
+
 Found while implementing: serde_json's default float parser is not
 correctly rounded (`9007199254740993.0` became 2^53 + 2), which spec 2.7
 forbids. Quiddity never parses JSON itself: it digests the `Value` the
@@ -1589,11 +1616,22 @@ Decided in the draft, open to review:
   (`Kind::Instant { unit }`, `Kind::Duration { unit }`) and `BytesOptions`
   (`Kind::Bytes { text }`), with the same encodings, so no digest changes;
   the identity module's public types would go from 18 to 15. Not decided.
-- **Deferred from D19:** value types other than `serde_json::Value` (a
-  read-only value trait, for CBOR, TOML or YAML values); applying an
-  identity directly to a `Serialize` type without building a `Value`;
-  `QuiddityFromSerialize`, a derive that reads serde's attributes rather
-  than quiddity's; removing the "Draft" marker from spec section 5.
+- **Deferred from D19:** `QuiddityFromSerialize`, a derive that reads
+  serde's attributes rather than quiddity's; removing the "Draft" marker
+  from spec section 5. (Done since: `Identity::digest` takes any
+  `Serialize` value, without building a `serde_json::Value`.)
+- **`identity` without `serde/derive`:** `Identity` and its parts derive
+  `Serialize` and `Deserialize`, so `identity` pulls in `serde_derive`.
+  Projects that need `identity` are mostly multi-language services, which
+  nearly always have `serde_derive` already; embedded users are expected
+  to use the static `Quiddity` impls, which are faster and need no
+  allocation. If build time matters to someone, hand-written impls
+  would remove the dependency: a `Deserialize` visitor that builds the
+  source tree (as serde_json's `Value` does), a reader from the tree to
+  an `Identity` (the earlier hand-written parser, on the tree), and a
+  `Serialize` impl, about 480 lines. A separate `identity_serde`
+  feature that gates the impls was considered and not taken: without it,
+  `identity` could not read or write documents at all.
 - **D20:** resolution and tolerant digests, after the README rework.
 - **README:** the root README's examples are placeholders until the
   composition API suggests a compact style for Python, Elixir and
