@@ -19,15 +19,35 @@ Properties of `quiddity` include:
   depending on the purpose of the digest.  Different digest identities may allow
   for different field subsets, field encoding parameters, etc.
 
-```toml
-[dependencies]
-quiddity = { version = "0.1", features = ["serde_json"] }
-```
-
 A conceptual overview of quiddity is explained in the repository's
 [README](https://github.com/univalent-cc/quiddity#concepts).  That information is
 common to every implementation, regardless of language.  This README covers the
 Rust crate.
+
+## Cargo features
+
+| Feature | Default | Provides | Requires |
+|---|---|---|---|
+| `derive` | yes | `#[derive(Quiddity)]` and `#[derive(IdentityMarker)]` | |
+| `std` | yes | `HashMap`, `HashSet`, `SystemTime`, `Path`, `PathBuf`, `OsStr` and `OsString` | `alloc` |
+| `alloc` | yes | `String`, `Vec`, `VecDeque`, `LinkedList`, `Box`, `Rc`, `Arc`, `Cow`, `BTreeMap`, `BTreeSet` and `CString` | |
+| `serde_json` | no | `Value`, `Map` and `Number` | `alloc` |
+| `serde` | no | `encode_as = serde` and `quiddity::serde::digest`; `Serialize` and `Deserialize` for `Digest`, `Digest128` and `Digest64`, and with `identity` for `Identity` (as its identity document) | `alloc` |
+| `indexmap` | no | `IndexMap` and `IndexSet` | `alloc` |
+| `uuid` | no | `Uuid` | |
+| `bytes` | no | `Bytes` and `BytesMut` | `alloc` |
+| `url` | no | `Url` | `std` |
+| `identity` | no | [Dynamic identities](#dynamic-identities): identity documents, and digests of `serde_json::Value`s under them | `derive`, `serde_json` |
+
+With `default-features = false`, `quiddity` is `no_std` and needs no
+allocator. The derive (with the `derive` feature), `Digest` and its shorter forms, numbers, `bool`,
+`char`, `&str`, slices, arrays, tuples, `Option`, references and
+`encode_as = display` all work without `std` or `alloc`:
+
+```toml
+[dependencies]
+quiddity = { version = "0.1", default-features = false, features = ["derive"] }
+```
 
 ## Example
 
@@ -260,31 +280,6 @@ the same as a full digest so this is a usage-time optimization / tradeoff.
 64 bits is enough to compare two known values. It is not enough for large
 collections (collisions become likely around 2³² digests), or where digests
 must resist deliberate collisions, as with secure signatures.
-
-## Cargo features
-
-| Feature | Default | Provides | Requires |
-|---|---|---|---|
-| `derive` | yes | `#[derive(Quiddity)]` and `#[derive(IdentityMarker)]` | |
-| `std` | yes | `HashMap`, `HashSet`, `SystemTime`, `Path`, `PathBuf`, `OsStr` and `OsString` | `alloc` |
-| `alloc` | yes | `String`, `Vec`, `VecDeque`, `LinkedList`, `Box`, `Rc`, `Arc`, `Cow`, `BTreeMap`, `BTreeSet` and `CString` | |
-| `serde_json` | no | `Value`, `Map` and `Number` | `alloc` |
-| `serde` | no | `encode_as = serde` and `quiddity::serde::digest`; `Serialize` and `Deserialize` for `Digest`, `Digest128` and `Digest64`, and with `identity` for `Identity` (as its identity document) | `alloc` |
-| `indexmap` | no | `IndexMap` and `IndexSet` | `alloc` |
-| `uuid` | no | `Uuid` | |
-| `bytes` | no | `Bytes` and `BytesMut` | `alloc` |
-| `url` | no | `Url` | `std` |
-| `identity` | no | [Dynamic identities](#dynamic-identities): identity documents, and digests of `serde_json::Value`s under them | `derive`, `serde_json` |
-
-With `default-features = false`, `quiddity` is `no_std` and needs no
-allocator. The derive (with the `derive` feature), `Digest` and its shorter forms, numbers, `bool`,
-`char`, `&str`, slices, arrays, tuples, `Option`, references and
-`encode_as = display` all work without `std` or `alloc`:
-
-```toml
-[dependencies]
-quiddity = { version = "0.1", default-features = false, features = ["derive"] }
-```
 
 ## Implementations of the Quiddity trait
 

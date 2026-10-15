@@ -37,7 +37,9 @@
 //! [`Encoder`]: Encoder
 //! [`Encoder::bytes`]: Encoder::bytes
 
-#![doc = include_str!("../README.md")]
+// The README is the crate's documentation. Its examples need `std` and
+// `derive`, so they are tested from `ReadmeDoctests` below, with those features.
+#![cfg_attr(not(doctest), doc = include_str!("../README.md"))]
 // `docs.rs` builds with a nightly compiler, so it can label feature-gated items.
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![no_std]
@@ -73,6 +75,10 @@ macro_rules! describe {
 mod digest;
 #[cfg(all(doctest, feature = "derive"))]
 mod doctests;
+/// The README's examples, as doctests.
+#[cfg(all(doctest, feature = "std", feature = "derive"))]
+#[doc = include_str!("../README.md")]
+pub struct ReadmeDoctests;
 mod empty;
 mod encoder;
 mod features;
