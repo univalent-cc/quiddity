@@ -50,10 +50,6 @@ extern crate alloc;
 #[cfg(any(feature = "std", test))]
 extern crate std;
 
-// Lets the crate derive `Quiddity` for its own types (`identity`).
-#[cfg(feature = "identity")]
-extern crate self as quiddity;
-
 /// Implements `Quiddity::__describe` (spec 6.8) with the `identity`
 /// feature: `describe!(|cx| kind)`, with `Kd` naming `identity::Kind` and
 /// `X` the module `identity::export`.

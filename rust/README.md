@@ -37,7 +37,7 @@ Rust crate.
 | `uuid` | no | `Uuid` | |
 | `bytes` | no | `Bytes` and `BytesMut` | `alloc` |
 | `url` | no | `Url` | `std` |
-| `identity` | no | [Dynamic identities](#dynamic-identities): identity documents, and digests of `serde_json::Value`s under them | `derive`, `serde_json` |
+| `identity` | no | [Dynamic identities](#dynamic-identities): identity documents, and digests of `serde_json::Value`s under them | `alloc`, `serde_json` |
 
 With `default-features = false`, `quiddity` is `no_std` and needs no
 allocator. The derive (with the `derive` feature), `Digest` and its shorter forms, numbers, `bool`,

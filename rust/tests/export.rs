@@ -2,7 +2,7 @@
 //! digest of its serde JSON form under its type's exported identity; and
 //! the enum tagging styles (spec 6.4) match serde's.
 
-#![cfg(all(feature = "identity", feature = "serde"))]
+#![cfg(all(feature = "identity", feature = "derive", feature = "serde"))]
 
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::net::IpAddr;
@@ -444,4 +444,27 @@ fn identity_exports_itself() {
     ] {
         assert_eq!(meta.digest(&id.to_json()).unwrap(), id.quiddity());
     }
+}
+
+/// A type named like one of the definitions of the identity of identity
+/// documents keeps them apart.
+#[test]
+fn identity_fields_export() {
+    #[derive(Serialize, Quiddity)]
+    struct Kind {
+        name: String,
+        identity: Identity,
+    }
+    let id = <Kind as Quiddity>::construct_identity().unwrap();
+    let doc = id.to_json();
+    let defs = doc["definitions"].as_object().unwrap();
+    assert!(defs.contains_key("Document") && defs.contains_key("Kind"));
+    let value = Kind {
+        name: "k".into(),
+        identity: Identity::new(quiddity::identity::Kind::String).unwrap(),
+    };
+    assert_eq!(
+        id.digest(&serde_json::to_value(&value).unwrap()).unwrap(),
+        value.quiddity()
+    );
 }

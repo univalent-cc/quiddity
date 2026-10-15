@@ -20,7 +20,7 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use core::fmt;
 
-use crate::{Digest, Quiddity};
+use crate::{Digest, Encoder, Quiddity};
 
 mod apply;
 mod compose;
@@ -57,16 +57,159 @@ pub use load::InvalidIdentity;
 /// # Ok(())
 /// # }
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq, Quiddity)]
-#[quiddity(domain = "quiddity.identity")]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Identity {
-    #[quiddity(rename = "quiddity")]
     version: u32,
-    #[quiddity(omit_none)]
     domain: Option<String>,
     root: Kind,
-    #[quiddity(omit_empty)]
     definitions: BTreeMap<String, Kind>,
+}
+
+/// An identity is digested as its document, under the identity of identity
+/// documents (spec 5.10 and Appendix C).
+///
+/// NOTE: This impl *could* have been derived, but we don't want the dynamic identity feature to
+/// require the static derive macro feature
+impl Quiddity for Identity {
+    const DOMAIN: Option<&'static str> = Some("quiddity.identity");
+
+    fn encode(&self, e: &mut Encoder) {
+        let mut f = e.fields();
+        if !self.definitions.is_empty() {
+            f.field("definitions", &self.definitions);
+        }
+        if let Some(v) = &self.domain {
+            f.field("domain", v);
+        }
+        f.field("quiddity", &self.version);
+        f.field("root", &self.root);
+        f.finish();
+    }
+
+    fn __describe(cx: &mut export::Exporter) -> Result<Kind, ExportError> {
+        Ok(cx.nest(meta_identity()))
+    }
+}
+
+/// The identity of identity documents (spec Appendix C), which digests
+/// every identity, as `Identity`'s `Quiddity` impl encodes it.
+fn meta_identity() -> Identity {
+    use alloc::borrow::ToOwned;
+    let r = |name: &str| Kind::Ref(RefName::new(name.to_owned()));
+    // Null or `kind`, omitted when null; `Omit::Empty` too when `empty`.
+    let opt = |kind: Kind, empty: bool| {
+        let f = Field::optional(kind);
+        if empty { f.omit(Omit::Empty) } else { f }
+    };
+    fn object<const N: usize>(fields: [(&str, Field); N]) -> Kind {
+        Kind::Object(ObjectKind {
+            fields: fields.into_iter().map(|(n, f)| (n.to_owned(), f)).collect(),
+            order: None,
+        })
+    }
+    let map = |value: Kind| {
+        Kind::Map(MapKind {
+            key: Box::new(Kind::String),
+            value: Box::new(value),
+        })
+    };
+    let variant = |kind: Option<Kind>| Variant {
+        kind,
+        rename: None,
+        discriminant: None,
+    };
+    let units = [
+        "null", "bool", "integer", "number", "string", "uuid", "path", "any",
+    ];
+    let mut variants: BTreeMap<String, Variant> = units
+        .iter()
+        .map(|n| ((*n).to_owned(), variant(None)))
+        .collect();
+    for (name, kind) in [
+        ("bytes", object([("text", opt(Kind::String, false))])),
+        ("instant", r("Time")),
+        ("duration", r("Time")),
+        ("list", r("Kind")),
+        ("set", r("Kind")),
+        ("tuple", Kind::list(r("Kind"))),
+        (
+            "map",
+            object([
+                ("key", Field::new(r("Kind"))),
+                ("value", Field::new(r("Kind"))),
+            ]),
+        ),
+        ("object", r("Object")),
+        ("union", Kind::set(r("Kind"))),
+        ("tagged", r("Tagged")),
+        ("ref", Kind::String),
+    ] {
+        variants.insert(name.to_owned(), variant(Some(kind)));
+    }
+    let definitions = BTreeMap::from([
+        (
+            "Document",
+            object([
+                ("quiddity", Field::new(Kind::Integer)),
+                ("domain", opt(Kind::String, false)),
+                ("root", Field::new(r("Kind"))),
+                ("definitions", opt(map(r("Kind")), true)),
+            ]),
+        ),
+        (
+            "Kind",
+            Kind::Tagged(TaggedKind {
+                variants,
+                ..TaggedKind::default()
+            }),
+        ),
+        ("Time", object([("unit", opt(Kind::String, false))])),
+        (
+            "Object",
+            object([
+                ("fields", Field::new(map(r("Field")))),
+                ("unlisted", opt(Kind::String, false)),
+                ("order", opt(Kind::list(Kind::String), false)),
+            ]),
+        ),
+        (
+            "Field",
+            object([
+                ("kind", Field::new(r("Kind"))),
+                ("rename", opt(Kind::String, false)),
+                ("omit", opt(Kind::set(Kind::String), true)),
+                ("quantize", opt(Kind::Integer, false)),
+                ("decimals", opt(Kind::Integer, false)),
+            ]),
+        ),
+        (
+            "Tagged",
+            object([
+                ("variants", Field::new(map(r("Variant")))),
+                ("style", opt(Kind::String, false)),
+                ("tag", opt(Kind::String, false)),
+                ("content", opt(Kind::String, false)),
+                ("encode_as", opt(Kind::String, false)),
+            ]),
+        ),
+        (
+            "Variant",
+            object([
+                ("kind", opt(r("Kind"), false)),
+                ("rename", opt(Kind::String, false)),
+                ("discriminant", opt(Kind::Integer, false)),
+            ]),
+        ),
+    ])
+    .into_iter()
+    .map(|(n, k)| (n.to_owned(), k))
+    .collect();
+    Identity::from_parts(
+        r("Document"),
+        definitions,
+        Some("quiddity.identity".to_owned()),
+    )
+    .expect("the identity of identity documents is valid")
 }
 
 /// What a value is, and how it is read (spec 5.4).
@@ -83,8 +226,7 @@ pub struct Identity {
 /// # Ok(())
 /// # }
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq, Quiddity)]
-#[quiddity(rename_all = "snake_case")]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Kind {
     /// Null.
     Null,
@@ -119,7 +261,7 @@ pub enum Kind {
     /// An object with named fields (spec 5.6).
     Object(ObjectKind),
     /// One of several kinds, told apart by the value's type (spec 5.7).
-    Union(#[quiddity(encode_as = set)] Vec<Kind>),
+    Union(Vec<Kind>),
     /// One of several named variants (spec 5.8).
     Tagged(TaggedKind),
     /// The kind defined under this name in the identity. References are
@@ -136,9 +278,55 @@ pub enum Kind {
     Recursive,
 }
 
+impl Quiddity for Kind {
+    fn encode(&self, e: &mut Encoder) {
+        /// A variant with content: `{name: content}`.
+        fn with(e: &mut Encoder, name: &'static str, content: &dyn Fn(&mut Encoder)) {
+            let mut f = e.fields();
+            f.field_with(name, content);
+            f.finish();
+        }
+        match self {
+            Kind::Null => e.str("null"),
+            Kind::Bool => e.str("bool"),
+            Kind::Integer => e.str("integer"),
+            Kind::Number => e.str("number"),
+            Kind::String => e.str("string"),
+            Kind::Uuid => e.str("uuid"),
+            Kind::Path => e.str("path"),
+            Kind::Any => e.str("any"),
+            Kind::Recursive => e.str("recursive"),
+            Kind::Bytes(o) => with(e, "bytes", &|e| o.encode(e)),
+            Kind::Instant(o) => with(e, "instant", &|e| o.encode(e)),
+            Kind::Duration(o) => with(e, "duration", &|e| o.encode(e)),
+            Kind::List(k) => with(e, "list", &|e| k.encode(e)),
+            Kind::Set(k) => with(e, "set", &|e| k.encode(e)),
+            Kind::Tuple(items) => with(e, "tuple", &|e| items.encode(e)),
+            Kind::Map(m) => with(e, "map", &|e| m.encode(e)),
+            Kind::Object(o) => with(e, "object", &|e| o.encode(e)),
+            Kind::Union(items) => with(e, "union", &|e| {
+                let mut s = e.set();
+                for k in items {
+                    s.member(k);
+                }
+                s.finish();
+            }),
+            Kind::Tagged(t) => with(e, "tagged", &|e| t.encode(e)),
+            Kind::Ref(r) => with(e, "ref", &|e| r.encode(e)),
+            Kind::Identity(id) => with(e, "identity", &|e| id.encode(e)),
+        }
+    }
+}
+
 /// The name of a definition that a [`Kind::Ref`] refers to.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Quiddity)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct RefName(String);
+
+impl Quiddity for RefName {
+    fn encode(&self, e: &mut Encoder) {
+        e.str(&self.0);
+    }
+}
 
 impl RefName {
     pub(crate) fn new(name: String) -> RefName {
@@ -158,16 +346,24 @@ impl fmt::Display for RefName {
 }
 
 /// The options of [`Kind::Bytes`].
-#[derive(Clone, Debug, Default, PartialEq, Eq, Quiddity)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct BytesOptions {
     /// How text is read: base64 (`None`, the default) or hex.
-    #[quiddity(omit_none)]
     pub text: Option<BytesText>,
 }
 
+impl Quiddity for BytesOptions {
+    fn encode(&self, e: &mut Encoder) {
+        let mut f = e.fields();
+        if let Some(v) = &self.text {
+            f.field("text", v);
+        }
+        f.finish();
+    }
+}
+
 /// How [`Kind::Bytes`] reads text.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Quiddity)]
-#[quiddity(rename_all = "lowercase")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum BytesText {
     /// Base64, standard or URL-safe, with or without padding.
     Base64,
@@ -175,17 +371,34 @@ pub enum BytesText {
     Hex,
 }
 
+impl Quiddity for BytesText {
+    fn encode(&self, e: &mut Encoder) {
+        e.str(match self {
+            BytesText::Base64 => "base64",
+            BytesText::Hex => "hex",
+        });
+    }
+}
+
 /// The options of [`Kind::Instant`] and [`Kind::Duration`].
-#[derive(Clone, Debug, Default, PartialEq, Eq, Quiddity)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct TimeOptions {
     /// The unit of a number. Without one, a number is an error.
-    #[quiddity(omit_none)]
     pub unit: Option<Unit>,
 }
 
+impl Quiddity for TimeOptions {
+    fn encode(&self, e: &mut Encoder) {
+        let mut f = e.fields();
+        if let Some(v) = &self.unit {
+            f.field("unit", v);
+        }
+        f.finish();
+    }
+}
+
 /// A unit of time.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Quiddity)]
-#[quiddity(rename_all = "lowercase")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Unit {
     /// Seconds.
     S,
@@ -195,6 +408,17 @@ pub enum Unit {
     Us,
     /// Nanoseconds.
     Ns,
+}
+
+impl Quiddity for Unit {
+    fn encode(&self, e: &mut Encoder) {
+        e.str(match self {
+            Unit::S => "s",
+            Unit::Ms => "ms",
+            Unit::Us => "us",
+            Unit::Ns => "ns",
+        });
+    }
 }
 
 impl Unit {
@@ -210,7 +434,7 @@ impl Unit {
 }
 
 /// The options of [`Kind::Map`].
-#[derive(Clone, Debug, PartialEq, Eq, Quiddity)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MapKind {
     /// The kind of the keys. In JSON every key is a string, which this kind
     /// must accept.
@@ -219,15 +443,34 @@ pub struct MapKind {
     pub value: Box<Kind>,
 }
 
+impl Quiddity for MapKind {
+    fn encode(&self, e: &mut Encoder) {
+        let mut f = e.fields();
+        f.field("key", &self.key);
+        f.field("value", &self.value);
+        f.finish();
+    }
+}
+
 /// The options of [`Kind::Object`] (spec 5.6).
-#[derive(Clone, Debug, Default, PartialEq, Eq, Quiddity)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct ObjectKind {
     /// The fields, by name.
     pub fields: BTreeMap<String, Field>,
     /// If given, the object is encoded as the list of its fields' values in
     /// this order, rather than as a map.
-    #[quiddity(omit_none)]
     pub order: Option<Vec<String>>,
+}
+
+impl Quiddity for ObjectKind {
+    fn encode(&self, e: &mut Encoder) {
+        let mut f = e.fields();
+        f.field("fields", &self.fields);
+        if let Some(v) = &self.order {
+            f.field("order", v);
+        }
+        f.finish();
+    }
 }
 
 /// A field of an [`ObjectKind`].
@@ -248,28 +491,43 @@ pub struct ObjectKind {
 /// # Ok(())
 /// # }
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq, Quiddity)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Field {
     /// The field's kind. A missing member is read as null.
     pub kind: Kind,
     /// The field's key in the result, if not its name.
-    #[quiddity(omit_none)]
     pub rename: Option<String>,
     /// When the field is left out.
-    #[quiddity(omit_empty)]
     pub omit: BTreeSet<Omit>,
     /// Quantizes the value, an integer, instant or duration, to a multiple
     /// of this (in nanoseconds for instants and durations).
-    #[quiddity(omit_none)]
     pub quantize: Option<u64>,
     /// Quantizes the value, a number, to a multiple of 10^−decimals.
-    #[quiddity(omit_none)]
     pub decimals: Option<i32>,
 }
 
+impl Quiddity for Field {
+    fn encode(&self, e: &mut Encoder) {
+        let mut f = e.fields();
+        if let Some(v) = &self.decimals {
+            f.field("decimals", v);
+        }
+        f.field("kind", &self.kind);
+        if !self.omit.is_empty() {
+            f.field("omit", &self.omit);
+        }
+        if let Some(v) = &self.quantize {
+            f.field("quantize", v);
+        }
+        if let Some(v) = &self.rename {
+            f.field("rename", v);
+        }
+        f.finish();
+    }
+}
+
 /// A condition under which a field is left out.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Quiddity)]
-#[quiddity(rename_all = "lowercase")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Omit {
     /// When its value is null.
     None,
@@ -277,31 +535,55 @@ pub enum Omit {
     Empty,
 }
 
+impl Quiddity for Omit {
+    fn encode(&self, e: &mut Encoder) {
+        e.str(match self {
+            Omit::None => "none",
+            Omit::Empty => "empty",
+        });
+    }
+}
+
 /// The options of [`Kind::Tagged`] (spec 5.8).
-#[derive(Clone, Debug, Default, PartialEq, Eq, Quiddity)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct TaggedKind {
     /// The variants, by name.
     pub variants: BTreeMap<String, Variant>,
     /// How variants are tagged: externally (`None`, the default),
     /// internally or adjacently.
-    #[quiddity(omit_none)]
     pub style: Option<Style>,
     /// The member holding the variant's name, for internal and adjacent
     /// tagging.
-    #[quiddity(omit_none)]
     pub tag: Option<String>,
     /// The member holding the variant's value, for adjacent tagging.
-    #[quiddity(omit_none)]
     pub content: Option<String>,
     /// How variants are identified in the result: by name (`None`, the
     /// default) or by discriminant.
-    #[quiddity(omit_none)]
     pub encode_as: Option<TagEncoding>,
 }
 
+impl Quiddity for TaggedKind {
+    fn encode(&self, e: &mut Encoder) {
+        let mut f = e.fields();
+        if let Some(v) = &self.content {
+            f.field("content", v);
+        }
+        if let Some(v) = &self.encode_as {
+            f.field("encode_as", v);
+        }
+        if let Some(v) = &self.style {
+            f.field("style", v);
+        }
+        if let Some(v) = &self.tag {
+            f.field("tag", v);
+        }
+        f.field("variants", &self.variants);
+        f.finish();
+    }
+}
+
 /// How a tagged union's variants are tagged.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Quiddity)]
-#[quiddity(rename_all = "lowercase")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Style {
     /// `{"Variant": value}`, or `"Variant"` for a unit variant.
     External,
@@ -311,9 +593,18 @@ pub enum Style {
     Adjacent,
 }
 
+impl Quiddity for Style {
+    fn encode(&self, e: &mut Encoder) {
+        e.str(match self {
+            Style::External => "external",
+            Style::Internal => "internal",
+            Style::Adjacent => "adjacent",
+        });
+    }
+}
+
 /// How a tagged union's variants are identified in the result.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Quiddity)]
-#[quiddity(rename_all = "lowercase")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum TagEncoding {
     /// By name.
     String,
@@ -321,18 +612,40 @@ pub enum TagEncoding {
     Int,
 }
 
+impl Quiddity for TagEncoding {
+    fn encode(&self, e: &mut Encoder) {
+        e.str(match self {
+            TagEncoding::String => "string",
+            TagEncoding::Int => "int",
+        });
+    }
+}
+
 /// A variant of a [`TaggedKind`].
-#[derive(Clone, Debug, Default, PartialEq, Eq, Quiddity)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Variant {
     /// The variant's kind; `None` for a unit variant.
-    #[quiddity(omit_none)]
     pub kind: Option<Kind>,
     /// The variant's name in the result, if not its name.
-    #[quiddity(omit_none)]
     pub rename: Option<String>,
     /// The variant's discriminant, with `TagEncoding::Int`.
-    #[quiddity(omit_none)]
     pub discriminant: Option<i128>,
+}
+
+impl Quiddity for Variant {
+    fn encode(&self, e: &mut Encoder) {
+        let mut f = e.fields();
+        if let Some(v) = &self.discriminant {
+            f.field("discriminant", v);
+        }
+        if let Some(v) = &self.kind {
+            f.field("kind", v);
+        }
+        if let Some(v) = &self.rename {
+            f.field("rename", v);
+        }
+        f.finish();
+    }
 }
 
 impl Kind {
@@ -1365,5 +1678,4 @@ impl fmt::Display for ApplyError {
     }
 }
 
-#[cfg(feature = "std")]
-impl std::error::Error for ApplyError {}
+impl core::error::Error for ApplyError {}

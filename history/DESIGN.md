@@ -1005,6 +1005,14 @@ digest of its document under Appendix C's identity, including Appendix C's
 own. Value types other than `serde_json::Value` are not done yet; export
 is described below.
 
+Changed 2026-10-14: `identity` no longer requires `derive`, so that each
+works without the other. `Identity` and its parts implement `Quiddity` by
+hand, beside each type, with the encodings the derive gave them.
+`Identity`'s exported identity is Appendix C written out as a fixed
+structure (`meta_identity`), nested into an export with `Exporter::nest`;
+the vectors check that it equals Appendix C's document. The identity
+errors implement `core::error::Error`, so they need no `std`.
+
 Found while implementing: serde_json's default float parser is not
 correctly rounded (`9007199254740993.0` became 2^53 + 2), which spec 2.7
 forbids. Quiddity never parses JSON itself: it digests the `Value` the

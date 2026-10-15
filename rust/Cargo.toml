@@ -22,7 +22,7 @@ indexmap = ["alloc", "dep:indexmap"]
 uuid = ["dep:uuid"]
 bytes = ["alloc", "dep:bytes"]
 url = ["std", "dep:url"]
-identity = ["derive", "serde_json"]
+identity = ["alloc", "serde_json"]
 
 [dependencies]
 quiddity-derive = { path = "quiddity-derive", version = "=0.1.0", optional = true }
@@ -64,7 +64,7 @@ required-features = ["identity"]
 
 [[example]]
 name = "export_identity"
-required-features = ["identity"]
+required-features = ["derive", "identity"]
 
 [package.metadata.docs.rs]
 all-features = true

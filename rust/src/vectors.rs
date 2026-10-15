@@ -268,9 +268,9 @@ fn text_forms() {
     }
 }
 
-/// Identities (spec 5): each document's digest, which is computed with the
-/// derive on `Identity` (spec 5.10), and each source value's encoding,
-/// digest or error.
+/// Identities (spec 5): each document's digest, which is computed with
+/// `Identity`'s `Quiddity` impl (spec 5.10), and each source value's
+/// encoding, digest or error.
 #[cfg(feature = "identity")]
 #[test]
 fn identities() {
@@ -340,8 +340,8 @@ fn same_identity() {
 }
 
 /// The identity of identity documents (spec Appendix C), under itself: its
-/// digest computed with the derive equals its digest computed by applying
-/// it, as an identity, to its own document.
+/// digest computed with `Identity`'s `Quiddity` impl equals its digest
+/// computed by applying it, as an identity, to its own document.
 #[cfg(feature = "identity")]
 #[test]
 fn identity_of_identities() {
@@ -358,6 +358,7 @@ fn identity_of_identities() {
     );
     // The identity exported from the `Identity` type (spec 6.8) agrees.
     let exported = <Identity as crate::Quiddity>::construct_identity().unwrap();
+    assert_eq!(exported, meta, "exported is Appendix C");
     assert_eq!(
         exported.digest(&meta.to_json()).unwrap().to_string(),
         expected,

@@ -32,8 +32,7 @@ impl fmt::Display for InvalidIdentity {
     }
 }
 
-#[cfg(feature = "std")]
-impl std::error::Error for InvalidIdentity {}
+impl core::error::Error for InvalidIdentity {}
 
 pub(crate) fn invalid(path: &str, message: impl Into<String>) -> InvalidIdentity {
     InvalidIdentity {

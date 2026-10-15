@@ -85,7 +85,7 @@ fn rename_refs(k: Kind, map: &BTreeMap<String, String>) -> Kind {
 fn absorb(k: Kind, defs: &mut BTreeMap<String, Kind>, me: Option<&str>) -> Result<Kind> {
     let mut a = |k: Kind| absorb(k, defs, me);
     Ok(match k {
-        Kind::Identity(id) => merge(*id, defs)?,
+        Kind::Identity(id) => merge(*id, defs),
         Kind::Recursive => match me {
             Some(name) => Kind::Ref(RefName::new(name.to_owned())),
             None => return Err(invalid("$", "a recursive kind outside an identity")),
@@ -118,7 +118,7 @@ fn absorb(k: Kind, defs: &mut BTreeMap<String, Kind>, me: Option<&str>) -> Resul
 /// equal definitions and renaming others whose names are taken, and returns
 /// the kind standing for `id`: a reference to its own definition if it is
 /// named or recursive, else its root.
-fn merge(id: Identity, defs: &mut BTreeMap<String, Kind>) -> Result<Kind> {
+pub(crate) fn merge(id: Identity, defs: &mut BTreeMap<String, Kind>) -> Kind {
     let mut map: BTreeMap<String, String> = BTreeMap::new();
     for (name, k) in &id.definitions {
         let target = if defs.get(name).is_none_or(|existing| existing == k) {
@@ -133,7 +133,7 @@ fn merge(id: Identity, defs: &mut BTreeMap<String, Kind>) -> Result<Kind> {
         let renamed = rename_refs(k, &map);
         defs.entry(map[&name].clone()).or_insert(renamed);
     }
-    Ok(rename_refs(id.root, &map))
+    rename_refs(id.root, &map)
 }
 
 /// An identity whose root is `kind`.

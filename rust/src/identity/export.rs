@@ -37,8 +37,7 @@ impl fmt::Display for ExportError {
     }
 }
 
-#[cfg(feature = "std")]
-impl std::error::Error for ExportError {}
+impl core::error::Error for ExportError {}
 
 /// Collects the definitions of the types an export reaches.
 pub struct Exporter {
@@ -97,7 +96,7 @@ impl Exporter {
             format!("/{}", short_name(key.1))
         };
         let mut name = format!("{}{suffix}", short_name(key.0));
-        if self.names.values().any(|n| *n == name) {
+        if self.names.values().any(|n| *n == name) || self.definitions.contains_key(&name) {
             name = format!("{}{suffix}", key.0);
         }
         self.names.insert(key, name.clone());
@@ -111,6 +110,28 @@ impl Exporter {
         }
         self.definitions.insert(name.clone(), kind?);
         Ok(Kind::Ref(super::RefName::new(name)))
+    }
+
+    /// The kind standing for the identity `id`, whose definitions join
+    /// the export's: a reference to its own definition if it is named,
+    /// else its root. Names taken by other types are not reused.
+    pub fn nest(&mut self, id: Identity) -> Kind {
+        // Reserve the names of types still being described, whose
+        // definitions are not yet added.
+        let pending: Vec<String> = self
+            .names
+            .values()
+            .filter(|n| !self.definitions.contains_key(*n))
+            .cloned()
+            .collect();
+        for n in &pending {
+            self.definitions.insert(n.clone(), Kind::Recursive);
+        }
+        let kind = super::compose::merge(id, &mut self.definitions);
+        for n in &pending {
+            self.definitions.remove(n);
+        }
+        kind
     }
 
     /// `f`'s result, with `step` (a field's or variant's name) added to
