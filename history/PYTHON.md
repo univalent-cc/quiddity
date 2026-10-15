@@ -4,11 +4,13 @@ Started 2026-10-15. This document records the design of the Python
 implementation of quiddity, as `history/DESIGN.md` records the
 specification and the Rust crate, and `history/ELIXIR.md` the Elixir
 packages. Decisions are numbered PY1, PY2, …; the questions they answered
-are collected at the end. Nothing here is implemented yet.
+are collected after them. Implemented 2026-10-15 in `python/`; the choices
+made while implementing are the provisional decisions at the end.
 
 ## Context
 
-- **Python:** 3.12 is installed here. Python 3.10 reaches its end of life
+- **Python:** 3.11, 3.12 and 3.14 are installed here; the tests pass on
+  each. Python 3.10 reaches its end of life
   this month (October 2026); 3.11 in October 2027.
 - **Declaring structures.** Unlike Elixir, Python declares a class's fields
   with types that can be read at run time (`typing.get_type_hints`):
@@ -104,7 +106,7 @@ as in Rust and Elixir:
 Python idioms: exceptions rather than result tuples, keyword arguments,
 frozen value types.
 
-- `quiddity.digest(value, identity=None) -> Digest`, raising
+- `quiddity.digest(value, identity="primary") -> Digest`, raising
   `quiddity.QuiddityError` (a `ValueError`) with `.path` and `.message`
   for a value it cannot digest. `identity` is the name of one of a declared
   class's identities, or an `Identity`.
@@ -152,8 +154,10 @@ q.digest(task, "meaning")  # and not the priority
   `domain`, `identities`, `rename_all`.
 - Identities are named by strings, the primary one `"primary"`: Python has
   no marker types to need.
-- attrs classes and `NamedTuple`s are read the same way (their fields and
-  type hints); a `TypedDict` is a dict.
+- attrs classes are read the same way (their fields and type hints). A
+  `NamedTuple` is a tuple (PP1). A `TypedDict`'s values are dicts, and the
+  class itself can be decorated, for its domain and `rename_all` as an
+  identity (PP15).
 - `quiddity.identity_of(Task, "meaning")` exports the class's identity,
   its kinds read from the type hints, as Rust's `construct_identity()`
   (the mapping is PY7's, applied to types).
@@ -264,3 +268,95 @@ Computed fields count only when included, as Ash calculations.
   depends on pydantic's output format, which changed between v1 and v2
   (`timedelta`, among others); that would change digests. Rust's
   `serde_attributes` and Elixir's `ash_quiddity` build on the same level.
+
+## Provisional decisions (implementation, 2026-10-15)
+
+Taken while implementing `python/`, where the choice was not clear, to be
+revisited. Each says what was chosen, the alternatives, and why.
+
+- **PP1. A `NamedTuple` is a tuple**, digested as a list and exported as a
+  `tuple` kind, rather than as a declared class (PY5 said "read the same
+  way"). `json` and pydantic write a NamedTuple as an array, so its JSON
+  form is an array, and its digest should be that form's.
+- **PP2. Nested values use their primary identities.** `digest(task,
+  "meaning")` reads `task` under `meaning`, and its nested classes under
+  `"primary"`, unless a field has `Nested("name")`, as Elixir's
+  `identity:` option. A `None` passes through `Nested`.
+- **PP3. Hand-written digests:** a class with a `__quiddity__(self,
+  identity)` method is digested as the value it returns, and a class
+  attribute `__quiddity_domain__` gives its domain, the counterparts of a
+  manual `Quiddity` impl and its `DOMAIN`. Dunder methods are Python's
+  idiom for such protocols (`__json__`, `__fspath__`). A domain applies
+  only at the top level (D4).
+- **PP4. `OmitEmpty` means empty or missing**: it also omits `None`, and
+  in an identity the field becomes optional (`omit: ["empty", "none"]`),
+  as Rust's `Field::omit_empty` and Elixir's export do. Without it, a
+  field exported with `OmitEmpty` would reject the `null` that the value
+  side digests.
+- **PP5. Exported fields are named by their JSON members**: an attribute's
+  name, or a pydantic alias, with `rename` for the digest key when a
+  `Rename` or `rename_all` changes it. The exported identity then applies to
+  the JSON form `dataclasses.asdict` or `model_dump_json(by_alias=True)`
+  writes. Elixir names exported fields by key, which is the same unless a
+  field is renamed.
+- **PP6. `Tagged` is internally tagged only**, with each variant named by
+  a `Literal` field of its class, as pydantic's discriminated unions are,
+  and pydantic's `Field(discriminator=...)` is read as `Tagged`. A class
+  with only the tag is a unit variant. Only this style agrees with the
+  classes' own digests, which include the tag as a field; external and
+  adjacent styles can be written in an identity's JSON form.
+- **PP7. Map keys that are the same data-model value** (`"a"` and `b"a"`,
+  an enum member and its value) are an error, as Elixir's atom and string
+  keys are, rather than a map with a repeated key.
+- **PP8. `parse_json(text)` is public**: JSON text with numbers as spec 2.7
+  reads them, and repeated member names an error. `json.loads` differs for
+  integers beyond 64 bits, which it keeps exact, so digests of its output
+  can differ from other languages'. `encoding(value)` is public too (PY4).
+- **PP9. `@digestible` keeps the names where its class was defined**, as
+  pydantic keeps a model's parent namespace, so that a class defined in a
+  function resolves its type hints under `from __future__ import
+  annotations`. An undecorated class whose hints cannot be resolved is an
+  error that says so, never a silent `any`.
+- **PP10. pydantic details (PY8):** a `field_serializer` is applied through
+  pydantic's own serializer for that one field (`to_python(include=...)`),
+  in JSON mode when the serializer is for JSON only. A model with a
+  `model_serializer`, and a `RootModel`, is digested as it serializes
+  itself, in Python mode and by alias, as Rust bridges a custom `Serialize`
+  through serde; such a model cannot be `@digestible`. Extra fields
+  (`extra="allow"`) do not count, as unlisted members do not.
+- **PP11. Computed fields do not count.** PY8 said "only when included",
+  but nothing includes one yet; they are derived from fields that do
+  count. To revisit with a marker or a decorator option.
+- **PP12. Text and bytes are different source types.** In the data model
+  both are strings (D17), but under an identity a `bytes` value is the
+  `bytes` source type, which `"string"` does not accept, as spec 5.2's
+  source types say.
+- **PP13. `Identity` is immutable, hashable and picklable**, compared by
+  its canonical JSON form. Besides `quiddity.digest(value, identity)`, it
+  has `identity.digest(value)` and `identity.read(value)` (the data-model
+  value), as Rust's `Identity::digest`.
+- **PP14. Error paths in identities name each kind**:
+  `$.definitions.Task.object.fields.title`, where Elixir writes
+  `$.definitions.Task.fields.title`. To align when the spec says how a
+  path is written.
+- **PP15. A `TypedDict` is declarable**: `@digestible` gives it a domain and
+  `rename_all` as an identity, and `NotRequired` members are optional
+  (`omit: ["none"]`), read from the resolved hints so that they work under
+  `from __future__ import annotations`.
+- **PP16. A union's alternatives are ordered by their canonical JSON
+  text** in `to_json()`, which may differ from Rust's order; the order is
+  not part of any digest (Appendix C reads a union as a set).
+
+### Not done yet
+
+- The tests run on 3.11, 3.12 and 3.14 here; 3.13 is not installed.
+- `identity_of` for a class with `__quiddity__` exports `any`, since its
+  form is not declared.
+- msgspec `Struct`s are not declared classes.
+- Out of scope, as `ndarray` and `polars` are for Rust (DESIGN.md, D10):
+  NumPy arrays and pandas and Polars data frames. Their mapping onto the
+  data model is ambiguous, and a per-value encoding is the wrong tool for
+  millions of elements; their raw buffers can be hashed instead. NumPy
+  scalars (`np.int64`) are single values and could be supported.
+- Speed: about 6 µs per row of five fields, 13 under an identity, in pure
+  Python. A compiled encoder could follow if needed.

@@ -8,3 +8,10 @@ __pycache__/
 
 # macOS
 .DS_Store
+
+# Python package
+python/.venv/
+python/dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/

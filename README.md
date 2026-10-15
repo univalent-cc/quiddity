@@ -218,7 +218,10 @@ resource's definition its identity.
 
 ### Python
 
-Coming soon
+The package [`quiddity-digest`](python/), imported as `quiddity`, digests
+Python values, dataclasses, attrs classes and pydantic models, with options
+in `Annotated` markers. Identities are written as types, read from JSON,
+and exported from declared classes.
 
 ### Rust
 

@@ -1,0 +1,57 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "quiddity-digest"
+version = "0.1.0"
+description = "Stable, configurable digests that capture the essence of values."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Luke Peterson", email = "luketpeterson@gmail.com" }]
+requires-python = ">=3.11"
+dependencies = []
+keywords = ["digest", "hash", "canonical", "content-addressing", "etag"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Security :: Cryptography",
+    "Typing :: Typed",
+]
+
+[project.optional-dependencies]
+pydantic = ["pydantic>=2.7"]
+
+[project.urls]
+Homepage = "https://github.com/univalent-cc/quiddity"
+Repository = "https://github.com/univalent-cc/quiddity"
+Specification = "https://github.com/univalent-cc/quiddity/blob/main/QUIDDITY_SPEC.md"
+
+[dependency-groups]
+dev = ["pytest>=8", "mypy>=1.10", "ruff>=0.5", "pydantic>=2.7", "attrs>=23.1"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/quiddity"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "src", "README.md"]
+addopts = ["--doctest-modules", "--doctest-glob=README.md"]
+doctest_optionflags = ["ELLIPSIS"]
+
+[tool.mypy]
+strict = true
+files = ["src"]
+
+[tool.ruff]
+line-length = 99
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]
