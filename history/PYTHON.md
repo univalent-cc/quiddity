@@ -1,0 +1,266 @@
+# Python port: design
+
+Started 2026-10-15. This document records the design of the Python
+implementation of quiddity, as `history/DESIGN.md` records the
+specification and the Rust crate, and `history/ELIXIR.md` the Elixir
+packages. Decisions are numbered PY1, PY2, …; the questions they answered
+are collected at the end. Nothing here is implemented yet.
+
+## Context
+
+- **Python:** 3.12 is installed here. Python 3.10 reaches its end of life
+  this month (October 2026); 3.11 in October 2027.
+- **Declaring structures.** Unlike Elixir, Python declares a class's fields
+  with types that can be read at run time (`typing.get_type_hints`):
+  - `dataclasses` (standard library): fields with types, and per-field
+    metadata with `field(metadata=...)`;
+  - `typing.Annotated` (standard library): metadata attached to a field's
+    type, `price: Annotated[float, Decimals(2)]`, which pydantic and
+    msgspec use for the same purpose;
+  - pydantic 2.14 (the most used third-party library, requiring Python
+    3.10+): models with aliases, excluded fields and serializers; most of
+    Python's JSON APIs (FastAPI among them) are defined with it, so it is
+    Python's serde;
+  - attrs (26.1) and msgspec (0.22): similar in shape, less common.
+- **JSON in the standard library** (`json`): writes `None`, `bool`, `int`,
+  `float` (including `NaN` and `Infinity`, which are not JSON), `str`,
+  `list` and `tuple` (as arrays), and `dict` (with `str`, `int`, `float`,
+  `bool` and `None` keys, written as strings). It refuses `bytes`, `set`,
+  `datetime`, `Decimal`, `UUID` and other classes unless given a `default`.
+  So, unlike Elixir's encoders, it decides little about rich types; pydantic's
+  JSON mode decides more (`datetime` as ISO 8601, `Decimal` and `UUID` as
+  strings, `set` as an array, `Enum` as its value, `bytes` as UTF-8 text).
+- **The references** `test-vectors/qref.py` (spec 2–4) and
+  `test-vectors/qident.py` (spec 5) are Python already, written for
+  clarity, and generate the vectors.
+- **PyPI:** the name `quiddity` is taken by an active, unrelated project
+  (quiddity 0.3.10, feature recognition for build123d solids, last upload
+  2026-10-02). `quiddity-digest`, `pyquiddity`, `quiddity-py` and
+  `quiddity-hash` are free (Q1).
+
+## PY1. Scope and order of work
+
+The same layers as Rust and Elixir:
+
+1. The core (spec 2–4): digests of Python values, checked against
+   `test-vectors/`.
+2. Dynamic identities (spec 5): `Identity`, built in code or read from
+   JSON, applied to any value.
+3. Declared classes: dataclasses (and attrs classes, and `NamedTuple`s)
+   with options in `Annotated` metadata, the counterpart of the derive;
+   identities exported from their type hints.
+4. pydantic: a model's own configuration (aliases, exclusions) as its
+   identity, the counterpart of `serde_attributes` and `ash_quiddity`.
+
+## PY2. Package
+
+- A `python/` directory in the repository, with a `pyproject.toml`, the
+  `src/` layout, and a `py.typed` marker (the package is typed).
+- Distributed as `quiddity-digest`, imported as `quiddity` (Q1).
+- `requires-python = ">=3.11"`, tested on 3.11 through 3.14 (Q2). A pure
+  Python package runs unchanged on later versions; the floor is the oldest
+  version still supported.
+- No dependencies. SHA-256 is `hashlib`. pydantic support is an optional
+  extra (`quiddity-digest[pydantic]`), the usual Python packaging for an
+  optional integration, imported only when used (where Elixir has a
+  separate `ash_quiddity` package, Python's extras serve the same purpose).
+- Tests with pytest, reading `../test-vectors/quiddity-v1.json` and
+  skipping when it is absent, as the Rust and Elixir tests do.
+- `qref.py` and `qident.py` stay where they are, separate from the
+  package: the vectors must not come from the code they test (D19).
+
+## PY3. Python values in the data model
+
+The mapping (spec 2), following `qref.py` where it covers a type, and
+otherwise what pydantic's JSON mode writes, except where the data model
+says more than JSON (sets, instants, durations, bytes, non-string keys),
+as in Rust and Elixir:
+
+| Python | Data model | Note |
+|---|---|---|
+| `None` | null | |
+| `bool` | boolean | Checked before `int`, which `bool` subclasses. |
+| `int` | integer | Exact, any size. |
+| `float` | number, normalized (spec 2.2) | `NaN` and `±inf` are values of the data model, as in Rust. |
+| `str` | string, its WTF-8 bytes (spec 2.3) | Lone surrogates, which a `str` can hold, are kept (as `qref.wtf8`). |
+| `bytes`, `bytearray`, `memoryview` | string, its bytes | As `qref.py`: text and bytes are one kind (D17). |
+| `list`, `tuple` | list | `json` writes tuples as arrays. |
+| `set`, `frozenset` | set | |
+| `dict`, `Mapping` | map | Keys keep their kinds: `{1: "a"}` has an integer key, as Rust's `HashMap<u32, _>` and Elixir's maps (`json` would make it `"1"`). |
+| `datetime` with a time zone | instant, integer nanoseconds (spec 2.6) | |
+| naive `datetime` | error | No time zone (spec 2.6); the message suggests adding `tzinfo` (Q4). |
+| `date`, `time` | string, ISO 8601 | As pydantic writes them; the data model has no date or time-of-day kind. |
+| `timedelta` | duration, integer nanoseconds | Exact: days, seconds and microseconds. |
+| `Decimal` | string, `str(d)` | As pydantic, msgspec and Django write it; the same text as Elixir's (Q5). |
+| `UUID` | string, lowercase hyphenated | |
+| `PurePath` | string, `os.fsencode(path)` | The path's bytes: its text when valid UTF-8, its exact bytes otherwise, as Rust's `Path` on Unix (Q6). |
+| `Enum` | its value, mapped by this table | As pydantic and `json` (for `IntEnum`, `StrEnum`) write it. |
+| `Digest` | string, its text form | Spec 6.2. |
+| a declared class (PY5) | through its declaration | |
+| anything else | error, naming the type and where | |
+
+## PY4. Core API
+
+Python idioms: exceptions rather than result tuples, keyword arguments,
+frozen value types.
+
+- `quiddity.digest(value, identity=None) -> Digest`, raising
+  `quiddity.QuiddityError` (a `ValueError`) with `.path` and `.message`
+  for a value it cannot digest. `identity` is the name of one of a declared
+  class's identities, or an `Identity`.
+- `Digest`: frozen, hashable, comparable; `str(d)` is the text form,
+  `d.bytes` the bytes, `Digest.parse(text)` reads the text form (raising
+  `ValueError`), `d.mini()` and `d.micro()` the 128- and 64-bit forms,
+  `d.in_domain(label)`.
+- `quiddity.encoding(value) -> bytes`, the spec's E(v), for tests and
+  other implementations (Rust and Elixir keep it internal; Python's
+  references use it).
+
+## PY5. Declared classes
+
+Options as `Annotated` metadata on a field's type, the idiom pydantic and
+msgspec use, and class-level options in a decorator:
+
+```python
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Annotated
+
+import quiddity as q
+
+@q.digestible(domain="example.task", identities=["meaning"])
+@dataclass
+class Task:
+    prompt: str
+    priority: Annotated[int, q.Skip("meaning")]
+    tags: Annotated[list[str], q.AsSet()]
+    asked_at: Annotated[datetime, q.Quantize(1_000_000_000)]
+    note: Annotated[str | None, q.OmitNone()] = None
+    submitted_at: Annotated[datetime | None, q.Skip()] = None
+
+q.digest(task)             # every field but submitted_at
+q.digest(task, "meaning")  # and not the priority
+```
+
+- Markers: `Skip`, `Rename`, `OmitNone`, `OmitEmpty`, `Quantize`,
+  `Decimals`, `AsSet`, `Flatten`, `Nested(identity)`. Each takes optional
+  identity names to scope it, as Rust's `skip(Meaning)`: `Skip()` applies
+  to every identity, `Skip("meaning")` to `meaning` only.
+- Markers only, in `Annotated` (Q3): no `field(metadata=...)` spelling.
+- The decorator is optional for a plain dataclass: without it, every field
+  counts, under its name. It carries what the class as a whole decides:
+  `domain`, `identities`, `rename_all`.
+- Identities are named by strings, the primary one `"primary"`: Python has
+  no marker types to need.
+- attrs classes and `NamedTuple`s are read the same way (their fields and
+  type hints); a `TypedDict` is a dict.
+- `quiddity.identity_of(Task, "meaning")` exports the class's identity,
+  its kinds read from the type hints, as Rust's `construct_identity()`
+  (the mapping is PY7's, applied to types).
+
+## PY6. Dynamic identities
+
+The same operations as Rust's and Elixir's: create, change, load, write,
+digest any value, and the identity's own digest.
+
+- `Identity.from_json(text_or_dict)`, `identity.to_json() -> dict`.
+- Kinds are Python types, mapped as PY7 does, as pydantic's
+  `TypeAdapter(list[int])` takes any type (Q7): `Identity(list[str])`,
+  `Identity(dict[str, int])`, `Identity(Task)` for a declared class. A
+  `TypedDict` is an object kind without a class (`NotRequired[...]` for an
+  optional member). What a type cannot say is an `Annotated` marker, as
+  pydantic does: `Annotated[datetime, q.Unit("ms")]`,
+  `Annotated[bytes, q.Hex()]`, `Annotated[Shape, q.Tagged(tag="type")]`
+  (as pydantic's `Field(discriminator="type")`). Identities in their JSON form are read with
+  `Identity.from_json`. `Identity(Task)` is the same as `identity_of(Task)`,
+  so one mapping serves export and identities written in code.
+- Changes as in Rust: `named`, `with_domain`, `with_field`,
+  `without_field`, `with_field_in`, `without_field_in`, returning new
+  identities (an `Identity` is immutable and hashable, as `Digest` is).
+- `q.digest(identity)` is the identity's own digest (spec 5.10).
+
+## PY7. Types as kinds
+
+For exporting declared classes (PY5) and for kinds written as types (PY6):
+
+| Type | Kind |
+|---|---|
+| `int` | integer |
+| `float` | number |
+| `str` | string |
+| `bool` | bool |
+| `bytes` | bytes |
+| `datetime` | instant |
+| `timedelta` | duration |
+| `UUID` | uuid |
+| `PurePath` | path |
+| `date`, `time`, `Decimal` | string |
+| `list[T]`, `Sequence[T]`, `tuple[T, ...]` | list |
+| `tuple[A, B]` | tuple |
+| `set[T]`, `frozenset[T]` | set |
+| `dict[K, V]`, `Mapping[K, V]` | map |
+| `T \| None`, `Optional[T]` | optional |
+| other unions | union, if valid; else `any` |
+| `Literal["a", "b"]`, `Enum` of strings | string |
+| a declared class | its identity, nested; itself: recursive |
+| `Any`, unknown | any |
+
+## PY8. pydantic
+
+A model is digested as its configuration says, the counterpart of
+`serde_attributes` (D21) and `ash_quiddity`: field aliases (or
+`serialization_alias`, or the model's `alias_generator`), excluded fields
+(`Field(exclude=True)`), and `Annotated` markers (PY5) mixed in.
+
+Built on the model's fields (`model_fields`, their types and `FieldInfo`),
+below serialization (Q8): values keep their types (an instant, a set),
+digests do not depend on pydantic's output format, and nothing is
+serialized. A field with a `field_serializer` is digested through that
+serializer's output, as Rust's `serialize_with` through serde's bridge.
+Computed fields count only when included, as Ash calculations.
+
+## Questions, resolved 2026-10-15
+
+- **Q1. The distribution name:** `quiddity-digest`, imported as
+  `quiddity`. "Digest" is the spec's word and the `Digest` type's; "hash"
+  suggests Python's `__hash__`, which is per-process and not
+  cryptographic. `quiddity` itself is taken on PyPI by an unrelated CAD
+  library.
+- **Q2. The Python version:** `>=3.11`, tested through 3.14. A floor, not
+  a target: a pure Python package runs on later versions unchanged, so
+  users on 3.12 or later are unaffected; only compiled extensions are
+  built per version. Nothing here needs syntax newer than 3.11.
+- **Q3. Where options go:** `Annotated` markers only (PEP 593), as pydantic
+  (`Field`, constraints), msgspec (`Meta`) and the `annotated-types`
+  library use them; they work for dataclasses, attrs, NamedTuples and
+  pydantic models alike. `field(metadata=...)`, the older dataclass-only
+  idiom (dataclasses-json, marshmallow-dataclass), is not a second
+  spelling.
+- **Q4. Naive `datetime`:** an error. Python's documentation warns that
+  naive datetimes are ambiguous, and `datetime.timestamp()` silently takes
+  one as local time; a digest must be the same on every machine. `json`
+  refuses datetimes; pydantic and msgspec write naive ones without an
+  offset. Elixir digests its `NaiveDateTime` as text (ELIXIR.md, P4), a
+  deliberate type there, where Python's naive datetime is usually an
+  accident (`datetime.now()`).
+- **Q5. `Decimal`:** `str(d)`, as pydantic, msgspec (by default) and
+  Django's JSON encoder write it. `str(Decimal)` implements the General
+  Decimal Arithmetic specification's "to-scientific-string", as Elixir's
+  `Decimal.to_string/1` does: the two agree (checked on 13 values, among
+  them `1E+10`, `1.2E-7`, `0E-7`, `-0` and `12.50`). Elixir's P5 was changed
+  to it, so a decimal digests alike in both.
+- **Q6. Paths:** `os.fsencode(path)`, the standard way to a path's bytes:
+  its text for a valid UTF-8 path, its exact bytes otherwise, as Rust on
+  Unix. pydantic writes `str(path)`, the same for valid UTF-8.
+- **Q7. Kinds as types:** Python types map onto kinds wherever possible,
+  with `Annotated` markers for the rest and `TypedDict` for objects without
+  a class, as pydantic's `TypeAdapter` takes any type (PY6).
+- **Q8. The pydantic level:** the model's fields, below serialization,
+  with custom serializers followed per field (PY8). Code that hashes
+  pydantic models usually hashes `model_dump_json()` (as ETag middleware
+  hashes response bodies); libraries that compare objects (deepdiff's
+  `DeepHash`, pydantic's own `__hash__` for frozen models) walk fields. The
+  serialized form loses types (an instant becomes text, a set a list), and
+  depends on pydantic's output format, which changed between v1 and v2
+  (`timedelta`, among others); that would change digests. Rust's
+  `serde_attributes` and Elixir's `ash_quiddity` build on the same level.
