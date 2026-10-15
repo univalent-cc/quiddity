@@ -214,6 +214,53 @@ pub fn object(fields: Vec<(&'static str, Field)>, list: bool) -> Kind {
     })
 }
 
+/// An object kind from its fields and the kinds of its flattened fields
+/// (D21), each named for errors: a flattened struct's fields join the
+/// object's. Other flattened kinds (a map, an enum, an `Option`) cannot be
+/// expressed in an identity document.
+pub fn object_flattened(
+    cx: &Exporter,
+    fields: Vec<(&'static str, Field)>,
+    flattened: Vec<(&'static str, Kind)>,
+) -> Result<Kind, ExportError> {
+    let mut all: BTreeMap<String, Field> =
+        fields.into_iter().map(|(n, f)| (n.to_owned(), f)).collect();
+    for (name, kind) in flattened {
+        let inner = match &kind {
+            Kind::Ref(r) => cx.definitions.get(r.as_str()),
+            _ => None,
+        };
+        let Some(Kind::Object(ObjectKind {
+            fields,
+            order: None,
+        })) = inner
+        else {
+            return Err(ExportError {
+                path: cx.path.join("."),
+                message: format!(
+                    "the flattened field `{name}` is not a struct with named fields; only those \
+                     can be flattened in an identity document"
+                ),
+            });
+        };
+        for (n, f) in fields {
+            if all.insert(n.clone(), f.clone()).is_some() {
+                return Err(ExportError {
+                    path: cx.path.join("."),
+                    message: format!(
+                        "the flattened field `{name}` has a member `{n}`, which another field \
+                         also has"
+                    ),
+                });
+            }
+        }
+    }
+    Ok(Kind::Object(ObjectKind {
+        fields: all,
+        order: None,
+    }))
+}
+
 /// A map kind, not checked until the whole identity is (export refers to
 /// definitions it has not finished collecting).
 pub fn map(key: Kind, value: Kind) -> Kind {

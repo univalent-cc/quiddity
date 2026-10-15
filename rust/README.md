@@ -231,6 +231,7 @@ different digests, however close they are.
 | `rename = "…"` | Provide another name that the field or enum variant is hashed under. |
 | `identity = A` | Encode this nested value using its identity `A` instead of its primary one. |
 | `with = path` | Digest this field with `path(&value, &mut Encoder)`, for types that do not implement `Quiddity` (see [Foreign types](#foreign-types-and-custom-field-encoding)). |
+| `flatten` | Write the members of this field into the containing struct's map, as serde's `flatten` does, so the digest is that of the flattened object. Works on structs, enums, maps, and `Option`. Duplicate keys will panic. Requires the `alloc` feature. |
 | `encode_as = set` | Digest this sequence field (`Vec`, slice, array, `VecDeque`, …) as a set, so that the order of its items does not affect the digest. Repeated items are kept. |
 | `encode_as = display` | Encode this field as its `Display` output, a string. For types that implement `Display` but not `Quiddity`. |
 | `encode_as = serde` | With the `serde` feature: encode this field through its `Serialize` impl. Panics if serialization fails (see [Direct from `serde`](#direct-from-serde)). |

@@ -68,6 +68,23 @@ macro_rules! describe {
     };
 }
 
+/// Implements `Quiddity::__encode_entries` (D21) with the `alloc` feature,
+/// and marks the type flattenable: `flatten!(|this, m| body)`, with `this`
+/// bound to `self` and `m` to the `Flattened` map.
+#[cfg(feature = "alloc")]
+macro_rules! flatten {
+    (|$this:ident, $m:ident| $body:expr) => {
+        #[cfg(feature = "alloc")]
+        const __FLATTENABLE: bool = true;
+
+        #[cfg(feature = "alloc")]
+        fn __encode_entries(&self, $m: &mut crate::flatten::Flattened<'_>) {
+            let $this = self;
+            $body
+        }
+    };
+}
+
 mod digest;
 #[cfg(all(doctest, feature = "derive"))]
 mod doctests;
@@ -78,6 +95,8 @@ pub struct ReadmeDoctests;
 mod empty;
 mod encoder;
 mod features;
+#[cfg(feature = "alloc")]
+mod flatten;
 #[cfg(feature = "identity")]
 pub mod identity;
 mod impls;
@@ -122,6 +141,22 @@ pub trait Quiddity<I: IdentityMarker = Primary> {
     /// encoding, as if skipped. `true` only for `PhantomData`.
     #[doc(hidden)]
     const ABSENT_AS_FIELD: bool = false;
+
+    /// Whether a field of this type can be flattened (D21): its members
+    /// written into the containing struct's map by `__encode_entries`.
+    /// `true` for structs with named fields, enums, maps, and `Option`s and
+    /// pointers to them; checked when deriving a type with a flattened field.
+    #[cfg(feature = "alloc")]
+    #[doc(hidden)]
+    const __FLATTENABLE: bool = false;
+
+    /// Writes this value's members into the map of the struct containing
+    /// it, for `flatten` (D21).
+    #[cfg(feature = "alloc")]
+    #[doc(hidden)]
+    fn __encode_entries(&self, m: &mut flatten::Flattened<'_>) {
+        m.cannot_flatten(core::any::type_name::<Self>())
+    }
 
     /// The identity document (spec 5) describing this type's encoding
     /// under `I`, for values in the JSON form serde writes (spec 6.8).
@@ -179,6 +214,8 @@ impl<T: ?Sized> QuiddityExt for T {}
 #[doc(hidden)]
 pub mod __private {
     pub use crate::empty::{IsEmpty, Nullable};
+    #[cfg(feature = "alloc")]
+    pub use crate::flatten::{Flattened, flattened};
     pub use crate::quantize::{Decimals, Quantize};
 
     #[cfg(feature = "identity")]
@@ -207,6 +244,45 @@ macro_rules! __if_identity {
 #[macro_export]
 macro_rules! __if_identity {
     ($($tokens:tt)*) => {};
+}
+
+/// Used by the derive's expansion: its contents with the `alloc` feature,
+/// and nothing without it (the flattening members of derived types).
+#[doc(hidden)]
+#[cfg(feature = "alloc")]
+#[macro_export]
+macro_rules! __if_alloc {
+    ($($tokens:tt)*) => { $($tokens)* };
+}
+
+/// Used by the derive's expansion: its contents with the `alloc` feature,
+/// and nothing without it (the flattening members of derived types).
+#[doc(hidden)]
+#[cfg(not(feature = "alloc"))]
+#[macro_export]
+macro_rules! __if_alloc {
+    ($($tokens:tt)*) => {};
+}
+
+/// Used by the derive's expansion for `flatten`: the map of the struct
+/// being written.
+#[doc(hidden)]
+#[cfg(feature = "alloc")]
+#[macro_export]
+macro_rules! __flattened {
+    ($e:expr, $type_name:expr) => {
+        $crate::__private::flattened($e, $type_name)
+    };
+}
+
+/// Used by the derive's expansion for `flatten`.
+#[doc(hidden)]
+#[cfg(not(feature = "alloc"))]
+#[macro_export]
+macro_rules! __flattened {
+    ($e:expr, $type_name:expr) => {
+        ::core::compile_error!("`flatten` needs the `alloc` feature of `quiddity`")
+    };
 }
 
 /// Used by the derive's expansion for `encode_as = set`.

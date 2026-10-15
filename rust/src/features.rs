@@ -27,6 +27,9 @@ mod serde_json_impls {
 
     impl<I: IdentityMarker> Quiddity<I> for Map<String, Value> {
         describe!(|cx| X::map(Kd::String, Kd::Any));
+        flatten!(|this, m| for (k, v) in this {
+            m.entry_as::<I, String, Value>(k, v);
+        });
 
         fn encode(&self, e: &mut Encoder) {
             map::<I, String, Value>(e, self);
@@ -64,6 +67,9 @@ mod indexmap_impls {
 
     impl<I: IdentityMarker, K: Quiddity<I>, V: Quiddity<I>, S> Quiddity<I> for IndexMap<K, V, S> {
         describe!(|cx| X::map(cx.describe::<K, I>()?, cx.describe::<V, I>()?));
+        flatten!(|this, m| for (k, v) in this {
+            m.entry_as::<I, K, V>(k, v);
+        });
 
         fn encode(&self, e: &mut Encoder) {
             map::<I, K, V>(e, self);

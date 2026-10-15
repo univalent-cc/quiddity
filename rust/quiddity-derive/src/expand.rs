@@ -185,6 +185,7 @@ fn implement(
             "`tag`, `content` and `untagged` apply to enums only",
         ));
     }
+    let entries = flatten_entries(attrs, body, key, &mut bounds)?;
     let describe = describe(attrs, body, key, id_ty)?;
 
     let domain = match attrs.domain.get(key) {
@@ -195,10 +196,26 @@ fn implement(
     };
     let (impl_generics, ty_generics, _) = input.generics.split_for_impl();
     let where_clause = bounds.where_clause();
+    let flatten = match entries {
+        Some(entries) => quote! {
+            ::quiddity::__if_alloc! {
+                const __FLATTENABLE: bool = true;
+
+                #[allow(unused_variables, clippy::needless_borrow)]
+                fn __encode_entries(&self, __m: &mut ::quiddity::__private::Flattened<'_>) {
+                    #entries
+                }
+            }
+        },
+        None => quote!(),
+    };
     Ok(quote! {
+
         #[automatically_derived]
         impl #impl_generics ::quiddity::Quiddity<#id_ty> for #name #ty_generics #where_clause {
             #domain
+
+            #flatten
 
             #[allow(unused_variables, clippy::needless_borrow)]
             fn encode(&self, __e: &mut ::quiddity::Encoder) {
@@ -215,6 +232,98 @@ fn implement(
             }
         }
     })
+}
+
+/// The body of the type's `__encode_entries` under identity `key` (D21):
+/// statements writing its members into `__m`. `None` for types that have
+/// no members to flatten: structs not encoded as a map, enums encoded with
+/// integer tags, and types encoded through `Display` or `Serialize`.
+fn flatten_entries(
+    attrs: &TypeAttrs,
+    body: &Body,
+    key: &str,
+    bounds: &mut Bounds,
+) -> syn::Result<Option<TokenStream>> {
+    let type_shape = attrs.encode_as.get(key).copied();
+    if matches!(type_shape, Some((EncodeAs::Display | EncodeAs::Serde, _))) {
+        return Ok(None);
+    }
+    match body {
+        Body::Struct(fields, form) => {
+            if struct_shape(attrs, key, form, type_shape)? != Shape::Map {
+                return Ok(None);
+            }
+            let rename_all = attrs.rename_all.get(key).copied();
+            let (writes, flattened) = map_writes(fields, key, rename_all, None, bounds)?;
+            let pattern = pattern(quote!(Self), fields, form);
+            Ok(Some(quote! {
+                let #pattern = self;
+                #writes
+                #flattened
+            }))
+        }
+        Body::Enum(variants) => {
+            if enum_int(type_shape)? {
+                return Ok(None);
+            }
+            let rename_all = attrs.rename_all.get(key).copied();
+            let style = enum_style(attrs, key, false)?;
+            let mut arms = TokenStream::new();
+            for (v, vattrs, fields) in variants {
+                let ident = &v.ident;
+                let name = variant_name(v, vattrs, key, rename_all);
+                let lit = LitStr::new(&name, Span::call_site());
+                let form = &v.fields;
+                let pattern = pattern(quote!(Self::#ident), fields, form);
+                let unit = matches!(form, Fields::Unit);
+                let named = matches!(form, Fields::Named(_));
+                let label = quote!(__e.str(#lit););
+                let write = match &style {
+                    Style::External if unit => {
+                        let what = format!("the unit variant `{name}`");
+                        quote!(__m.cannot_flatten(#what);)
+                    }
+                    Style::External => {
+                        let data =
+                            write_fields(fields, variant_shape(form), key, None, None, bounds)?;
+                        quote!(__m.field_with(#lit, |__e| { #data });)
+                    }
+                    Style::Internal(tag) if unit => quote!(__m.field_with(#tag, |__e| { #label });),
+                    Style::Internal(tag) => {
+                        let (writes, flattened) =
+                            map_writes(fields, key, None, Some((tag.value(), label)), bounds)?;
+                        quote!(#writes #flattened)
+                    }
+                    Style::Adjacent(tag, _) if unit => {
+                        quote!(__m.field_with(#tag, |__e| { #label });)
+                    }
+                    Style::Adjacent(tag, content) => {
+                        let data =
+                            write_fields(fields, variant_shape(form), key, None, None, bounds)?;
+                        quote! {
+                            __m.field_with(#tag, |__e| { #label });
+                            __m.field_with(#content, |__e| { #data });
+                        }
+                    }
+                    Style::Untagged if unit => quote!(),
+                    Style::Untagged if named => {
+                        let (writes, flattened) = map_writes(fields, key, None, None, bounds)?;
+                        quote!(#writes #flattened)
+                    }
+                    Style::Untagged => {
+                        let what = format!("the variant `{name}`, which is not a struct variant");
+                        quote!(__m.cannot_flatten(#what);)
+                    }
+                };
+                arms.extend(quote!(#pattern => { #write }));
+            }
+            Ok(Some(quote! {
+                match self {
+                    #arms
+                }
+            }))
+        }
+    }
 }
 
 /// The shape of a struct's fields under one identity.
@@ -260,6 +369,50 @@ fn pattern(path: TokenStream, fields: &[Field], form: &Fields) -> TokenStream {
 impl Field {
     fn participates(&self, key: &str) -> bool {
         !self.phantom && !self.attrs.skip.get(key).copied().unwrap_or(false)
+    }
+
+    /// Whether the field's members are written into the containing map
+    /// under `key` (D21). Checks that nothing else is said about the
+    /// field's key or value, which a flattened field does not have.
+    fn flattens(&self, key: &str) -> syn::Result<bool> {
+        if !self.attrs.flatten.get(key).copied().unwrap_or(false) || !self.participates(key) {
+            return Ok(false);
+        }
+        let a = &self.attrs;
+        let conflicts = [
+            ("rename", a.rename.get(key).is_some()),
+            ("omit_none", a.omit_none.get(key).is_some()),
+            ("omit_empty", a.omit_empty.get(key).is_some()),
+            ("omit_if", a.omit_if.get(key).is_some()),
+            ("with", a.with.get(key).is_some()),
+            ("encode_as", a.encode_as.get(key).is_some()),
+            ("quantize", a.quantize.get(key).is_some()),
+            ("decimals", a.decimals.get(key).is_some()),
+        ];
+        if let Some((name, _)) = conflicts.iter().find(|(_, set)| *set) {
+            return Err(syn::Error::new_spanned(
+                &self.ty,
+                format!(
+                    "`flatten` cannot be combined with `{name}`: a flattened field has no key or \
+                     value of its own (identity `{key}`)"
+                ),
+            ));
+        }
+        if self.name.is_none() {
+            return Err(syn::Error::new_spanned(
+                &self.ty,
+                "`flatten` applies to named fields, not tuple fields",
+            ));
+        }
+        Ok(true)
+    }
+
+    /// The identity under which a flattened field's members are written.
+    fn flatten_identity(&self, key: &str) -> TokenStream {
+        match self.attrs.identity.get(key) {
+            Some(j) => quote!(#j),
+            None => quote!(::quiddity::Primary),
+        }
     }
 
     fn encoding(&self, key: &str) -> syn::Result<ValueEncoding> {
@@ -370,6 +523,9 @@ fn map_entries<'f>(
 ) -> syn::Result<Vec<(String, &'f Field)>> {
     let mut entries = Vec::new();
     for f in fields.iter().filter(|f| f.participates(key)) {
+        if f.flattens(key)? {
+            continue;
+        }
         let name = match (f.attrs.rename.get(key), rename_all) {
             (Some(lit), _) => lit.value(),
             (None, Some(rule)) => rule.apply_to_field(&unraw(f.name.as_ref().unwrap())),
@@ -404,6 +560,16 @@ fn write_fields(
     let participating: Vec<&Field> = fields.iter().filter(|f| f.participates(key)).collect();
     // Check omission attributes even on fields that do not participate.
     for f in fields.iter().filter(|f| f.participates(key)) {
+        if f.flattens(key)? {
+            if shape != Shape::Map {
+                return Err(syn::Error::new_spanned(
+                    &f.ty,
+                    "`flatten` applies only to fields encoded as a map: not with \
+                     `encode_as = list` or `transparent`",
+                ));
+            }
+            continue;
+        }
         f.condition(key, shape)?;
     }
     match shape {
@@ -472,36 +638,82 @@ fn write_fields(
             })
         }
         Shape::Map => {
-            let entries = map_entries(fields, key, rename_all)?;
-            let mut writes = Vec::new();
-            for (name, f) in entries {
-                let cond = f.condition(key, shape)?;
-                let value = f.write_value(key, bounds)?;
-                let lit = LitStr::new(&name, Span::call_site());
-                writes.push((
-                    name,
-                    quote!(if #cond { __m.field_with(#lit, |__e| { #value }); }),
-                ));
+            let (writes, flattened) = map_writes(fields, key, rename_all, extra, bounds)?;
+            if flattened.is_empty() {
+                Ok(quote! {
+                    let mut __m = __e.fields();
+                    #writes
+                    __m.finish();
+                })
+            } else {
+                // The flattened members' keys are known only at run time:
+                // a buffered map, sorted when finished (D21).
+                Ok(quote! {
+                    let mut __flat = ::quiddity::__flattened!(__e, ::core::any::type_name::<Self>());
+                    {
+                        let __m = &mut __flat;
+                        #writes
+                        #flattened
+                    }
+                    __flat.finish();
+                })
             }
-            if let Some((tag, value)) = extra {
-                if writes.iter().any(|(n, _)| *n == tag) {
-                    return Err(syn::Error::new(
-                        Span::call_site(),
-                        format!("a field has the key {tag:?}, which is the enum's tag"),
-                    ));
-                }
-                let lit = LitStr::new(&tag, Span::call_site());
-                writes.push((tag, quote!(__m.field_with(#lit, |__e| { #value });)));
-            }
-            writes.sort_by(|a, b| cmp_key_encodings(&a.0, &b.0));
-            let writes: TokenStream = writes.into_iter().map(|(_, w)| w).collect();
-            Ok(quote! {
-                let mut __m = __e.fields();
-                #writes
-                __m.finish();
-            })
         }
     }
+}
+
+/// Statements writing the fields of a map through `__m`, a fields or
+/// flattened writer: the named fields (and `extra`) in canonical order, and
+/// separately the flattened fields' members.
+fn map_writes(
+    fields: &[Field],
+    key: &str,
+    rename_all: Option<RenameRule>,
+    extra: Option<(String, TokenStream)>,
+    bounds: &mut Bounds,
+) -> syn::Result<(TokenStream, TokenStream)> {
+    let entries = map_entries(fields, key, rename_all)?;
+    let mut writes = Vec::new();
+    for (name, f) in entries {
+        let cond = f.condition(key, Shape::Map)?;
+        let value = f.write_value(key, bounds)?;
+        let lit = LitStr::new(&name, Span::call_site());
+        writes.push((
+            name,
+            quote!(if #cond { __m.field_with(#lit, |__e| { #value }); }),
+        ));
+    }
+    if let Some((tag, value)) = extra {
+        if writes.iter().any(|(n, _)| *n == tag) {
+            return Err(syn::Error::new(
+                Span::call_site(),
+                format!("a field has the key {tag:?}, which is the enum's tag"),
+            ));
+        }
+        let lit = LitStr::new(&tag, Span::call_site());
+        writes.push((tag, quote!(__m.field_with(#lit, |__e| { #value });)));
+    }
+    writes.sort_by(|a, b| cmp_key_encodings(&a.0, &b.0));
+    let writes: TokenStream = writes.into_iter().map(|(_, w)| w).collect();
+    let mut flattened = TokenStream::new();
+    for f in fields.iter().filter(|f| f.participates(key)) {
+        if f.flattens(key)? {
+            let (b, ty) = (&f.binding, &f.ty);
+            let j = f.flatten_identity(key);
+            bounds.add(ty, &j);
+            flattened.extend(quote_spanned!(ty.span()=>
+                const {
+                    ::core::assert!(
+                        <#ty as ::quiddity::Quiddity<#j>>::__FLATTENABLE,
+                        "`flatten` applies to structs with named fields, enums and maps, and \
+                         `Option`s of them",
+                    )
+                };
+                <#ty as ::quiddity::Quiddity<#j>>::__encode_entries(#b, __m);
+            ));
+        }
+    }
+    Ok((writes, flattened))
 }
 
 fn unraw(ident: &Ident) -> String {
@@ -925,6 +1137,15 @@ fn describe_fields(
         }
         Shape::Map => {
             let mut items = Vec::new();
+            let mut flattened = Vec::new();
+            for f in participating
+                .iter()
+                .filter(|f| f.flattens(key).unwrap_or(false))
+            {
+                let name = unraw(f.name.as_ref().unwrap());
+                let kind = within(&name, f.describe_value(key)?);
+                flattened.push(quote!((#name, #kind)));
+            }
             for (name, f) in map_entries(fields, key, rename_all)? {
                 let kind = within(&name, f.describe_value(key)?);
                 let omit_none = f.attrs.omit_none.get(key).copied().unwrap_or(false);
@@ -938,6 +1159,13 @@ fn describe_fields(
                 }
                 let (q, d) = f.quantization(key);
                 items.push(quote!((#name, ::quiddity::identity::export::field_quantized(#kind, #omit_none, #omit_empty, #q, #d))));
+            }
+            if !flattened.is_empty() {
+                return Ok(quote!({
+                    let __fields = ::quiddity::__private::vec![#(#items),*];
+                    let __flattened = ::quiddity::__private::vec![#(#flattened),*];
+                    ::quiddity::identity::export::object_flattened(__cx, __fields, __flattened)?
+                }));
             }
             Ok(quote!(::quiddity::identity::export::object(
                 ::quiddity::__private::vec![#(#items),*],

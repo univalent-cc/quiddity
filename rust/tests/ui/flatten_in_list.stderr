@@ -1,0 +1,5 @@
+error: `flatten` applies only to fields encoded as a map: not with `encode_as = list` or `transparent`
+  --> tests/ui/flatten_in_list.rs:13:11
+   |
+13 |     page: Page,
+   |           ^^^^

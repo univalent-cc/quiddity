@@ -455,6 +455,8 @@ pub struct FieldAttrs {
     pub quantize: Scoped<u64>,
     pub decimals: Scoped<i32>,
     pub encode_as: Scoped<(EncodeAs, Span)>,
+    /// The field's members are written into the containing map (D21).
+    pub flatten: Scoped<bool>,
 }
 
 impl FieldAttrs {
@@ -474,6 +476,7 @@ impl FieldAttrs {
                     out.identity.set(item, p, ids)?;
                 }
                 "with" => out.with.set(item, path(item)?, ids)?,
+                "flatten" => out.flatten.set(item, flag(item)?, ids)?,
                 "omit_none" => out.omit_none.set(item, flag(item)?, ids)?,
                 "omit_empty" => out.omit_empty.set(item, flag(item)?, ids)?,
                 "omit_if" => out.omit_if.set(item, path(item)?, ids)?,

@@ -93,6 +93,17 @@ impl<I: IdentityMarker, T: ?Sized> Quiddity<I> for PhantomData<T> {
 impl<I: IdentityMarker, T: Quiddity<I>> Quiddity<I> for Option<T> {
     describe!(|cx| Kd::optional(cx.describe::<T, I>()?));
 
+    // `None` has no members.
+    #[cfg(feature = "alloc")]
+    const __FLATTENABLE: bool = T::__FLATTENABLE;
+
+    #[cfg(feature = "alloc")]
+    fn __encode_entries(&self, m: &mut crate::flatten::Flattened<'_>) {
+        if let Some(x) = self {
+            x.__encode_entries(m);
+        }
+    }
+
     fn encode(&self, e: &mut Encoder) {
         match self {
             None => e.null(),
@@ -166,8 +177,16 @@ macro_rules! transparent {
 
             const DOMAIN: Option<&'static str> = T::DOMAIN;
 
+            #[cfg(feature = "alloc")]
+            const __FLATTENABLE: bool = T::__FLATTENABLE;
+
             fn encode(&self, e: &mut Encoder) {
                 T::encode(self, e);
+            }
+
+            #[cfg(feature = "alloc")]
+            fn __encode_entries(&self, m: &mut crate::flatten::Flattened<'_>) {
+                T::__encode_entries(self, m);
             }
         }
     )*};
@@ -476,6 +495,9 @@ pub(crate) mod alloc_impls {
 
     impl<I: IdentityMarker, K: Quiddity<I>, V: Quiddity<I>> Quiddity<I> for BTreeMap<K, V> {
         describe!(|cx| X::map(cx.describe::<K, I>()?, cx.describe::<V, I>()?));
+        flatten!(|this, m| for (k, v) in this {
+            m.entry_as::<I, K, V>(k, v);
+        });
 
         fn encode(&self, e: &mut Encoder) {
             map::<I, K, V>(e, self);
@@ -541,6 +563,9 @@ mod std_impls {
 
     impl<I: IdentityMarker, K: Quiddity<I>, V: Quiddity<I>, S> Quiddity<I> for HashMap<K, V, S> {
         describe!(|cx| X::map(cx.describe::<K, I>()?, cx.describe::<V, I>()?));
+        flatten!(|this, m| for (k, v) in this {
+            m.entry_as::<I, K, V>(k, v);
+        });
 
         fn encode(&self, e: &mut Encoder) {
             map::<I, K, V>(e, self);

@@ -1395,6 +1395,162 @@ the records match.
 Quantization (Part 1) is implemented. The tolerant comparison (Part 2)
 later, as a separate feature built on it.
 
+## D21. Serde attributes in the derive (planned)
+
+Discussed 2026-10-14. `flatten` is implemented (2026-10-14); the
+`serde_attributes` mode is not yet.
+
+### Goal
+
+One set of attributes on a type that serves both its identity and its
+wire form. A type that derives `Serialize` and `Quiddity` today repeats
+its renames and skips in both derives, and they drift. Field skipping and
+renaming are most of the value. Replaces the deferred
+`QuiddityFromSerialize`, a separate derive: this is the normal `Quiddity`
+derive, with a mode.
+
+### The mode
+
+- **`#[quiddity(serde_attributes)]`** on a type turns it on. Without it,
+  the derive ignores serde's attributes, as now.
+- **Scoped as every attribute is:** bare, it applies to every identity;
+  `serde_attributes(Meaning)` to the named identities. The other identities
+  behave normally.
+- **For the identities it applies to, serde's attributes are read as their
+  quiddity equivalents.** Serde's attributes that do not affect
+  serialization are ignored.
+- **A quiddity attribute that has a serde counterpart is an error if it
+  applies to an identity in the mode, whether or not serde's attribute is
+  present.** The serde attributes are then the one source of truth for
+  those identities, and nothing has to be compared for agreement. A digest
+  meant to differ from the wire form belongs to an identity without the
+  mode.
+- **For identities outside the mode, those attributes are allowed**,
+  scoped to them. With `serde_attributes(Primary)`, `skip(Meaning)` is
+  allowed; a bare `skip`, which also applies to `Primary`, is an error
+  whose message suggests scoping it to the other identities (`skip(Meaning,
+  Routing)`). Identities outside the mode do not see serde's attributes at
+  all: they use the Rust names unless they have their own scoped
+  `rename`s, even where serde renames for the wire.
+- **Quiddity attributes that serde cannot express mix in freely:**
+  `domain`, `identities`, `identity = A`, `quantize`, `decimals`,
+  `encode_as` (`set`, `display`, an enum's `int`).
+- **Attributes, not encodings.** The mode changes keys, omissions and
+  enum shapes. A field's type is still digested by its `Quiddity` impl: a
+  `Duration` is nanoseconds, though serde writes `{"secs", "nanos"}`.
+  Nested types still implement `Quiddity` or are skipped. (Exported
+  identities already read serde's forms of such types, so the export
+  invariant holds.) `encode_as = serde` remains the way to digest a
+  serialized form.
+
+### Mapping
+
+| serde | quiddity |
+|---|---|
+| `rename_all`, `rename_all_fields` | `rename_all` (on the type; on every variant's fields) |
+| `rename` | `rename` |
+| `rename(serialize = …, deserialize = …)`, and the same for `rename_all` | the `serialize` side |
+| `tag`, `content`, `untagged` (on the type or a variant) | the same |
+| `transparent` | `transparent` |
+| `skip`, `skip_serializing` | `skip` |
+| `skip_serializing_if = "path"` | `omit_none` or `omit_empty` for the paths below, else `omit_if = path` |
+| `serialize_with = "f"`, `with = "m"` | the field digested by `f`, or `m::serialize`, through the serde bridge (as `encode_as = serde`); needs the `serde` feature |
+| `into = "T"` | the type digested through its `Serialize` impl (type-level `encode_as = serde`) |
+| `flatten` | `flatten` (below) |
+| `remote`, `getter` | an error (below) |
+| deserialize-only (`default`, `alias`, `deny_unknown_fields`, `borrow`, `skip_deserializing`, `deserialize_with`, `other`, `from`, `try_from`, …), `bound`, `crate`, `expecting` | ignored |
+| anything else | an error: a serde attribute this version does not know, which means the `serde` version bound let in an incompatible serde |
+
+Quiddity attributes with a serde counterpart, errors in the mode:
+`rename`, `rename_all`, `tag`, `content`, `untagged`, `transparent`,
+`skip`, `omit_none`, `omit_empty`, `omit_if`, `with`, `encode_as = serde`,
+`flatten`.
+
+### `skip_serializing_if`
+
+`omit_if` gives the same digest for any path, but an identity with
+`omit_if` cannot be exported: a document cannot hold a Rust function.
+`skip_serializing_if = "Option::is_none"` is common, so the derive maps the
+standard predicates natively, by the path's text with whitespace removed,
+bare or with its standard module path (`std::`, `alloc::`, `core::`):
+
+- `Option::is_none` → `omit_none`.
+- `is_empty` of `Vec`, `VecDeque`, `String`, `str`, `[_]` (`<[_]>`),
+  `HashMap`, `HashSet`, `BTreeMap`, `BTreeSet`, and with their features
+  `IndexMap`, `IndexSet` and `serde_json::Map` → `omit_empty`.
+
+These decide exactly as the function does (`Option::is_none` is false for
+`Some(None)`, which `omit_none` keeps). A field whose type only derefs to
+one of these (`MyVec` with `Vec::is_empty`) then fails to compile for lack
+of the emptiness trait, rather than digesting wrongly; documented, not
+handled.
+
+### `flatten`
+
+A native field attribute, `#[quiddity(flatten)]`, usable without the mode;
+`#[serde(flatten)]` maps to it. Other languages see the flattened object,
+so the digest must be that object's.
+
+- **Encoding:** a struct with a flattened field is encoded as a buffered
+  map, sorted at run time, since the flattened keys are not known where
+  the outer type is derived. A map with string keys digests as an object
+  (spec 2.5), so the digest is the flattened object's. Other structs keep
+  the presorted field writer.
+- **Two hidden members of `Quiddity`**, as `__describe` and
+  `ABSENT_AS_FIELD` are: `__encode_entries` writes a value's members into
+  the parent's map, and `__FLATTENABLE` says whether the type has members.
+  The derive checks `__FLATTENABLE` for each flattened field with a
+  `const` assertion, so flattening a type without members fails to build
+  (in a build, not in `cargo check`), with a message pointing at the
+  field. A separate `Flatten` trait was implemented first and removed: it
+  added a second impl per type and identity, and bounds on generic types.
+  The derive overrides the members for structs encoded as a map, and for
+  enums: externally
+  tagged, `{variant: content}` (a unit variant panics, as serde reports
+  it); internally tagged, the tag and the struct variant's fields;
+  adjacently tagged, the tag and content; untagged, a struct variant's
+  fields or nothing for a unit variant (other variants panic). Enums with
+  integer tags and types encoded through `Display` or `Serialize` keep the
+  defaults. Maps override them with their entries (serde's catch-all
+  `HashMap<String, Value>`); `Option` writes nothing for `None`; references
+  and smart pointers forward.
+- **A key written twice** (an outer field and a flattened member with one
+  name) cannot be detected when deriving. It panics while digesting, since
+  its JSON form has a repeated key, which has no single meaning (spec 2.7):
+  "quiddity: the key "id" is written twice while digesting `Order`: a
+  flattened field (`#[quiddity(flatten)]` or `#[serde(flatten)]`) has a
+  member with the same name as another field. Its JSON form would have a
+  repeated key, which has no single meaning (spec 2.7). Rename one of
+  them."
+- **Not with `encode_as = list`, nor in tuple structs or tuple variants:**
+  compile errors. serde's flatten is always a map, and its derive rejects
+  both.
+- **Export:** a flattened struct's object kind merges into the parent's
+  fields. A flattened map cannot be expressed (documents have no field for
+  "the remaining members"); export fails with a message saying so.
+
+### `remote` and `getter`
+
+A `remote` derive serializes another type, so the type it is on has no
+serialized form to follow. `getter` is only valid with `remote`. Error,
+on the `remote` attribute:
+
+```
+error: `#[serde(remote = "Other")]` is not supported with `#[quiddity(serde_attributes)]`
+  = note: a remote derive serializes `Other`, not `OtherDef`, so `OtherDef` has no serialized form to follow
+  = help: remove `Quiddity` from this derive: fields of type `Other` marked
+          `#[serde(with = "OtherDef")]` are digested through it, with the `serde` feature
+  = help: or implement `Quiddity` for a wrapper of `Other` by hand
+```
+
+### Limits
+
+A derive cannot see the other derives in its `#[derive(...)]` list, nor
+hand-written `Serialize` impls. The mode cannot detect `serde_repr`'s
+`Serialize_repr` (an enum as its integer) or any `Serialize` impl that
+departs from serde's attributes; such types say so with quiddity's own
+attributes (`encode_as = int`) or do not use the mode.
+
 ## To revisit
 
 ### R4. Richer kinds
@@ -1616,10 +1772,13 @@ Decided in the draft, open to review:
   (`Kind::Instant { unit }`, `Kind::Duration { unit }`) and `BytesOptions`
   (`Kind::Bytes { text }`), with the same encodings, so no digest changes;
   the identity module's public types would go from 18 to 15. Not decided.
-- **Deferred from D19:** `QuiddityFromSerialize`, a derive that reads
-  serde's attributes rather than quiddity's; removing the "Draft" marker
-  from spec section 5. (Done since: `Identity::digest` takes any
-  `Serialize` value, without building a `serde_json::Value`.)
+- **Deferred from D19:** removing the "Draft" marker from spec section 5.
+  (Done since: `Identity::digest` takes any `Serialize` value, without
+  building a `serde_json::Value`. `QuiddityFromSerialize`, a separate
+  derive reading serde's attributes, is replaced by D21's mode of the
+  normal derive.)
+- **D21:** serde attributes in the derive, `#[quiddity(serde_attributes)]`:
+  designed, not implemented. Its native `flatten` is implemented.
 - **`identity` without `serde/derive`:** `Identity` and its parts derive
   `Serialize` and `Deserialize`, so `identity` pulls in `serde_derive`.
   Projects that need `identity` are mostly multi-language services, which

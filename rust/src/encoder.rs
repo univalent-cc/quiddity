@@ -488,6 +488,17 @@ impl Entries {
         r
     }
 
+    /// Writes the map as [`Entries::write_sorted`] does, calling
+    /// `duplicate` with the encoding of a key written twice, if any.
+    pub(crate) fn write_sorted_unique(self, e: &mut Encoder, duplicate: impl FnOnce(&[u8])) {
+        let mut keys: Vec<&[u8]> = self.spans.iter().map(|s| &self.buf[s.0..s.1]).collect();
+        keys.sort_unstable();
+        if let Some(w) = keys.windows(2).find(|w| w[0] == w[1]) {
+            duplicate(w[0]);
+        }
+        self.write_sorted(e);
+    }
+
     /// Writes the map: its entries in canonical order (spec 2.5), then the
     /// count and tag.
     pub(crate) fn write_sorted(mut self, e: &mut Encoder) {

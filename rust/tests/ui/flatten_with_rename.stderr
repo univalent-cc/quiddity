@@ -1,0 +1,5 @@
+error: `flatten` cannot be combined with `rename`: a flattened field has no key or value of its own (identity `Primary`)
+  --> tests/ui/flatten_with_rename.rs:11:11
+   |
+11 |     page: Page,
+   |           ^^^^

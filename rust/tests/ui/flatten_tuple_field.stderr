@@ -1,0 +1,5 @@
+error: `flatten` applies to named fields, not tuple fields
+ --> tests/ui/flatten_tuple_field.rs:9:43
+  |
+9 | struct Query(String, #[quiddity(flatten)] Page);
+  |                                           ^^^^
