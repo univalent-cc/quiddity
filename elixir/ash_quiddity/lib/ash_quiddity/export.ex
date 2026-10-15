@@ -23,7 +23,7 @@ defmodule AshQuiddity.Export do
     if s[:flatten] do
       raise Quiddity.Error.at(
               "$.#{key}",
-              "#{inspect(resource)}: a flattened field cannot be expressed in an identity document"
+              "#{inspect(resource)}: a flattened field cannot be exported"
             )
     end
 

@@ -268,19 +268,19 @@ fn text_forms() {
     }
 }
 
-/// An identity's document, through its `Serialize` impl.
+/// An identity's JSON form, through its `Serialize` impl.
 #[cfg(feature = "identity")]
 fn to_json(id: &crate::identity::Identity) -> serde_json::Value {
     serde_json::to_value(id).unwrap()
 }
 
-/// An identity from its document, through its `Deserialize` impl.
+/// An identity from its JSON form, through its `Deserialize` impl.
 #[cfg(feature = "identity")]
 fn from_json(doc: &serde_json::Value) -> Result<crate::identity::Identity, serde_json::Error> {
     serde_json::from_value(doc.clone())
 }
 
-/// Identities (spec 5): each document's digest, which is computed with
+/// Identities (spec 5): each identity's digest, which is computed with
 /// `Identity`'s `Quiddity` impl (spec 5.10), and each source value's
 /// encoding, digest or error.
 #[cfg(feature = "identity")]
@@ -291,7 +291,7 @@ fn identities() {
     assert!(cases.len() > 20);
     for case in cases {
         let name = str_of(case, "name");
-        let identity = from_json(&case["document"]).unwrap_or_else(|e| panic!("{name}: {e}"));
+        let identity = from_json(&case["identity"]).unwrap_or_else(|e| panic!("{name}: {e}"));
         assert_eq!(
             identity.quiddity().to_string(),
             str_of(case, "identity_digest"),
@@ -319,11 +319,11 @@ fn identities() {
 
 #[cfg(feature = "identity")]
 #[test]
-fn invalid_documents() {
+fn invalid_identities() {
     let Some(vectors) = vectors() else { return };
-    for case in vectors["invalid_documents"].as_array().unwrap() {
+    for case in vectors["invalid_identities"].as_array().unwrap() {
         assert!(
-            from_json(&case["document"]).is_err(),
+            from_json(&case["identity"]).is_err(),
             "{} must be rejected",
             str_of(case, "name")
         );
@@ -335,8 +335,8 @@ fn invalid_documents() {
 fn same_identity() {
     let Some(vectors) = vectors() else { return };
     for case in vectors["same_identity"].as_array().unwrap() {
-        for doc in case["documents"].as_array().unwrap() {
-            let identity = from_json(doc).unwrap();
+        for json in case["identities"].as_array().unwrap() {
+            let identity = from_json(json).unwrap();
             assert_eq!(
                 identity.quiddity().to_string(),
                 str_of(case, "identity_digest"),
@@ -347,16 +347,16 @@ fn same_identity() {
     }
 }
 
-/// The identity of identity documents (spec Appendix C), under itself: its
-/// digest computed with `Identity`'s `Quiddity` impl equals its digest
-/// computed by applying it, as an identity, to its own document.
+/// The identity of identities (spec Appendix C), under itself: its digest
+/// computed with `Identity`'s `Quiddity` impl equals its digest computed by
+/// applying it, as an identity, to itself.
 #[cfg(feature = "identity")]
 #[test]
 fn identity_of_identities() {
     use crate::identity::Identity;
     let Some(vectors) = vectors() else { return };
     let case = &vectors["identity_of_identities"];
-    let meta = from_json(&case["document"]).unwrap();
+    let meta = from_json(&case["identity"]).unwrap();
     let expected = str_of(case, "identity_digest");
     assert_eq!(meta.quiddity().to_string(), expected, "derived");
     assert_eq!(
@@ -374,7 +374,7 @@ fn identity_of_identities() {
     );
     // And for every identity in the vectors.
     for c in vectors["identities"].as_array().unwrap() {
-        let identity = from_json(&c["document"]).unwrap();
+        let identity = from_json(&c["identity"]).unwrap();
         for m in [&meta, &exported] {
             assert_eq!(
                 m.digest(&identity).unwrap(),

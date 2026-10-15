@@ -134,14 +134,13 @@ are.
 
 ## Identities as data
 
-An identity can also be data, built in code or loaded from an identity
-document, the JSON form that every implementation of quiddity reads. It
-applies to any value, such as a map decoded from JSON:
+An identity can also be data, built in code or read from its JSON form,
+which every implementation of quiddity reads and writes. It applies to any
+value, such as a map decoded from JSON:
 
 ```elixir
 iex> {:ok, identity} =
 ...>   Quiddity.Identity.from_json(~s({
-...>     "quiddity": 1,
 ...>     "root": {"object": {"fields": {
 ...>       "prompt": {"kind": "string"},
 ...>       "priority": {"kind": "integer"},
@@ -165,7 +164,7 @@ Quiddity.Identity.new!({:object, prompt: :string, priority: :integer, asked_at: 
 ```
 
 `Quiddity.Identity` describes the kinds, building and changing identities,
-and nesting them. `Quiddity.Identity.to_json/1` writes the document, and
+and nesting them. `Quiddity.Identity.to_json/1` writes its JSON form, and
 `Quiddity.identity/2` exports the identity of a derived struct, for other
 languages to apply to its JSON form.
 

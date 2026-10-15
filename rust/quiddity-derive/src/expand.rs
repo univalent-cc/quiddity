@@ -1275,7 +1275,7 @@ impl Field {
         )
     }
 
-    /// Whether the field is quantized under `key`, which a document can
+    /// Whether the field is quantized under `key`, which an identity can
     /// express only for fields with names.
     fn is_quantized(&self, key: &str) -> bool {
         self.attrs.quantize.get(key).is_some() || self.attrs.decimals.get(key).is_some()

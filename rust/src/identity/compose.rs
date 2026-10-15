@@ -154,7 +154,7 @@ pub(crate) fn identity(kind: Kind, domain: Option<String>) -> Result<Identity> {
 }
 
 /// The identity, named `name`: its root becomes its own definition, under
-/// that name, so that the name is part of its document.
+/// that name, so that the name is part of its JSON form.
 pub(crate) fn named(mut id: Identity, name: String) -> Identity {
     let own = match &id.root {
         Kind::Ref(own) => Some(own.as_str().to_owned()),

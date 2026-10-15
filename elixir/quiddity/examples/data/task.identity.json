@@ -1,5 +1,4 @@
 {
-  "quiddity": 1,
   "domain": "example.task",
   "root": {"object": {"fields": {
     "prompt": {"kind": "string"},

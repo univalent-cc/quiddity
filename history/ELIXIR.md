@@ -97,8 +97,8 @@ identity.
 
 1. The core (spec sections 2–4): the data model, the encoding and the
    digest of Elixir values, checked against `test-vectors/`.
-2. Dynamic identities (spec section 5): documents, applying them,
-   conversions, quantization, the identity of identity documents. In a
+2. Dynamic identities (spec section 5): reading and writing them,
+   applying them, conversions, quantization, the identity of identities. In a
    language without static types this is the main tool (D19).
 3. Plain structs: a protocol and its derive, the counterpart of
    `#[derive(Quiddity)]`.
@@ -204,7 +204,7 @@ end
 - The protocol's function returns the value's data-model form, so a
   struct can also implement it by hand, as a manual `Quiddity` impl in
   Rust.
-- `Quiddity.identity(Task)` exports the struct's identity document, as
+- `Quiddity.identity(Task)` exports the struct's identity, as
   `construct_identity()` does.
 
 Elixir structs have no per-field attributes, so a keyword list keyed by
@@ -304,12 +304,12 @@ configuration already decides (`rename`, `skip` of a listed field) is a
 compile error; the others (`quantize`, `encode_as: :set`, …) mix in.
 Adapters for other encoders (ash_jason, AshGraphql) can follow the same
 pattern if wanted. OpenAPI is never a source: it describes AshJsonApi's
-output, and a resource's identity document is built from the resource
+output, and a resource's identity is built from the resource
 itself, as `construct_identity()` is in Rust.
 
 `Quiddity.digest(record)` digests a record under its primary identity;
 `Quiddity.digest(record, :meaning)` under another. `Quiddity.Ash.identity/2`
-exports a resource's identity document.
+exports a resource's identity.
 
 ## E7. Ash types (Q6)
 
@@ -345,15 +345,15 @@ write it. For the types below this is also what AshJsonApi exports.
 ## E8. Dynamic identities (Q10)
 
 The same API as the Rust crate's, in Elixir's form: an identity is
-created in code or loaded from a document, written out, and applied to
+created in code or read from JSON, written out, and applied to
 any value.
 
 - **The type:** `%Quiddity.Identity{}`, always valid and canonical (spec
   5.3, 5.9), with `Quiddity.digest(value, identity)` digesting any value
   under it. Values are read as their JSON forms would be (E3), so a
   struct, a map decoded from JSON and an Ash record (E6) digest alike.
-- **Kinds are plain terms**, the document's own shapes as atoms and
-  tuples, so an identity reads like its document: `:string`, `:integer`,
+- **Kinds are plain terms**, the shapes of an identity's JSON form as
+  atoms and tuples, so an identity reads like its JSON form: `:string`, `:integer`,
   `{:list, :string}`, `{:set, :string}`, `{:map, :string, :any}`,
   `{:optional, :string}`, `{:instant, unit: :ms}`, `{:object, fields}`
   with `fields` a keyword list of kinds or `{kind, opts}`, `{:tagged,
@@ -367,13 +367,12 @@ any value.
   `definition/2`. A nested `%Identity{}` inside a kind becomes a
   definition under its name, and `:recursive` refers to the identity
   being built, as in Rust.
-- **Documents:** `Identity.from_json/1` takes JSON text or a decoded map,
-  rejecting repeated keys and applying spec 2.7 to numbers (the built-in
-  decoder keeps the last of repeated keys and decodes integers beyond 64
-  bits exactly); `Identity.to_json/1` gives the canonical document as a
-  map, and `JSON.Encoder` writes it.
+- **JSON:** `Identity.from_json/1` takes JSON text or a decoded map,
+  rejecting repeated keys (the built-in decoder keeps the last of repeated
+  keys) and integers written as floats (P6); `Identity.to_json/1` gives
+  the canonical JSON form as a map, and `JSON.Encoder` writes it.
 - **Its own digest:** `Quiddity.digest(identity)`, under the identity of
-  identity documents (Appendix C).
+  identities (Appendix C).
 - **From types:** `Quiddity.identity(module)` exports the identity of a
   derived struct (E5) or, with `ash_quiddity`, of a resource (E6), as
   Rust's `construct_identity()` does.
@@ -395,7 +394,7 @@ identities once for every language:
    that one (as `serde_attributes(Primary)`); D21's rule carries over:
    settings the followed encoder already decides are errors for the
    identities in the mode, and allowed for the others.
-5. Each identity exports its own document:
+5. Each identity is exported on its own:
    `Quiddity.identity(Ticket, :meaning)`, as
    `<T as Quiddity<Meaning>>::construct_identity()`.
 
@@ -513,7 +512,7 @@ Recommended 2026-10-15, for review:
 
 - **Q5:** keep "identity", in the spec and in every implementation. It
   says what an identity decides: when two values count as the same. It is
-  in the spec (section 5, identity documents, Appendix C), the vectors,
+  in the spec (section 5, Appendix C), the vectors,
   the README and the Rust API. "Meaning" fits the primary identity but not
   every identity (a routing or cache identity is not a meaning); "view",
   "facet" and "aspect" suggest a partial look rather than a definition of
@@ -610,15 +609,21 @@ to be revisited. Each says what was chosen, the alternatives, and why.
   Alternative: require `JSON.Encoder`. Rejected: many structs have only one.
 - **P4. Plain values follow Elixir's JSON encoders (E3), checked against
   Elixir 1.19's `JSON` and Jason 1.4**, with one exception decided here:
-- **P5. `Decimal` text without an exponent.** `JSON` writes `1E+10`, Jason
-  `10000000000` (`Decimal.to_string(d, :normal)`). Chosen: Jason's, since
-  ULP and most Ash applications encode with Jason, and it never needs an
-  exponent. `Decimal` is matched by its struct name, so it is not a
-  dependency.
-- **P6. JSON numbers in documents follow spec 2.7: `1.0` is `1`.** So
-  `"quiddity": 1.0` and `"quantize": 5.0` are accepted, as `qident.py`
-  accepts them. The Rust crate rejects them (`as_u64` of a float); to be
-  aligned, in Rust or in the spec.
+- **P5. `Decimal` as its scientific string.** `JSON` writes `1E+10`, Jason
+  `10000000000` (`Decimal.to_string(d, :normal)`). First chosen: Jason's,
+  since ULP and most Ash applications encode with Jason. Changed
+  2026-10-15: `Decimal.to_string/1`'s default, the General Decimal
+  Arithmetic specification's "to-scientific-string", which Elixir's `JSON`
+  writes and which Python's `str(Decimal)` implements too (checked on 13
+  values, among them `1E+10`, `1.2E-7`, `0E-7`, `-0` and `12.50`), so that
+  a decimal digests alike in Elixir and Python (PYTHON.md, Q5). `Decimal`
+  is matched by its struct name, so it is not a dependency.
+- **P6. An identity's integers are integers** (resolved 2026-10-15,
+  DESIGN.md D22). `quantize`, `decimals` and `discriminant` written as
+  `5.0` are rejected, as the Rust crate rejects them. This package first
+  read an identity's numbers by spec 2.7, so that `5.0` was `5`, but 2.7
+  is about values being digested, not an identity's own members.
+  Identities have no version member either (D22).
 - **P7. One `Quiddity.Digest` struct for 256, 128 and 64 bits**, told apart
   by size, where Rust has three types; `mini/1` and `micro/1` return it.
   Fewer types, as in the rest of the Elixir API.

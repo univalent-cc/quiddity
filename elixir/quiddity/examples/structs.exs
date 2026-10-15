@@ -61,7 +61,7 @@ IO.puts(
 # form. Kinds come from `kind:` options, or from a @type t typespec in a
 # compiled module (a script's modules have none), or are :any.
 {:ok, identity} = Quiddity.identity(MyApp.Task)
-IO.puts("\nidentity document:\n#{JSON.encode!(identity)}\n")
+IO.puts("\nidentity as JSON:\n#{JSON.encode!(identity)}\n")
 
 json = task |> JSON.encode!() |> JSON.decode!()
 IO.puts("JSON form digests alike: #{Quiddity.digest!(json, identity) == digest}")

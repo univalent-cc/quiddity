@@ -12,7 +12,7 @@ use core::fmt;
 use super::{Field, Identity, Kind, ObjectKind, Omit, TaggedKind, Variant};
 use crate::{IdentityMarker, Primary, Quiddity};
 
-/// A type or attribute that an identity document cannot express.
+/// A type or attribute that an identity cannot express.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ExportError {
     /// Where: the exported type's name, then the names of the fields and
@@ -156,13 +156,13 @@ impl Exporter {
 
     /// The error for a type that does not describe itself.
     pub fn unsupported_type(&self, type_name: &str) -> ExportError {
-        self.error(format!("`{type_name}` has no identity document form"))
+        self.error(format!("`{type_name}` cannot be described by an identity"))
     }
 
-    /// The error for an attribute that has no identity document form.
+    /// The error for an attribute that an identity cannot express.
     pub fn unsupported_attribute(&self, type_name: &str, attribute: &str) -> ExportError {
         self.error(format!(
-            "`{type_name}` uses `{attribute}`, which has no identity document form"
+            "`{type_name}` uses `{attribute}`, which an identity cannot express"
         ))
     }
 }
@@ -217,7 +217,7 @@ pub fn object(fields: Vec<(&'static str, Field)>, list: bool) -> Kind {
 /// An object kind from its fields and the kinds of its flattened fields
 /// (D21), each named for errors: a flattened struct's fields join the
 /// object's. Other flattened kinds (a map, an enum, an `Option`) cannot be
-/// expressed in an identity document.
+/// expressed in an identity.
 pub fn object_flattened(
     cx: &Exporter,
     fields: Vec<(&'static str, Field)>,
@@ -239,7 +239,7 @@ pub fn object_flattened(
                 path: cx.path.join("."),
                 message: format!(
                     "the flattened field `{name}` is not a struct with named fields; only those \
-                     can be flattened in an identity document"
+                     can be flattened in an identity"
                 ),
             });
         };

@@ -18,7 +18,7 @@ use quiddity::identity::Identity;
 use quiddity::{IdentityMarker, Primary, Quiddity, QuiddityExt};
 use serde::Serialize;
 
-/// An identity's document, through its `Serialize` impl.
+/// An identity's JSON form, through its `Serialize` impl.
 fn to_json(id: &Identity) -> serde_json::Value {
     serde_json::to_value(id).unwrap()
 }
@@ -141,7 +141,7 @@ fn derived_structs() {
 }
 
 #[test]
-fn exported_document() {
+fn exported_json_form() {
     let id = <Question as Quiddity>::construct_identity().unwrap();
     assert_eq!(id.domain(), Some("example.question"));
     let doc = to_json(&id);
@@ -370,7 +370,7 @@ fn export_errors() {
     assert!(err(<Keyed as Quiddity>::construct_identity()).contains("key"));
     let infallible = err(<std::convert::Infallible as Quiddity>::construct_identity());
     assert!(
-        infallible.contains("no identity document form"),
+        infallible.contains("cannot be described by an identity"),
         "{infallible}"
     );
 }
@@ -442,8 +442,8 @@ fn std_types() {
     check::<_, Primary>(&serde_json::json!({"any": [1, "two", null]}));
 }
 
-/// The identity of identity documents, exported from the `Identity` type,
-/// gives every identity's own digest when applied to its document.
+/// The identity of identities, exported from the `Identity` type, gives
+/// every identity's own digest when applied to it.
 #[test]
 fn identity_exports_itself() {
     let meta = <Identity as Quiddity>::construct_identity().unwrap();
@@ -457,8 +457,8 @@ fn identity_exports_itself() {
     }
 }
 
-/// A type named like one of the definitions of the identity of identity
-/// documents keeps them apart.
+/// A type named like one of the definitions of the identity of identities
+/// keeps them apart.
 #[test]
 fn identity_fields_export() {
     #[derive(Serialize, Quiddity)]
@@ -469,7 +469,7 @@ fn identity_fields_export() {
     let id = <Kind as Quiddity>::construct_identity().unwrap();
     let doc = to_json(&id);
     let defs = doc["definitions"].as_object().unwrap();
-    assert!(defs.contains_key("Document") && defs.contains_key("Kind"));
+    assert!(defs.contains_key("Identity") && defs.contains_key("Kind"));
     let value = Kind {
         name: "k".into(),
         identity: Identity::new(quiddity::identity::Kind::String).unwrap(),

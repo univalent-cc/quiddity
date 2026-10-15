@@ -63,7 +63,8 @@ defmodule Quiddity.Value do
     * atoms other than `nil`, `true` and `false` are strings of their
       names, and map keys that are atoms are strings too;
     * `Date`, `Time`, `NaiveDateTime` and `Duration` are their ISO 8601
-      text, and a `Decimal` its decimal text, without an exponent;
+      text, and a `Decimal` its decimal text (`"12.50"`, `"1E+10"`), as
+      Elixir's `JSON` writes it;
     * a `DateTime` is an instant, and a `MapSet` a set;
     * a `Quiddity.Digest` is the string of its text form (spec 6.2);
     * a struct is read through its `Quiddity.Encoder` implementation.
@@ -112,8 +113,10 @@ defmodule Quiddity.Value do
   def from(%Duration{} = d, _path), do: Duration.to_iso8601(d)
 
   def from(%{__struct__: Decimal} = d, _path) do
-    # As Jason writes it; see history/ELIXIR.md, P5.
-    apply(Decimal, :to_string, [d, :normal])
+    # The General Decimal Arithmetic "to-scientific-string", as Elixir's
+    # JSON writes it and as Python's str(Decimal) does, so that a decimal
+    # digests alike in both; see history/ELIXIR.md, P5.
+    apply(Decimal, :to_string, [d])
   end
 
   def from(%{__struct__: module} = struct, path) do

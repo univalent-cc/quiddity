@@ -91,7 +91,7 @@ defmodule Quiddity.VectorsTest do
     test "identities" do
       for c <- vectors()["identities"] do
         name = c["name"]
-        {:ok, id} = Identity.from_json(c["document"])
+        {:ok, id} = Identity.from_json(c["identity"])
 
         assert to_string(Quiddity.digest!(id)) == c["identity_digest"],
                "identity digest of #{name}"
@@ -117,23 +117,23 @@ defmodule Quiddity.VectorsTest do
       end
     end
 
-    test "invalid documents" do
-      for c <- vectors()["invalid_documents"] do
-        assert {:error, %Quiddity.InvalidIdentity{}} = Identity.from_json(c["document"]),
+    test "invalid identities" do
+      for c <- vectors()["invalid_identities"] do
+        assert {:error, %Quiddity.InvalidIdentity{}} = Identity.from_json(c["identity"]),
                c["name"]
       end
     end
 
     test "same identity" do
-      for c <- vectors()["same_identity"], doc <- c["documents"] do
-        {:ok, id} = Identity.from_json(doc)
+      for c <- vectors()["same_identity"], json <- c["identities"] do
+        {:ok, id} = Identity.from_json(json)
         assert to_string(Quiddity.digest!(id)) == c["identity_digest"], c["name"]
       end
     end
 
     test "the identity of identities" do
       c = vectors()["identity_of_identities"]
-      {:ok, meta} = Identity.from_json(c["document"])
+      {:ok, meta} = Identity.from_json(c["identity"])
       assert to_string(Quiddity.digest!(meta)) == c["identity_digest"]
       assert to_string(Quiddity.digest!(Identity.to_json(meta), meta)) == c["identity_digest"]
     end

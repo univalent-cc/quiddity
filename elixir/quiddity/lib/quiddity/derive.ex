@@ -213,7 +213,7 @@ defmodule Quiddity.Derive do
         raise(
           Quiddity.Error.at(
             "$.#{key}",
-            "#{inspect(module)}: a flattened field cannot be expressed in an identity document"
+            "#{inspect(module)}: a flattened field cannot be exported"
           )
         )
 

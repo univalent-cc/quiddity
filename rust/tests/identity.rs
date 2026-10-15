@@ -7,12 +7,12 @@ use quiddity::QuiddityExt;
 use quiddity::identity::{Field, Identity, Kind};
 use serde_json::json;
 
-/// An identity's document, through its `Serialize` impl.
+/// An identity's JSON form, through its `Serialize` impl.
 fn to_json(id: &Identity) -> serde_json::Value {
     serde_json::to_value(id).unwrap()
 }
 
-/// An identity from its document, through its `Deserialize` impl.
+/// An identity from its JSON form, through its `Deserialize` impl.
 fn from_json(doc: &serde_json::Value) -> Result<Identity, serde_json::Error> {
     serde_json::from_value(doc.clone())
 }
@@ -20,7 +20,6 @@ fn from_json(doc: &serde_json::Value) -> Result<Identity, serde_json::Error> {
 #[test]
 fn readme_example() {
     let identity = from_json(&json!({
-        "quiddity": 1,
         "root": {"object": {"fields": {
             "prompt": {"kind": "string"},
             "priority": {"kind": "integer"},
@@ -106,7 +105,7 @@ fn composed_identity_matches_its_document() {
         json!({"union": ["null", {"ref": "Question"}]})
     );
     assert_eq!(fields["tags"]["omit"], json!(["none", "empty"]));
-    // The document loads back to the same identity, with the same digest.
+    // The JSON form reads back as the same identity, with the same digest.
     let loaded = from_json(&doc).unwrap();
     assert_eq!(loaded, q);
     assert_eq!(loaded.quiddity(), q.quiddity());
@@ -143,9 +142,9 @@ fn names_that_clash() {
 }
 
 #[test]
-fn names_are_in_the_document() {
+fn names_are_in_the_json_form() {
     // A named identity's root is its own definition, so its name appears
-    // in its document, and comes back when the document is read.
+    // in its JSON form, and comes back when it is read.
     let r = row();
     assert_eq!(r.name(), Some("Row"));
     let doc = to_json(&r);
@@ -239,8 +238,8 @@ fn constructors_check_what_they_build() {
     assert!(Identity::new(Kind::recursive()).is_err());
 }
 
-/// With the `serde` feature, an identity is written and read as its
-/// document, and reading checks it.
+/// With the `serde` feature, an identity is written and read in any serde
+/// format, and reading checks it.
 #[cfg(feature = "serde")]
 #[test]
 fn serde_round_trip() {
@@ -262,7 +261,7 @@ fn serde_round_trip() {
     }
     let config: Config = serde_json::from_value(json!({
         "version": 3,
-        "identity": {"quiddity": 1, "root": {"union": ["null", "string"]}}
+        "identity": {"root": {"union": ["null", "string"]}}
     }))
     .unwrap();
     assert_eq!(
@@ -276,14 +275,14 @@ fn serde_round_trip() {
 
     // Not valid: an error, naming the problem.
     let err = serde_json::from_value::<Identity>(json!({
-        "quiddity": 1, "root": {"union": ["integer", "number"]}
+        "root": {"union": ["integer", "number"]}
     }))
     .unwrap_err();
     assert!(err.to_string().contains("natively"), "{err}");
-    let err = serde_json::from_str::<Identity>(r#"{"quiddity": 1, "root": "text"}"#).unwrap_err();
+    let err = serde_json::from_str::<Identity>(r#"{"root": "text"}"#).unwrap_err();
     // A structural error is serde's, with its position in the text.
     assert!(err.to_string().contains("unknown variant `text`"), "{err}");
-    assert_eq!((err.line(), err.column()), (1, 30));
+    assert_eq!((err.line(), err.column()), (1, 15));
 }
 
 /// Any `Serialize` value can be digested. A value has the digest of its

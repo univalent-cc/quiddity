@@ -85,11 +85,11 @@ IO.puts("invalid change:    #{Exception.message(error)}")
 {:ok, task} = Identity.remove_field_in(task, "Task", "priority")
 IO.puts("without priority:  #{Quiddity.digest!(value, task)}")
 
-# --- Documents -----------------------------------------------------------------
+# --- As JSON -------------------------------------------------------------------
 
 # An identity is data: written out as JSON, any implementation reads it.
-document = Identity.to_json(task)
-{:ok, loaded} = Identity.from_json(JSON.encode!(document))
+json = Identity.to_json(task)
+{:ok, loaded} = Identity.from_json(JSON.encode!(json))
 IO.puts("loaded back:       #{loaded == task}")
 
 # An identity has a digest of its own, the same in every implementation.

@@ -86,9 +86,8 @@ loads the fields it covers.
 
 ### The identity as data
 
-`Quiddity.identity(Helpdesk.Ticket)` exports the resource's identity
-document, which other implementations of quiddity apply to a record's JSON
-form.
+`Quiddity.identity(Helpdesk.Ticket)` exports the resource's identity,
+which other implementations of quiddity apply to a record's JSON form.
 
 See `AshQuiddity` and `AshQuiddity.Resource` for the details.
 

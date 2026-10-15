@@ -1,8 +1,8 @@
 //! Building identities at runtime, and digesting JSON values under them.
 //!
 //! An identity says which members of a value count, and how each is read.
-//! Here one is built in code, applied to values, changed, written out as an
-//! identity document, and read back.
+//! Here one is built in code, applied to values, changed, written out as
+//! JSON, and read back.
 //!
 //! ```sh
 //! cargo run --example dynamic_identity
@@ -127,14 +127,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     assert_eq!(task.digest(&value)?, task.digest(&other)?);
     println!("without priority:  {}", task.digest(&value)?);
 
-    // --- Documents ----------------------------------------------------------
+    // --- As JSON ------------------------------------------------------------
 
     // An identity is data: written out as JSON, it can be read by any
     // implementation of quiddity, in any language.
-    let document = task.to_json();
-    println!("\nidentity document:\n{document:#}\n");
+    let json = task.to_json();
+    println!("\nidentity as JSON:\n{json:#}\n");
 
-    let loaded = Identity::from_json(&document)?;
+    let loaded = Identity::from_json(&json)?;
     assert_eq!(loaded, task);
     assert_eq!(loaded.digest(&value)?, task.digest(&value)?);
 
@@ -142,13 +142,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // computes the same way. It tells whether two identities are the same.
     println!("identity's digest: {}", task.quiddity());
 
-    // A document that is not valid is an error that says where.
+    // An identity that is not valid is an error that says where.
     let err = Identity::from_json(&json!({
-        "quiddity": 1,
         "root": {"union": ["integer", "number"]}
     }))
     .unwrap_err();
-    println!("invalid document:  {err}");
+    println!("invalid identity:  {err}");
 
     Ok(())
 }

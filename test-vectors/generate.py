@@ -39,7 +39,7 @@ def spec_json(marker):
     return json.loads(block)
 
 
-# The identity of identity documents (spec Appendix C), and the example of
+# The identity of identities (spec Appendix C), and the example of
 # spec 5.3, taken from the spec itself.
 META = spec_json('"quiddity.identity"')
 EXAMPLE = spec_json('"example.question"')
@@ -229,12 +229,12 @@ JSON = [
 ]
 
 def doc(root, **extra):
-    return {"quiddity": 1, "root": root, **extra}
+    return {"root": root, **extra}
 
 
 ERR = object()
 
-# Identities (spec 5). Each entry: a name, a document, and source values.
+# Identities (spec 5). Each entry: a name, an identity, and source values.
 # A source is a JSON value; `ERR` marks one that MUST fail. Sources in a
 # group (a tuple) MUST have the same digest; different groups MUST NOT.
 IDENTITIES = [
@@ -436,13 +436,13 @@ IDENTITIES = [
     ]),
 ]
 
-# Documents that MUST be rejected (spec 5.9).
-INVALID_DOCUMENTS = [
-    ("unknown member", {"quiddity": 1, "root": "string", "extra": 1}),
+# Identities that MUST be rejected (spec 5.9).
+INVALID_IDENTITIES = [
+    ("unknown member", {"root": "string", "extra": 1}),
+    ("a version member", {"quiddity": 1, "root": "string"}),
     ("unknown kind", doc("text")),
     ("unknown option", doc({"bytes": {"text": "base32"}})),
-    ("missing root", {"quiddity": 1}),
-    ("wrong version", {"quiddity": 2, "root": "string"}),
+    ("missing root", {}),
     ("empty domain", doc("string", domain="")),
     ("undefined ref", doc({"ref": "Row"})),
     ("cycle of refs", doc({"ref": "A"}, definitions={"A": {"ref": "B"}, "B": {"union": ["null", {"ref": "A"}]}})),
@@ -478,6 +478,10 @@ INVALID_DOCUMENTS = [
     ("missing discriminant", doc({"tagged": {"encode_as": "int", "variants": {"A": {}}}})),
     ("quantize a string", doc({"object": {"fields": {"s": {"kind": "string", "quantize": 10}}}})),
     ("decimals on an integer", doc({"object": {"fields": {"n": {"kind": "integer", "decimals": 2}}}})),
+    ("quantize written as a float", doc({"object": {"fields": {"n": {"kind": "integer", "quantize": 5.0}}}})),
+    ("decimals written as a float", doc({"object": {"fields": {"x": {"kind": "number", "decimals": 2.0}}}})),
+    ("quantize a string of digits", doc({"object": {"fields": {"n": {"kind": "integer", "quantize": "5"}}}})),
+    ("discriminant written as a float", doc({"tagged": {"encode_as": "int", "variants": {"A": {"discriminant": 1.0}}}})),
     ("quantize zero", doc({"object": {"fields": {"n": {"kind": "integer", "quantize": 0}}}})),
     ("decimals out of range", doc({"object": {"fields": {"x": {"kind": "number", "decimals": 301}}}})),
     ("quantize and decimals", doc({"object": {"fields": {"x": {"kind": "number", "quantize": 10, "decimals": 2}}}})),
@@ -487,13 +491,13 @@ INVALID_DOCUMENTS = [
     ("discriminant without int", doc({"tagged": {"variants": {"A": {"discriminant": 1}}}})),
 ]
 
-# Pairs of documents with the same digest (spec 5.10).
+# Pairs of identities with the same digest (spec 5.10).
 SAME_IDENTITY = [
     ("defaults, order and nesting",
      doc({"object": {"fields": {
          "a": {"kind": {"union": ["null", "string"]}, "omit": ["none", "empty"]},
          "b": {"kind": {"bytes": {}}}}}}),
-     {"definitions": {}, "quiddity": 1, "root": {"object": {"unlisted": "skip", "fields": {
+     {"definitions": {}, "root": {"object": {"unlisted": "skip", "fields": {
          "b": {"kind": {"bytes": {"text": "base64"}}, "rename": "b"},
          "a": {"omit": ["empty", "none"], "kind": {"union": ["string", {"union": ["null", "string"]}]}}}}}}),
     ("a union of one", doc({"union": ["null", "null"]}), doc("null")),
@@ -538,8 +542,8 @@ def build():
         })
     texts = [{"text": t, "valid": ok, "requirement": req} for t, ok, req in TEXT_FORMS]
     identities = []
-    for name, document, groups in IDENTITIES:
-        identity = qident.load(document)
+    for name, form, groups in IDENTITIES:
+        identity = qident.load(form)
         cases, seen = [], {}
 
         def read(source):
@@ -564,23 +568,23 @@ def build():
                 assert d == first, f"{name}: {source!r} differs from {group[0]!r}"
                 cases.append({"source": source, "encoding": enc(value).hex(), **digests(d)})
         identities.append({
-            "name": name, "document": document,
-            "identity_digest": text(qident.identity_digest(document, META)),
+            "name": name, "identity": form,
+            "identity_digest": text(qident.identity_digest(form, META)),
             "cases": cases,
         })
-    invalid_documents = []
-    for name, document in INVALID_DOCUMENTS:
+    invalid_identities = []
+    for name, form in INVALID_IDENTITIES:
         try:
-            qident.load(document)
-        except qident.InvalidDocument:
-            invalid_documents.append({"name": name, "document": document})
+            qident.load(form)
+        except qident.InvalidIdentity:
+            invalid_identities.append({"name": name, "identity": form})
         else:
             raise AssertionError(f"{name} must be rejected")
     same_identity = []
     for name, a, b in SAME_IDENTITY:
         da, db = qident.identity_digest(a, META), qident.identity_digest(b, META)
         assert da == db, name
-        same_identity.append({"name": name, "documents": [a, b], "identity_digest": text(da)})
+        same_identity.append({"name": name, "identities": [a, b], "identity_digest": text(da)})
     meta_digest = text(qident.identity_digest(META, META))
     json_cases = []
     seen = {}
@@ -596,9 +600,9 @@ def build():
         "values": values,
         "domains": domains,
         "json": json_cases,
-        "identity_of_identities": {"document": META, "identity_digest": meta_digest},
+        "identity_of_identities": {"identity": META, "identity_digest": meta_digest},
         "identities": identities,
-        "invalid_documents": invalid_documents,
+        "invalid_identities": invalid_identities,
         "same_identity": same_identity,
         "text_forms": texts,
     }

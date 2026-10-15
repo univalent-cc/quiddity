@@ -1,4 +1,4 @@
-//! Loading identity documents (spec 5.3), their canonical form, and their
+//! Reading identities (spec 5.3), their canonical form, and their
 //! validation (spec 5.9).
 
 use alloc::borrow::ToOwned;
@@ -15,10 +15,10 @@ use super::{
 };
 use crate::{Encoder, Quiddity};
 
-/// An identity document that is not valid (spec 5.9).
+/// An identity that is not valid (spec 5.9).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct InvalidIdentity {
-    /// Where in the document: `$` for the document itself.
+    /// Where in the identity: `$` for the identity itself.
     pub path: String,
     /// What is wrong.
     pub message: String,
@@ -41,14 +41,13 @@ pub(crate) fn invalid(path: &str, message: impl Into<String>) -> InvalidIdentity
 
 type Result<T> = core::result::Result<T, InvalidIdentity>;
 
-// --- Reading documents ---------------------------------------------------------
+// --- Reading identities --------------------------------------------------------
 
-/// An identity document as written (spec 5.3), before its canonical form
-/// is taken and it is checked.
+/// An identity as read (spec 5.3), before its canonical form is taken and
+/// it is checked.
 #[derive(serde::Deserialize)]
 #[serde(deny_unknown_fields)]
-pub(crate) struct Document {
-    quiddity: u32,
+pub(crate) struct Unchecked {
     #[serde(default)]
     domain: Option<String>,
     root: Kind,
@@ -56,14 +55,11 @@ pub(crate) struct Document {
     definitions: BTreeMap<String, Kind>,
 }
 
-impl TryFrom<Document> for Identity {
+impl TryFrom<Unchecked> for Identity {
     type Error = InvalidIdentity;
 
-    fn try_from(doc: Document) -> Result<Identity> {
-        if doc.quiddity != 1 {
-            return Err(invalid("$.quiddity", "expected 1"));
-        }
-        build(doc.root, doc.definitions, doc.domain)
+    fn try_from(u: Unchecked) -> Result<Identity> {
+        build(u.root, u.definitions, u.domain)
     }
 }
 
@@ -343,7 +339,6 @@ pub(crate) fn build(
     reach(&root, &defs, &mut reached);
     defs.retain(|name, _| reached.contains(name));
     Ok(Identity {
-        version: 1,
         domain,
         root,
         definitions: defs,

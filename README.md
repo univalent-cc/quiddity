@@ -79,16 +79,16 @@ println!("{digest}"); // sha256:9f2c…
 
 #### Identities are portable
 
-An identity can be written as a JSON document, which every implementation
-reads, and which a Rust type can export from its derived identity. An
+An identity is plain data. Written as JSON, it can be read by every
+implementation, and a Rust type can export its derived identity this way. An
 identity has a digest of its own, which every implementation computes the
 same way:
 
 ```rust
 let id = Identity::new(Kind::object([("prompt", Kind::String)])?)?;
-let document = id.to_json();
-// {"quiddity": 1, "root": {"object": {"fields": {"prompt": {"kind": "string"}}}}}
-assert_eq!(Identity::from_json(&document)?, id);
+let json = id.to_json();
+// {"root": {"object": {"fields": {"prompt": {"kind": "string"}}}}}
+assert_eq!(Identity::from_json(&json)?, id);
 ```
 
 ### Digest Encoding Behavior
@@ -228,7 +228,7 @@ The Rust crate in [`rust/`](rust/) includes:
 - Implementations for most `std` types
 - Optional features for types from `serde_json`, `indexmap`, `uuid`, `bytes` and `url`.
 - Support for any type that implements serde's `Serialize`.
-- Identities built at run time and read from identity documents, and
+- Identities built at run time and read from JSON, and
   identities exported from derived types.
 - Compatibility with `no_std` environments.
 

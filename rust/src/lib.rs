@@ -158,12 +158,12 @@ pub trait Quiddity<I: IdentityMarker = Primary> {
         m.cannot_flatten(core::any::type_name::<Self>())
     }
 
-    /// The identity document (spec 5) describing this type's encoding
+    /// The identity (spec 5) describing this type's encoding
     /// under `I`, for values in the JSON form serde writes (spec 6.8).
     ///
     /// The name says that this builds a structure rather than returning
-    /// one. It fails if the encoding uses something an identity document
-    /// cannot express, such as a `with` function, or reaches a type whose
+    /// one. It fails if the encoding uses something an identity cannot
+    /// express, such as a `with` function, or reaches a type whose
     /// implementation does not describe itself.
     #[cfg(feature = "identity")]
     fn construct_identity() -> Result<identity::Identity, identity::ExportError> {

@@ -7,7 +7,6 @@ defmodule Quiddity.IdentityTest do
   test "the README's example" do
     {:ok, identity} =
       Identity.from_json(%{
-        "quiddity" => 1,
         "root" => %{
           "object" => %{
             "fields" => %{
@@ -65,7 +64,7 @@ defmodule Quiddity.IdentityTest do
     |> Identity.named("Question")
   end
 
-  test "a composed identity matches its document" do
+  test "a composed identity matches its JSON form" do
     q = question()
     doc = Identity.to_json(q)
     assert doc["root"] == %{"ref" => "Question"}
@@ -106,7 +105,7 @@ defmodule Quiddity.IdentityTest do
     assert Map.keys(Identity.to_json(id)["definitions"]) == ["Row", "Row_2"]
   end
 
-  test "names are in the document, and renaming renames references" do
+  test "names are in the JSON form, and renaming renames references" do
     doc = Identity.to_json(row())
     assert doc["root"] == %{"ref" => "Row"}
     {:ok, back} = Identity.from_json(doc)
@@ -212,21 +211,27 @@ defmodule Quiddity.IdentityTest do
     refute a == Quiddity.digest!(%{price: 12.98, count: 99, at: "2024-01-01T00:00:00Z"}, reading)
   end
 
-  test "an identity encodes to JSON as its document" do
+  test "an identity encodes to JSON as its JSON form" do
     q = question()
     assert JSON.decode!(JSON.encode!(q)) == JSON.decode!(JSON.encode!(Identity.to_json(q)))
     assert Jason.decode!(Jason.encode!(q)) == JSON.decode!(JSON.encode!(Identity.to_json(q)))
   end
 
-  test "documents with repeated member names, or that are not JSON, are errors" do
+  test "JSON with repeated member names, or that is not JSON, is an error" do
     assert {:error, %Quiddity.InvalidIdentity{message: message}} =
-             Identity.from_json(~s({"quiddity": 1, "root": "string", "root": "integer"}))
+             Identity.from_json(~s({"root": "string", "root": "integer"}))
 
     assert message =~ "repeated"
     assert {:error, _} = Identity.from_json("{")
 
     assert_raise Quiddity.InvalidIdentity, fn ->
-      Identity.from_json!(~s({"quiddity": 2, "root": "string"}))
+      Identity.from_json!(~s({"quiddity": 1, "root": "string"}))
+    end
+
+    assert_raise Quiddity.InvalidIdentity, ~r/quantize/, fn ->
+      Identity.from_json!(
+        ~s({"root": {"object": {"fields": {"n": {"kind": "integer", "quantize": 5.0}}}}})
+      )
     end
   end
 
@@ -274,6 +279,6 @@ defmodule Quiddity.IdentityTest do
              "sha256:3c59fa972f11f5a88c3b255813fd42540843f9aee3e1fc9280400c3163287a7f"
 
     assert to_string(Quiddity.digest!(task)) ==
-             "sha256:78bc1549a78b3927d616618f8d53df5c7ddd54dcb9ade125e38fe5001c052f2e"
+             "sha256:4a910ed3f74d8304a617b21a09cbc9be24e148700f4f21425aeddea16bc05632"
   end
 end

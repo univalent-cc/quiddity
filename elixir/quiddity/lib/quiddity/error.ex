@@ -26,12 +26,11 @@ end
 
 defmodule Quiddity.InvalidIdentity do
   @moduledoc """
-  An identity document, or an identity being built, that is not valid
-  (spec section 5.9).
+  An identity, read or being built, that is not valid (spec section 5.9).
 
   ## Fields
 
-    * `:path` - where in the document: `"$"` for the document itself.
+    * `:path` - where in the identity: `"$"` for the identity itself.
     * `:message` - what is wrong.
   """
 

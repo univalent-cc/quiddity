@@ -1,4 +1,4 @@
-//! Digests JSON files under an identity document.
+//! Digests JSON files under an identity read from a JSON file.
 //!
 //! ```sh
 //! cargo run --example digest_json -- \

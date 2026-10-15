@@ -1,8 +1,8 @@
 defmodule Quiddity.Identity.Load do
   @moduledoc false
-  # Identity documents (spec 5.3): their validation (spec 5.9) and canonical
-  # form. Kinds are held in their document form: maps with string keys, as
-  # JSON gives them.
+  # Identities (spec 5.3): their validation (spec 5.9) and canonical form.
+  # Kinds are held in their JSON form: maps with string keys, as JSON gives
+  # them.
 
   alias Quiddity.InvalidIdentity
 
@@ -15,11 +15,9 @@ defmodule Quiddity.Identity.Load do
 
   defp invalid!(path, message), do: raise(InvalidIdentity.at(path, message))
 
-  @doc "The canonical form of a document's parts, checked: {domain, root, definitions}."
+  @doc "The canonical form of an identity's parts, checked: {domain, root, definitions}."
   def load!(doc) do
-    members!(doc, "$", ["quiddity", "root"], ["domain", "definitions"])
-
-    unless doc["quiddity"] === 1, do: invalid!("$.quiddity", "expected 1")
+    members!(doc, "$", ["root"], ["domain", "definitions"])
 
     domain = doc["domain"]
     if Map.has_key?(doc, "domain"), do: nonempty_string!(domain, "$.domain")
@@ -329,7 +327,7 @@ defmodule Quiddity.Identity.Load do
     if encode_as != "string", do: Map.put(out, "encode_as", encode_as), else: out
   end
 
-  # --- Checks that need the whole document (spec 5.9) -------------------------
+  # --- Checks that need the whole identity (spec 5.9) -------------------------
 
   def reach(k, _defs, reached) when is_binary(k), do: reached
 

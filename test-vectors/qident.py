@@ -7,10 +7,13 @@ rule of spec 2.7, see parse_json): None, bool, int or float (a number), str,
 list (an array) and dict (an object). Data-model results are the values
 qref.enc takes.
 
-Usage as a library: load(doc) validates a document and returns it in
+Identities are Python values as json.loads gives them for their JSON form
+(spec 5.3): dict, list, str, and int for integers.
+
+Usage as a library: load(identity) validates an identity and returns it in
 canonical form; apply(identity, source) gives the data-model value;
-digest(identity, source) the digest; identity_digest(doc, meta) the digest
-of an identity under the identity of identity documents (spec Appendix C).
+digest(identity, source) the digest; identity_digest(identity, meta) the
+digest of an identity under the identity of identities (spec Appendix C).
 """
 
 import base64
@@ -23,8 +26,8 @@ import qref
 from qref import Map, Set
 
 
-class InvalidDocument(Exception):
-    """The document is not a valid identity document (spec 5.9)."""
+class InvalidIdentity(Exception):
+    """The identity is not valid (spec 5.9)."""
 
 
 class ApplyError(Exception):
@@ -63,36 +66,36 @@ STRUCTURAL = {"list", "set", "tuple", "map", "object", "tagged"}
 def kind_name(k):
     if isinstance(k, str):
         if k not in SCALARS:
-            raise InvalidDocument(f"unknown kind {k!r}")
+            raise InvalidIdentity(f"unknown kind {k!r}")
         return k
     if isinstance(k, dict) and len(k) == 1:
         (name,) = k
         if name not in COMPOUND:
-            raise InvalidDocument(f"unknown kind {name!r}")
+            raise InvalidIdentity(f"unknown kind {name!r}")
         return name
-    raise InvalidDocument(f"not a kind: {k!r}")
+    raise InvalidIdentity(f"not a kind: {k!r}")
 
 
 def members(obj, where, required=(), optional=()):
     """Checks an object's members: all required present, none unknown."""
     if not isinstance(obj, dict):
-        raise InvalidDocument(f"{where}: expected an object")
+        raise InvalidIdentity(f"{where}: expected an object")
     for m in required:
         if m not in obj:
-            raise InvalidDocument(f"{where}: missing member {m!r}")
+            raise InvalidIdentity(f"{where}: missing member {m!r}")
     for m in obj:
         if m not in required and m not in optional:
-            raise InvalidDocument(f"{where}: unknown member {m!r}")
+            raise InvalidIdentity(f"{where}: unknown member {m!r}")
 
 
 def one_of(value, allowed, where):
     if value not in allowed:
-        raise InvalidDocument(f"{where}: {value!r} is not one of {sorted(allowed)}")
+        raise InvalidIdentity(f"{where}: {value!r} is not one of {sorted(allowed)}")
 
 
 def nonempty_str(value, where):
     if not isinstance(value, str) or not value:
-        raise InvalidDocument(f"{where}: expected a non-empty string")
+        raise InvalidIdentity(f"{where}: expected a non-empty string")
 
 
 def canon_key(k):
@@ -127,7 +130,7 @@ def canonical_kind(k, where):
         return {name: canonical_kind(v, f"{where}.{name}")}
     if name == "tuple":
         if not isinstance(v, list) or not v:
-            raise InvalidDocument(f"{where}: a tuple needs a non-empty array of kinds")
+            raise InvalidIdentity(f"{where}: a tuple needs a non-empty array of kinds")
         return {"tuple": [canonical_kind(x, f"{where}.tuple[{i}]") for i, x in enumerate(v)]}
     if name == "map":
         members(v, where, required=("key", "value"))
@@ -137,7 +140,7 @@ def canonical_kind(k, where):
         return {"object": canonical_object(v, where)}
     if name == "union":
         if not isinstance(v, list) or not v:
-            raise InvalidDocument(f"{where}: a union needs a non-empty array of kinds")
+            raise InvalidIdentity(f"{where}: a union needs a non-empty array of kinds")
         alts = {}
         for i, x in enumerate(v):
             c = canonical_kind(x, f"{where}.union[{i}]")
@@ -157,7 +160,7 @@ def canonical_kind(k, where):
 def canonical_object(v, where):
     members(v, where, required=("fields",), optional=("unlisted", "order"))
     if not isinstance(v["fields"], dict):
-        raise InvalidDocument(f"{where}: fields must be an object")
+        raise InvalidIdentity(f"{where}: fields must be an object")
     fields = {}
     keys = set()
     for fname, f in v["fields"].items():
@@ -170,12 +173,12 @@ def canonical_object(v, where):
                 out["rename"] = f["rename"]
         key = out.get("rename", fname)
         if key in keys:
-            raise InvalidDocument(f"{fw}: two fields have the key {key!r}")
+            raise InvalidIdentity(f"{fw}: two fields have the key {key!r}")
         keys.add(key)
         if "omit" in f:
             omit = f["omit"]
             if not isinstance(omit, list) or len(set(map(str, omit))) != len(omit):
-                raise InvalidDocument(f"{fw}: omit must be an array of distinct conditions")
+                raise InvalidIdentity(f"{fw}: omit must be an array of distinct conditions")
             for c in omit:
                 one_of(c, {"none", "empty"}, fw)
             if omit:
@@ -183,16 +186,16 @@ def canonical_object(v, where):
         if "quantize" in f:
             q = f["quantize"]
             if not isinstance(q, int) or isinstance(q, bool) or q < 1:
-                raise InvalidDocument(f"{fw}: quantize must be a positive integer")
+                raise InvalidIdentity(f"{fw}: quantize must be a positive integer")
             if q != 1:
                 out["quantize"] = q
         if "decimals" in f:
             d = f["decimals"]
             if not isinstance(d, int) or isinstance(d, bool) or not -300 <= d <= 300:
-                raise InvalidDocument(f"{fw}: decimals must be an integer from -300 to 300")
+                raise InvalidIdentity(f"{fw}: decimals must be an integer from -300 to 300")
             out["decimals"] = d
         if "quantize" in f and "decimals" in f:
-            raise InvalidDocument(f"{fw}: a field has quantize or decimals, not both")
+            raise InvalidIdentity(f"{fw}: a field has quantize or decimals, not both")
         fields[fname] = out
     out = {"fields": fields}
     if "unlisted" in v:
@@ -200,9 +203,9 @@ def canonical_object(v, where):
     if "order" in v:
         order = v["order"]
         if not isinstance(order, list) or sorted(order) != sorted(fields) or len(set(order)) != len(order):
-            raise InvalidDocument(f"{where}: order must name every field exactly once")
+            raise InvalidIdentity(f"{where}: order must name every field exactly once")
         if any("omit" in f for f in fields.values()):
-            raise InvalidDocument(f"{where}: a field with omit in an object with order")
+            raise InvalidIdentity(f"{where}: a field with omit in an object with order")
         out["order"] = order
     return out
 
@@ -215,22 +218,22 @@ def canonical_tagged(v, where):
     encode_as = v.get("encode_as", "string")
     one_of(encode_as, {"string", "int"}, where)
     if style == "external" and ("tag" in v or "content" in v):
-        raise InvalidDocument(f"{where}: tag and content are not allowed with external")
+        raise InvalidIdentity(f"{where}: tag and content are not allowed with external")
     if style in ("internal", "adjacent"):
         if "tag" not in v:
-            raise InvalidDocument(f"{where}: {style} needs tag")
+            raise InvalidIdentity(f"{where}: {style} needs tag")
         nonempty_str(v["tag"], where)
     if style == "internal" and "content" in v:
-        raise InvalidDocument(f"{where}: content is not allowed with internal")
+        raise InvalidIdentity(f"{where}: content is not allowed with internal")
     if style == "adjacent":
         if "content" not in v:
-            raise InvalidDocument(f"{where}: adjacent needs content")
+            raise InvalidIdentity(f"{where}: adjacent needs content")
         nonempty_str(v["content"], where)
         if v["content"] == v["tag"]:
-            raise InvalidDocument(f"{where}: content must differ from tag")
+            raise InvalidIdentity(f"{where}: content must differ from tag")
     variants = v["variants"]
     if not isinstance(variants, dict) or not variants:
-        raise InvalidDocument(f"{where}: variants must be a non-empty object")
+        raise InvalidIdentity(f"{where}: variants must be a non-empty object")
     out_variants = {}
     labels = set()
     for vname, var in variants.items():
@@ -246,17 +249,17 @@ def canonical_tagged(v, where):
         if encode_as == "int":
             d = var.get("discriminant")
             if not isinstance(d, int) or isinstance(d, bool):
-                raise InvalidDocument(f"{vw}: encode_as int needs an integer discriminant")
+                raise InvalidIdentity(f"{vw}: encode_as int needs an integer discriminant")
             if not -(2**63) <= d <= 2**64 - 1:
-                raise InvalidDocument(f"{vw}: a discriminant is a 64-bit integer")
+                raise InvalidIdentity(f"{vw}: a discriminant is a 64-bit integer")
             out["discriminant"] = d
             label = ("int", d)
         else:
             if "discriminant" in var:
-                raise InvalidDocument(f"{vw}: discriminant is allowed only with encode_as int")
+                raise InvalidIdentity(f"{vw}: discriminant is allowed only with encode_as int")
             label = ("str", out.get("rename", vname))
         if label in labels:
-            raise InvalidDocument(f"{vw}: two variants have the label {label[1]!r}")
+            raise InvalidIdentity(f"{vw}: two variants have the label {label[1]!r}")
         labels.add(label)
         out_variants[vname] = out
     out = {"variants": out_variants}
@@ -271,19 +274,17 @@ def canonical_tagged(v, where):
 
 
 def load(doc):
-    """Validates an identity document (spec 5.9) and returns its canonical
-    form (spec 5.3)."""
-    members(doc, "document", required=("quiddity", "root"), optional=("domain", "definitions"))
-    if doc["quiddity"] != 1 or isinstance(doc["quiddity"], bool):
-        raise InvalidDocument("quiddity must be 1")
-    out = {"quiddity": 1}
+    """Validates an identity (spec 5.9) and returns its canonical form
+    (spec 5.3)."""
+    members(doc, "identity", required=("root",), optional=("domain", "definitions"))
+    out = {}
     if "domain" in doc:
         nonempty_str(doc["domain"], "domain")
         out["domain"] = doc["domain"]
     out["root"] = canonical_kind(doc["root"], "root")
     defs = doc.get("definitions", {})
     if not isinstance(defs, dict):
-        raise InvalidDocument("definitions must be an object")
+        raise InvalidIdentity("definitions must be an object")
     canon_defs = {}
     for name, k in defs.items():
         nonempty_str(name, "definition name")
@@ -329,7 +330,7 @@ def reach(k, defs, reached):
 
 
 def check_semantics(doc):
-    """The checks of spec 5.9 that need the whole document: references,
+    """The checks of spec 5.9 that need the whole identity: references,
     cycles, unions, map keys and internally tagged variants."""
     defs = doc.get("definitions", {})
     for k in [doc["root"], *defs.values()]:
@@ -343,7 +344,7 @@ def walk(k, defs):
     v = k[name]
     if name == "ref":
         if v not in defs:
-            raise InvalidDocument(f"ref to undefined {v!r}")
+            raise InvalidIdentity(f"ref to undefined {v!r}")
         claims(k, defs)  # detects cycles without structure
     elif name in ("list", "set"):
         walk(v, defs)
@@ -356,15 +357,15 @@ def walk(k, defs):
         key_alts = alternatives(v["key"], defs)
         accepting = [a for a in key_alts if "string" in set().union(*claims(a, defs))]
         if not accepting:
-            raise InvalidDocument("a map's key kind must accept strings")
+            raise InvalidIdentity("a map's key kind must accept strings")
         if len(accepting) > 1:
-            raise InvalidDocument("a map's key union has two alternatives that accept strings")
+            raise InvalidIdentity("a map's key union has two alternatives that accept strings")
     elif name == "object":
         for fname, f in v["fields"].items():
             walk(f["kind"], defs)
             for option, kinds in (("quantize", {"integer", "instant", "duration"}), ("decimals", {"number"})):
                 if option in f and quantized_kind(f["kind"], defs) not in kinds:
-                    raise InvalidDocument(f"field {fname!r}: {option} does not apply to its kind")
+                    raise InvalidIdentity(f"field {fname!r}: {option} does not apply to its kind")
     elif name == "union":
         for a in v:
             walk(a, defs)
@@ -379,14 +380,14 @@ def walk(k, defs):
                     continue
                 obj = resolve(var["kind"], defs)
                 if not (isinstance(obj, dict) and "object" in obj):
-                    raise InvalidDocument(f"internally tagged variant {vname!r} is not an object")
+                    raise InvalidIdentity(f"internally tagged variant {vname!r} is not an object")
                 o = obj["object"]
                 if "order" in o:
-                    raise InvalidDocument(f"internally tagged variant {vname!r} has order")
+                    raise InvalidIdentity(f"internally tagged variant {vname!r} has order")
                 tag = v["tag"]
                 for fname, f in o["fields"].items():
                     if tag in (fname, f.get("rename", fname)):
-                        raise InvalidDocument(f"variant {vname!r} has a field named {tag!r}")
+                        raise InvalidIdentity(f"variant {vname!r} has a field named {tag!r}")
 
 
 def quantized_kind(k, defs):
@@ -425,7 +426,7 @@ def resolve(k, defs, seen=()):
     """A kind with references followed."""
     while isinstance(k, dict) and "ref" in k:
         if k["ref"] in seen:
-            raise InvalidDocument(f"a cycle of references through {k['ref']!r}")
+            raise InvalidIdentity(f"a cycle of references through {k['ref']!r}")
         seen = (*seen, k["ref"])
         k = defs[k["ref"]]
     return k
@@ -443,7 +444,7 @@ def claims(k, defs, visiting=()):
     if name == "ref":
         ref = k["ref"]
         if ref in visiting:
-            raise InvalidDocument(f"a cycle of references through {ref!r} without structure")
+            raise InvalidIdentity(f"a cycle of references through {ref!r} without structure")
         return claims(defs[ref], defs, (*visiting, ref))
     if name == "union":
         return union_claims(k["union"], defs, visiting)
@@ -482,9 +483,9 @@ def union_claims(alts, defs, visiting=()):
         if overlap == {"object"} and object_alternatives(alts, defs) is not None:
             overlap = set()  # told apart by their keys; checked below
         if overlap:
-            raise InvalidDocument(f"two union alternatives accept {sorted(overlap)} natively")
+            raise InvalidIdentity(f"two union alternatives accept {sorted(overlap)} natively")
         if conv & c:
-            raise InvalidDocument(f"two union alternatives accept {sorted(conv & c)} by conversion")
+            raise InvalidIdentity(f"two union alternatives accept {sorted(conv & c)} by conversion")
         native |= n
         conv |= c
     objs = object_alternatives(alts, defs)
@@ -492,7 +493,7 @@ def union_claims(alts, defs, visiting=()):
         for i, a in enumerate(objs):
             for b in objs[i + 1:]:
                 if required(a, defs) <= set(a_fields(b)) and required(b, defs) <= set(a_fields(a)):
-                    raise InvalidDocument(
+                    raise InvalidIdentity(
                         "two object alternatives of a union could both fit one object: "
                         f"{sorted(a_fields(a))} and {sorted(a_fields(b))}")
     return native, conv
@@ -881,6 +882,6 @@ def digest(identity, source):
 
 
 def identity_digest(doc, meta):
-    """The digest of an identity (spec 5.10): its canonical document under
-    the identity of identity documents."""
+    """The digest of an identity (spec 5.10): its canonical form under the
+    identity of identities."""
     return digest(load(meta), load(doc))

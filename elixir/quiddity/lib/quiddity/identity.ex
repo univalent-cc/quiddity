@@ -3,8 +3,8 @@ defmodule Quiddity.Identity do
   An identity as data (spec section 5): which parts of a value are digested,
   and how each is read.
 
-  An identity is built in code with `new/2`, or loaded from an identity
-  document, the JSON form every implementation of quiddity reads, with
+  An identity is built in code with `new/2`, or read from its JSON form,
+  which every implementation of quiddity reads and writes, with
   `from_json/1`. `Quiddity.digest/2` applies it to any value: a map decoded
   from JSON, a struct, an Ash record.
 
@@ -29,7 +29,7 @@ defmodule Quiddity.Identity do
 
   ## Kinds
 
-  Kinds are Elixir terms in the shape of the identity document:
+  Kinds are Elixir terms in the shape of an identity's JSON form:
 
   | Kind | Reads |
   |---|---|
@@ -80,7 +80,7 @@ defmodule Quiddity.Identity do
 
       iex> {:ok, id} = Quiddity.Identity.new({:list, :string})
       iex> Quiddity.Identity.to_json(id)
-      %{"quiddity" => 1, "root" => %{"list" => "string"}}
+      %{"root" => %{"list" => "string"}}
 
       iex> Quiddity.Identity.new({:union, [:integer, :number]})
       {:error, %Quiddity.InvalidIdentity{path: "$.root", message: ~s(two union alternatives accept ["number"] natively)}}
@@ -131,7 +131,7 @@ defmodule Quiddity.Identity do
 
   @doc """
   The identity, named `name`: its root becomes its own definition under
-  that name, which is how it appears in documents, its own and those of
+  that name, which is how it appears in JSON forms, its own and those of
   identities it is nested in. A nested identity without a name is written
   in place.
 
@@ -244,21 +244,21 @@ defmodule Quiddity.Identity do
     end)
   end
 
-  # --- Documents --------------------------------------------------------------
+  # --- JSON forms -------------------------------------------------------------
 
   @doc """
-  Loads an identity document (spec 5.3): JSON text, or a map decoded from
-  it. Numbers are read as spec 2.7 gives them, and an object with a
-  repeated member name is an error.
+  Reads an identity from its JSON form (spec 5.3): JSON text, or a map
+  decoded from it. An object with a repeated member name is an error, and
+  so is a number where an integer is required, such as `5.0`.
 
   ## Examples
 
-      iex> {:ok, id} = Quiddity.Identity.from_json(~s({"quiddity": 1, "root": "string"}))
+      iex> {:ok, id} = Quiddity.Identity.from_json(~s({"root": "string"}))
       iex> id == Quiddity.Identity.new!(:string)
       true
 
       iex> {:error, %Quiddity.InvalidIdentity{message: message}} =
-      ...>   Quiddity.Identity.from_json(%{"quiddity" => 1, "root" => "text"})
+      ...>   Quiddity.Identity.from_json(%{"root" => "text"})
       iex> message
       ~s(unknown kind "text")
   """
@@ -272,7 +272,7 @@ defmodule Quiddity.Identity do
 
   def from_json(%{} = doc), do: catching(fn -> from_json!(doc) end)
 
-  @doc "Loads an identity document, as `from_json/1`, raising `Quiddity.InvalidIdentity`."
+  @doc "Reads an identity, as `from_json/1`, raising `Quiddity.InvalidIdentity`."
   @spec from_json!(String.t() | map) :: t
   def from_json!(text) when is_binary(text) do
     case from_json(text) do
@@ -282,17 +282,17 @@ defmodule Quiddity.Identity do
   end
 
   def from_json!(%{} = doc) do
-    {domain, root, defs} = Load.load!(normalize_numbers(doc))
+    {domain, root, defs} = Load.load!(doc)
     %__MODULE__{domain: domain, root: root, definitions: defs}
   end
 
   @doc """
-  The identity document, in canonical form, as a map ready for
+  The identity's JSON form, in canonical form, as a map ready for
   `JSON.encode!/1`.
   """
   @spec to_json(t) :: map
   def to_json(%__MODULE__{} = id) do
-    doc = %{"quiddity" => 1, "root" => id.root}
+    doc = %{"root" => id.root}
     doc = if id.domain, do: Map.put(doc, "domain", id.domain), else: doc
     if id.definitions == %{}, do: doc, else: Map.put(doc, "definitions", id.definitions)
   end
@@ -316,7 +316,7 @@ defmodule Quiddity.Identity do
   def meta, do: :persistent_term.get({__MODULE__, :meta}, nil) || load_meta()
 
   defp load_meta do
-    meta = from_json!(Meta.document())
+    meta = from_json!(Meta.identity())
     :persistent_term.put({__MODULE__, :meta}, meta)
     meta
   end
@@ -344,12 +344,7 @@ defmodule Quiddity.Identity do
 
   # JSON numbers as spec 2.7 gives them: a float with an integer value is
   # that integer.
-  defp normalize_numbers(x) when is_float(x), do: Value.normalize(x)
-  defp normalize_numbers(%{} = m), do: Map.new(m, fn {k, v} -> {k, normalize_numbers(v)} end)
-  defp normalize_numbers(l) when is_list(l), do: Enum.map(l, &normalize_numbers/1)
-  defp normalize_numbers(x), do: x
-
-  # Kind terms as document kinds; nested identities and recursive kinds stay
+  # Kind terms as kinds in their JSON form; nested identities and recursive kinds stay
   # as {:identity, id} and :recursive until absorbed.
   @scalars ~w(null bool integer number string uuid path any)a
 
@@ -631,8 +626,7 @@ defmodule Quiddity.Identity do
       do: raise(Quiddity.Error.at("$", "an identity has no identity #{inspect(name)}"))
   end
 
-  # An identity's own digest is in the domain of identity documents (spec
-  # 5.10).
+  # An identity's own digest is in the domain of identities (spec 5.10).
   @doc false
   def __quiddity__({:domain, :primary}), do: "quiddity.identity"
   def __quiddity__({:domain, _}), do: nil

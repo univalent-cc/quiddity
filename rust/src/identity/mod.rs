@@ -2,13 +2,12 @@
 //! `serde_json::Value` or any other `Serialize` value, are digested and
 //! how, as data that every implementation of quiddity can read.
 //!
-//! An [`Identity`] is built from a [`Kind`], or read from an identity
-//! document through its `Deserialize` impl, in any serde format (with the
-//! `serde_json` feature, `Identity::from_json` reads a `serde_json::Value`).
-//! Its `Serialize` impl writes its document. [`Identity::digest`] applies it
-//! to a value. An `Identity` is itself digested with
-//! [`quiddity()`](crate::QuiddityExt::quiddity), under the identity of
-//! identity documents (spec 5.10).
+//! An [`Identity`] is built from a [`Kind`], or read through its
+//! `Deserialize` impl, in any serde format (with the `serde_json` feature,
+//! `Identity::from_json` reads its JSON form from a `serde_json::Value`).
+//! [`Identity::digest`] applies it to a value. An `Identity` is itself
+//! digested with [`quiddity()`](crate::QuiddityExt::quiddity), under the
+//! identity of identities (spec 5.10).
 //!
 //! Kinds nest: a field's kind can be another `Identity`, which becomes one
 //! of the identity's definitions, under its [name](Identity::named) or a
@@ -61,10 +60,8 @@ pub use load::InvalidIdentity;
 /// # }
 /// ```
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(try_from = "load::Document")]
+#[serde(try_from = "load::Unchecked")]
 pub struct Identity {
-    #[serde(rename = "quiddity")]
-    version: u32,
     #[serde(skip_serializing_if = "Option::is_none")]
     domain: Option<String>,
     root: Kind,
@@ -72,8 +69,8 @@ pub struct Identity {
     definitions: BTreeMap<String, Kind>,
 }
 
-/// An identity is digested as its document, under the identity of identity
-/// documents (spec 5.10 and Appendix C).
+/// An identity is digested under the identity of identities (spec 5.10 and
+/// Appendix C).
 ///
 /// NOTE: This impl *could* have been derived, but we don't want the dynamic identity feature to
 /// require the static derive macro feature
@@ -88,7 +85,6 @@ impl Quiddity for Identity {
         if let Some(v) = &self.domain {
             f.field("domain", v);
         }
-        f.field("quiddity", &self.version);
         f.field("root", &self.root);
         f.finish();
     }
@@ -98,7 +94,7 @@ impl Quiddity for Identity {
     }
 }
 
-/// The identity of identity documents (spec Appendix C), which digests
+/// The identity of identities (spec Appendix C), which digests
 /// every identity, as `Identity`'s `Quiddity` impl encodes it.
 fn meta_identity() -> Identity {
     use alloc::borrow::ToOwned;
@@ -155,9 +151,8 @@ fn meta_identity() -> Identity {
     }
     let definitions = BTreeMap::from([
         (
-            "Document",
+            "Identity",
             object([
-                ("quiddity", Field::new(Kind::Integer)),
                 ("domain", opt(Kind::String, false)),
                 ("root", Field::new(r("Kind"))),
                 ("definitions", opt(map(r("Kind")), true)),
@@ -212,11 +207,11 @@ fn meta_identity() -> Identity {
     .map(|(n, k)| (n.to_owned(), k))
     .collect();
     Identity::from_parts(
-        r("Document"),
+        r("Identity"),
         definitions,
         Some("quiddity.identity".to_owned()),
     )
-    .expect("the identity of identity documents is valid")
+    .expect("the identity of identities is valid")
 }
 
 /// What a value is, and how it is read (spec 5.4).
@@ -1316,8 +1311,8 @@ impl Identity {
     }
 
     /// The identity, named `name`: its root becomes its own definition
-    /// under that name, which is how the identity appears in its document
-    /// and in the documents of identities it is nested in. An identity that
+    /// under that name, which is how the identity appears in its JSON form
+    /// and in the JSON forms of identities it is nested in. An identity that
     /// is not named is written in place where it is nested.
     ///
     /// # Examples
@@ -1329,8 +1324,8 @@ impl Identity {
     /// let row = Identity::new(Kind::object([("label", Kind::String)])?)?.named("Row");
     /// let table = Identity::new(Kind::list(row))?;
     /// // The nested identity is a definition, under its name.
-    /// let document = serde_json::to_value(&table)?;
-    /// assert_eq!(document["root"], json!({"list": {"ref": "Row"}}));
+    /// let json = serde_json::to_value(&table)?;
+    /// assert_eq!(json["root"], json!({"list": {"ref": "Row"}}));
     /// # Ok(())
     /// # }
     /// ```
@@ -1619,8 +1614,8 @@ impl Identity {
         load::build(root, definitions, domain)
     }
 
-    /// Loads an identity document (spec 5.3). Any serde format reads one
-    /// through `Identity`'s `Deserialize` impl, which does the same.
+    /// Reads an identity from its JSON form (spec 5.3). Any serde format
+    /// reads one through `Identity`'s `Deserialize` impl, which does the same.
     ///
     /// # Examples
     ///
@@ -1629,24 +1624,23 @@ impl Identity {
     /// # use quiddity::identity::{Field, Identity, Kind, Omit, Unit};
     /// # use serde_json::json;
     /// let id = Identity::from_json(&json!({
-    ///     "quiddity": 1,
     ///     "root": {"object": {"fields": {"prompt": {"kind": "string"}}}}
     /// }))?;
     /// assert_eq!(id, Identity::new(Kind::object([("prompt", Kind::String)])?)?);
-    /// // A document that is not valid is an error.
-    /// assert!(Identity::from_json(&json!({"quiddity": 1, "root": "text"})).is_err());
+    /// // An identity that is not valid is an error.
+    /// assert!(Identity::from_json(&json!({"root": "text"})).is_err());
     /// # Ok(())
     /// # }
     /// ```
     #[cfg(feature = "serde_json")]
-    pub fn from_json(document: &serde_json::Value) -> Result<Identity, InvalidIdentity> {
-        let doc = <load::Document as serde::Deserialize>::deserialize(document)
+    pub fn from_json(json: &serde_json::Value) -> Result<Identity, InvalidIdentity> {
+        let unchecked = <load::Unchecked as serde::Deserialize>::deserialize(json)
             .map_err(|e| load::invalid("$", alloc::string::ToString::to_string(&e)))?;
-        Identity::try_from(doc)
+        Identity::try_from(unchecked)
     }
 
-    /// The identity document, in canonical form. Any serde format writes
-    /// one through `Identity`'s `Serialize` impl, which does the same.
+    /// The identity's JSON form, in canonical form. Any serde format writes
+    /// an identity through its `Serialize` impl, which does the same.
     ///
     /// # Examples
     ///
@@ -1655,14 +1649,14 @@ impl Identity {
     /// # use quiddity::identity::{Field, Identity, Kind, Omit, Unit};
     /// # use serde_json::json;
     /// let id = Identity::new(Kind::optional(Kind::String))?;
-    /// assert_eq!(id.to_json(), json!({"quiddity": 1, "root": {"union": ["null", "string"]}}));
+    /// assert_eq!(id.to_json(), json!({"root": {"union": ["null", "string"]}}));
     /// assert_eq!(Identity::from_json(&id.to_json())?, id);
     /// # Ok(())
     /// # }
     /// ```
     #[cfg(feature = "serde_json")]
     pub fn to_json(&self) -> serde_json::Value {
-        serde_json::to_value(self).expect("an identity document is valid JSON")
+        serde_json::to_value(self).expect("an identity's JSON form is valid JSON")
     }
 
     /// The digest of `value` under this identity (spec 5.1).

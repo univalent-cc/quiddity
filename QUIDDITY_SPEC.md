@@ -14,8 +14,8 @@ layers:
 3. **Digests** (section 4): how bytes become a digest, how a digest is
    placed in a domain, shortened, and written as text.
 4. **Identities** (section 5): which parts of a source value, such as a
-   JSON document, are digested and how, written as a document that every
-   implementation can read.
+   JSON document, are digested and how. An identity is itself a value,
+   which passes between implementations in its JSON form.
 5. **Rust mapping** (section 6): how Rust types, the derive macro and its
    attributes, and the crate's optional features map onto the data model
    and onto identities.
@@ -400,18 +400,19 @@ the Rust crate's `identity` feature.*
 An **identity** describes how a value from a source, such as a parsed JSON
 document, becomes a data-model value: which members of an object count,
 under which keys, what kind each value has, and how it is converted. An
-identity is written as an **identity document**, a JSON text (5.3), so
-that every implementation can read the same identity.
+identity is a data structure of nested maps, lists and strings (5.3).
+Its JSON form, in which this section writes it, lets every implementation
+read and write the same identity.
 
 Applying an identity to a source value gives a data-model value, or an
 error if the source value does not have the shape the identity describes.
 The **digest of a source value under an identity** is the digest (4.1) of
-that data-model value, in the document's domain (4.2) if it has one.
+that data-model value, in the identity's domain (4.2) if it has one.
 
 Section 6 describes how Rust types define identities statically and how a
-Rust type exports them as documents (6.8). An implementation in a language
+Rust type exports them as identities (6.8). An implementation in a language
 without static types MAY let an identity hold functions as extensions; an
-identity that holds one has no document and no digest (5.10).
+identity that holds one has no JSON form and no digest (5.10).
 
 ### 5.2 Source values
 
@@ -430,14 +431,15 @@ to one of these source types. A value that is already a data-model value of
 a kind's result (such as bytes for `bytes`, or an instant for `instant`) is
 taken as it is.
 
-### 5.3 Identity documents
+### 5.3 Identities
 
-An identity document is a JSON object (I-JSON, RFC 7493) with these
-members:
+An identity is a map with these members. In its JSON form it is a JSON
+object (I-JSON, RFC 7493), and each member's value is written with the
+JSON type its description names: an integer is a JSON number written
+without a fraction or exponent.
 
 | Member | Required | Value |
 |---|---|---|
-| `quiddity` | yes | The integer `1`: the version of this section. |
 | `root` | yes | The kind (5.4) of the value being digested. |
 | `domain` | no | A non-empty string: the domain (4.2) of digests under this identity. |
 | `definitions` | no | An object mapping names (non-empty strings) to kinds, which `ref` kinds refer to. |
@@ -446,7 +448,6 @@ Example:
 
 ```json
 {
-  "quiddity": 1,
   "domain": "example.question",
   "root": {"ref": "Question"},
   "definitions": {
@@ -466,16 +467,19 @@ Example:
 }
 ```
 
-Every definition lives at the document's top level, and every `ref`
+Every definition lives at the identity's top level, and every `ref`
 resolves there; a `ref` to a name that is not defined is an error.
 
-An implementation MUST reject a document with a member, or a string value
+An implementation MUST reject an identity with a member, or a string value
 in a place that takes one of a fixed set of strings, that this section does
-not define. Ignoring one would change digests without notice.
+not define. Ignoring one would change digests without notice. For the same
+reason an identity has no version: one that uses a member defined by a
+later version of this section is rejected by an implementation of an
+earlier one.
 
 Optional members have defaults. An implementation MUST treat an optional
-member whose value is its default as absent. The **canonical form** of a
-document omits every such member, and the members `domain` and
+member whose value is its default as absent. The **canonical form** of an
+identity omits every such member, and the members `domain` and
 `definitions` when they are absent or empty; it omits every definition
 that the root does not reach, directly or through other definitions; and
 its unions are flattened and merged (5.7). A definition that is not
@@ -760,11 +764,13 @@ objects.
 
 ### 5.9 Validation
 
-When an implementation loads a document, it MUST reject it if:
+When an implementation reads an identity, it MUST reject it if:
 
 - a member or string value is not defined by this section (5.3), or a
   required member is missing;
-- `quiddity` is not `1`, or `domain` is empty;
+- a member's value is not of the type its description names, such as an
+  integer written as `5.0`;
+- `domain` is empty;
 - a `ref` names no definition, or a chain of `ref`s leads back to its start
   without passing through a `list`, `set`, `tuple`, `map`, `object` or
   `tagged` kind;
@@ -783,13 +789,13 @@ When an implementation loads a document, it MUST reject it if:
 ### 5.10 The digest of an identity
 
 The digest of an identity is the digest, under the identity in Appendix C,
-of its document in canonical form (5.3). Appendix C's identity has the
+of the identity in canonical form (5.3). Appendix C's identity has the
 domain `quiddity.identity`, and it describes itself: its digest is
 computed with itself.
 
-Two documents that differ only in the order of object members, in the
-order of a union's alternatives or of `omit` conditions, in whitespace, or
-in optional members given at their defaults, have the same digest.
+Two identities that differ only in the order of members, in the order of a
+union's alternatives or of `omit` conditions, or in optional members given
+at their defaults, have the same digest.
 
 ## 6. Rust mapping
 
@@ -1102,7 +1108,7 @@ the error causes a panic.
 *Implemented with the `identity` feature.*
 
 `Quiddity<I>` has a provided method, `construct_identity()`, that returns
-the identity document (section 5) describing the type's encoding under `I`,
+the identity (section 5) describing the type's encoding under `I`,
 or an error. The derive implements it, and so does each implementation in
 6.2 and 6.6. Its name says that it builds a structure, which may be costly,
 rather than returning one. The default implementation returns an error.
@@ -1158,9 +1164,9 @@ their module paths.
 
 `construct_identity()` returns an error if the identity uses `with`,
 `omit_if = path`, `encode_as = display` or `encode_as = serde`, which have
-no document form; if it reaches a type whose serde JSON form no kind
+no JSON form; if it reaches a type whose serde JSON form no kind
 describes (`Infallible`); if it reaches a type whose
-implementation does not provide `construct_identity()`; or if the document
+implementation does not provide `construct_identity()`; or if the identity
 it would return is not valid (5.9), as when an untagged enum has two
 variants that a union cannot tell apart.
 
@@ -1168,8 +1174,8 @@ variants that a union cannot tell apart.
 
 An implementation conforms to sections 2 to 4 if, for every value, it
 produces the encoding of section 3 and the digests of section 4. An
-implementation that reads identity documents also conforms to section 5 if,
-for every document and source value, it gives the data-model value, or the
+implementation that reads identities also conforms to section 5 if,
+for every identity and source value, it gives the data-model value, or the
 error, that section 5 specifies.
 
 The normative test vectors are in `test-vectors/quiddity-v1.json`. The file
@@ -1187,12 +1193,12 @@ notation for values. The file has these sections:
   text form.
 - `json`: a JSON text and its digest under the mapping of 2.7. Texts with
   the same digest are equal values; several are chosen to test Appendix B.
-- `identities`: identity documents, each with its digest (5.10) and source
-  values, given as JSON. Each source has its encoding and digest under the
+- `identities`: identities, each with its digest (5.10) and source
+  values, given in their JSON forms. Each source has its encoding and digest under the
   identity, or `error: true` if applying the identity MUST fail.
-- `invalid_documents`: identity documents that MUST be rejected (5.9).
-- `same_identity`: pairs of documents with the same digest (5.10).
-- `identity_of_identities`: Appendix C's document and its digest under
+- `invalid_identities`: identities that MUST be rejected (5.9).
+- `same_identity`: pairs of identities with the same digest (5.10).
+- `identity_of_identities`: Appendix C's identity and its digest under
   itself.
 - `text_forms`: strings to be parsed as digest text, whether each is valid,
   and whether accepting or rejecting it is required (`MUST`) or recommended
@@ -1281,20 +1287,17 @@ are encoded exactly. An encoding can be written straight into a hash
 function, without producing text and without formatting numbers as
 decimals.
 
-## Appendix C. The identity of identity documents
+## Appendix C. The identity of identities
 
-The identity of identity documents (5.3), used for the digest of an
-identity (5.10). It is itself an identity document, and its digest is
-computed under itself.
+The identity of identities (5.3), used for the digest of an identity
+(5.10). It is itself an identity, and its digest is computed under itself.
 
 ```json
 {
-  "quiddity": 1,
   "domain": "quiddity.identity",
-  "root": {"ref": "Document"},
+  "root": {"ref": "Identity"},
   "definitions": {
-    "Document": {"object": {"fields": {
-      "quiddity": {"kind": "integer"},
+    "Identity": {"object": {"fields": {
       "domain": {"kind": {"union": ["null", "string"]}, "omit": ["none"]},
       "root": {"kind": {"ref": "Kind"}},
       "definitions": {
@@ -1354,8 +1357,8 @@ computed under itself.
 ```
 
 The Rust crate's `Identity` type derives `Quiddity` with portable
-attributes only. The identity it exports (6.8) is not this document word
-for word: it describes the members that take a fixed set of strings
+attributes only. The identity it exports (6.8) is not this one member
+for member: it describes the members that take a fixed set of strings
 (styles, units, omit conditions) as tagged unions of those strings rather
-than as `"string"`. Applied to any identity document in canonical form, it
-gives the same digest as this document does.
+than as `"string"`. Applied to any identity in canonical form, it gives
+the same digest as this one does.

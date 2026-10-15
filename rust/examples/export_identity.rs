@@ -44,7 +44,7 @@ pub enum Format {
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let identity = <Question as Quiddity>::construct_identity()?;
-    println!("identity document:\n{:#}\n", identity.to_json());
+    println!("identity as JSON:\n{:#}\n", identity.to_json());
 
     let question = Question {
         brief: "Which quarter grew most?".into(),

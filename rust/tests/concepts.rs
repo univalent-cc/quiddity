@@ -109,14 +109,14 @@ fn how_values_are_digested() -> Result {
 
 #[cfg(feature = "serde_json")]
 #[test]
-fn identity_documents() -> Result {
+fn identities_as_json() -> Result {
     let id = Identity::new(Kind::object([("prompt", Kind::String)])?)?;
-    let document = id.to_json();
+    let json = id.to_json();
     assert_eq!(
-        document,
-        json!({"quiddity": 1, "root": {"object": {"fields": {"prompt": {"kind": "string"}}}}})
+        json,
+        json!({"root": {"object": {"fields": {"prompt": {"kind": "string"}}}}})
     );
-    assert_eq!(Identity::from_json(&document)?, id);
+    assert_eq!(Identity::from_json(&json)?, id);
     Ok(())
 }
 
@@ -141,9 +141,9 @@ fn building_identities_in_code() -> Result {
     question.set_domain("example.question")?;
     question.set_field_in("Question", "asked_at", Kind::instant())?;
 
-    let document = question.to_json();
-    assert_eq!(document["root"], json!({"ref": "Question"}));
-    assert_eq!(document["domain"], json!("example.question"));
+    let json = question.to_json();
+    assert_eq!(json["root"], json!({"ref": "Question"}));
+    assert_eq!(json["domain"], json!("example.question"));
     Ok(())
 }
 

@@ -18,9 +18,9 @@ defmodule Quiddity do
     * a struct's identity comes from its `Quiddity.Encoder` implementation,
       usually derived (`@derive {Quiddity.Encoder, except: [:submitted_at]}`),
       and a struct can declare further named identities;
-    * a `Quiddity.Identity` is an identity as data, built in code or loaded
-      from an identity document, which every implementation of quiddity
-      reads, and applies to any value.
+    * a `Quiddity.Identity` is an identity as data, built in code or read
+      from its JSON form, which every implementation of quiddity reads,
+      and applies to any value.
 
   ## Errors
 
@@ -91,7 +91,8 @@ defmodule Quiddity do
 
   @doc """
   The identity of a struct that derives `Quiddity.Encoder`, as data: the
-  identity document another language can apply to the struct's JSON form.
+  identity, in its JSON form, that another language can apply to the
+  struct's JSON form.
 
   `name` is one of the struct's identities, `:primary` by default. A
   field's kind is the one its `kind:` option declares; otherwise the one
@@ -100,7 +101,7 @@ defmodule Quiddity do
   its identity, nested); otherwise `:any`. Typespecs are read from the
   compiled module, and are missing where its debug information is stripped,
   as in a default `mix release`; the fields then export as `:any`. Fields
-  digested in ways a document cannot express (`flatten`) are an error.
+  digested in ways this export cannot express (`flatten`) are an error.
 
   ## Examples
 

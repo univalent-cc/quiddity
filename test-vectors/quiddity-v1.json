@@ -1372,19 +1372,15 @@
     }
   ],
   "identity_of_identities": {
-    "document": {
-      "quiddity": 1,
+    "identity": {
       "domain": "quiddity.identity",
       "root": {
-        "ref": "Document"
+        "ref": "Identity"
       },
       "definitions": {
-        "Document": {
+        "Identity": {
           "object": {
             "fields": {
-              "quiddity": {
-                "kind": "integer"
-              },
               "domain": {
                 "kind": {
                   "union": [
@@ -1739,16 +1735,15 @@
         }
       }
     },
-    "identity_digest": "sha256:cb33c900b3276c2843e6602c8115f146ca258d70ee2f55fcaa42869c01c77db0"
+    "identity_digest": "sha256:fa5bbdcca831b579a1882d94c82ca095f0f2f843d79ef56001e64ff2227458d5"
   },
   "identities": [
     {
       "name": "integer",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": "integer"
       },
-      "identity_digest": "sha256:47acef857c54f43d6bd8ab925de8dafa47ccff17f983b80584b8e9cfc53f1876",
+      "identity_digest": "sha256:694cc6489ac90df241c725c64402bccbc6143a0790761330a72ddceee12e7bf7",
       "cases": [
         {
           "source": 5,
@@ -1844,11 +1839,10 @@
     },
     {
       "name": "number",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": "number"
       },
-      "identity_digest": "sha256:0c45fa930e1a516c75af2d69084c0e251bb894956ae83ff843a38054c293707a",
+      "identity_digest": "sha256:eaaadf4c149893e3431344b6200062acf9f1f310a38fd02237da89012ba42b15",
       "cases": [
         {
           "source": 1.5,
@@ -1974,11 +1968,10 @@
     },
     {
       "name": "bool",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": "bool"
       },
-      "identity_digest": "sha256:40f92d3c072ef6514be273fe50a5b15412fc2aa9f45b7a34825e5d8d877534d8",
+      "identity_digest": "sha256:ab7fa92f78326c8f1da8825e01107ad653acde781029224ff5bc30725a385b88",
       "cases": [
         {
           "source": true,
@@ -2094,11 +2087,10 @@
     },
     {
       "name": "string",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": "string"
       },
-      "identity_digest": "sha256:f378c15c6873a8527a63c1b36069caef0b4f22e3f6e43546b456ae90e2c1b709",
+      "identity_digest": "sha256:3f01292123ffcdd69ba7cd284f373cf5214df8bb815f6a105233baf40871af6d",
       "cases": [
         {
           "source": "x",
@@ -2126,11 +2118,10 @@
     },
     {
       "name": "uuid",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": "uuid"
       },
-      "identity_digest": "sha256:829c4899bb455a12c90bee4c31afa2ed511d475497199c4b38f2e6d8a58813a7",
+      "identity_digest": "sha256:4e7d215c08ff0390463b3a1b03873d2c672e0b1b53704889de902f62029d7255",
       "cases": [
         {
           "source": "67e55044-10b1-426f-9247-bb680e5fe0c8",
@@ -2175,11 +2166,10 @@
     },
     {
       "name": "path",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": "path"
       },
-      "identity_digest": "sha256:8d0f162f70f2838f78cf2ba52205e0a39c07461ff44e453464ea30ba451e04f0",
+      "identity_digest": "sha256:26aedebb8b1d2941552968d4c5acee5d9fb28abef5aca765c209923c083cc717",
       "cases": [
         {
           "source": "a/b",
@@ -2277,13 +2267,12 @@
     },
     {
       "name": "bytes",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": {
           "bytes": {}
         }
       },
-      "identity_digest": "sha256:0a7a2d576493f0260a9a29e8ca847c2e8713c403740cd9b01bbc24e154e5f36e",
+      "identity_digest": "sha256:c75851af68ab37710f388152af043cbb3637560a1e805ba12f737c410e4f9633",
       "cases": [
         {
           "source": [
@@ -2369,15 +2358,14 @@
     },
     {
       "name": "bytes as hex",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": {
           "bytes": {
             "text": "hex"
           }
         }
       },
-      "identity_digest": "sha256:b12e749b18e515023207d29df1a7b97ace75a5cac815090e278376b19e0fcd76",
+      "identity_digest": "sha256:a93e5eb116355c5b14ae62619c0e294f7d004e7d57cd49cb05176f521c86ccf9",
       "cases": [
         {
           "source": "0102",
@@ -2428,13 +2416,12 @@
     },
     {
       "name": "instant",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": {
           "instant": {}
         }
       },
-      "identity_digest": "sha256:b7c892674fee9f46a4e473864e58212373641ba9e69ae9cab8677bde04f72ce6",
+      "identity_digest": "sha256:cd2731330623ba19aa3bd08e9bee1a85e9b958d2a2fea9384de162881bcc105e",
       "cases": [
         {
           "source": "2024-01-01T00:00:00Z",
@@ -2526,15 +2513,14 @@
     },
     {
       "name": "instant in milliseconds",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": {
           "instant": {
             "unit": "ms"
           }
         }
       },
-      "identity_digest": "sha256:3d3a040e2e3dcb72ff2a35374557d5957261f026c5197fc6c77ee3b80ec81a8e",
+      "identity_digest": "sha256:689378995f8788c6b3ef3582afc9746adf72c19e91910d1a8728a5a3620b78cc",
       "cases": [
         {
           "source": 1704067200000,
@@ -2579,13 +2565,12 @@
     },
     {
       "name": "duration",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": {
           "duration": {}
         }
       },
-      "identity_digest": "sha256:1df726e2ff2bbd12a7734fcf9d5aafbd4b1bfe6c0c061e46306b36dfe31a29e9",
+      "identity_digest": "sha256:b0ee286909026b10d267ecb9da8107fbaf570d094769dd9f8331557efacc35c8",
       "cases": [
         {
           "source": "PT1.5S",
@@ -2673,15 +2658,14 @@
     },
     {
       "name": "duration in seconds",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": {
           "duration": {
             "unit": "s"
           }
         }
       },
-      "identity_digest": "sha256:69b72a0ceda968f835c67115686bbefeaa4555a4d67601e933ca2f0dc7a1a43b",
+      "identity_digest": "sha256:595cc213a0bb047809f1c0c29504f221f03c39b3ebe71bea2d4465cd56aa709f",
       "cases": [
         {
           "source": 90,
@@ -2736,11 +2720,10 @@
     },
     {
       "name": "any",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": "any"
       },
-      "identity_digest": "sha256:fb73ecef3ab423480df27431d45d626e42592405dfe39370a1ae7b1753f84176",
+      "identity_digest": "sha256:c32d8601933c1dec1f5484a8701a5991e2d62174c36fdf278e1f920c4ca6eb92",
       "cases": [
         {
           "source": {
@@ -2788,8 +2771,7 @@
     },
     {
       "name": "list, set and tuple",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": {
           "tuple": [
             {
@@ -2801,7 +2783,7 @@
           ]
         }
       },
-      "identity_digest": "sha256:320f62fb3f97d56a719a38b552fed6fcbad24e5a6bfe03bd08251aed55a7f71b",
+      "identity_digest": "sha256:f3dfb04ae783cccae68bff4aec7aed44f7a7c21036b8aee5b0bcea7801bf0825",
       "cases": [
         {
           "source": [
@@ -2884,8 +2866,7 @@
     },
     {
       "name": "map with integer keys",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": {
           "map": {
             "key": "integer",
@@ -2893,7 +2874,7 @@
           }
         }
       },
-      "identity_digest": "sha256:170c466afa58c747b905111b2fa9fd4e997567508287b6aedfdba8c4acd84096",
+      "identity_digest": "sha256:f903585d918d1fa7aaeff219ae37fb952358dd1004c600a4b6b517def6e3af08",
       "cases": [
         {
           "source": {
@@ -2936,8 +2917,7 @@
     },
     {
       "name": "object",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": {
           "object": {
             "fields": {
@@ -2985,7 +2965,7 @@
           }
         }
       },
-      "identity_digest": "sha256:2fe281bfafaf53a182ff2b40e3f121ca97dd3ceb355e49eac0b343164fceecea",
+      "identity_digest": "sha256:d73975f74653c4e4bbaaf04ed3f07974b57d2ea06dacf372bb4256475b0d090e",
       "cases": [
         {
           "source": {
@@ -3078,8 +3058,7 @@
     },
     {
       "name": "object as a list",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": {
           "object": {
             "fields": {
@@ -3102,7 +3081,7 @@
           }
         }
       },
-      "identity_digest": "sha256:5ef4eb26c19e5a1f8ef41f738b66e0dbb9d33175a1cea6b71815980bf736effc",
+      "identity_digest": "sha256:cf927383b07bdfc579503124d9df647288262bd3bc91073c10de27df47d38103",
       "cases": [
         {
           "source": {
@@ -3137,8 +3116,7 @@
     },
     {
       "name": "union of kinds",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": {
           "union": [
             "integer",
@@ -3147,7 +3125,7 @@
           ]
         }
       },
-      "identity_digest": "sha256:17291a326ebb365b48064eb9bb1b63c7affb8034662aac417e08cad4726cabde",
+      "identity_digest": "sha256:d4ee742fa729cbb96e17b7ca0a4dbacf58b1ea3e335bb71ff11e2cd8e87447ee",
       "cases": [
         {
           "source": 5,
@@ -3191,8 +3169,7 @@
     },
     {
       "name": "objects told apart by keys",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": {
           "union": [
             {
@@ -3260,7 +3237,7 @@
           }
         }
       },
-      "identity_digest": "sha256:0677b949b49370a9d7f8292c16f77f2a39e3e29116549da715a13a39435821e8",
+      "identity_digest": "sha256:82975f4aec2302f0ab89855516560ce3bf01a7f2c045b9921173261bf698e6a9",
       "cases": [
         {
           "source": {
@@ -3361,8 +3338,7 @@
     },
     {
       "name": "quantize an integer",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": {
           "object": {
             "fields": {
@@ -3374,7 +3350,7 @@
           }
         }
       },
-      "identity_digest": "sha256:1e94a8964c8a1ab0dd2f8255a80b0ca9d7b7af4e9768911514d0a62d2feb772c",
+      "identity_digest": "sha256:40ad675f251f1c0d8843d9c450d97879d496ce5d9a931cbbefd7228730c11ce8",
       "cases": [
         {
           "source": {
@@ -3482,8 +3458,7 @@
     },
     {
       "name": "quantize to decimals",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": {
           "object": {
             "fields": {
@@ -3495,7 +3470,7 @@
           }
         }
       },
-      "identity_digest": "sha256:4a096d595c3d77f15eaa98b16f4922dd885085b93e81083299c63a6b6e489d3a",
+      "identity_digest": "sha256:e17dc2af2eeb3e5798f8aa3a0115c556497fd0098b98f0ab0bc0a5e886e7517e",
       "cases": [
         {
           "source": {
@@ -3645,8 +3620,7 @@
     },
     {
       "name": "quantize to tens of decimals",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": {
           "object": {
             "fields": {
@@ -3658,7 +3632,7 @@
           }
         }
       },
-      "identity_digest": "sha256:565b331465c5fbcb22a1adcab23e6d1c3a793e8f9a288060276a53086f963cb5",
+      "identity_digest": "sha256:beeaa316e4a2ecf344c8d35d9d445bd82e2034dcc300667750436f67e3e0ebbd",
       "cases": [
         {
           "source": {
@@ -3727,8 +3701,7 @@
     },
     {
       "name": "quantize an instant",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": {
           "object": {
             "fields": {
@@ -3742,7 +3715,7 @@
           }
         }
       },
-      "identity_digest": "sha256:d80aaec19f030b6da48760a9b4eb89e683ecad837be0fe824e079873c0ee7813",
+      "identity_digest": "sha256:50a1e7747c72844ecfa7bae92d2a50fc4dcfcaa2628a5f1f5d10f8fdb151675e",
       "cases": [
         {
           "source": {
@@ -3793,8 +3766,7 @@
     },
     {
       "name": "quantize a duration",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": {
           "object": {
             "fields": {
@@ -3808,7 +3780,7 @@
           }
         }
       },
-      "identity_digest": "sha256:63c87c1adc26dea51439b92315e2e1f74ebf78d1d3783d1b18e22efe46607477",
+      "identity_digest": "sha256:1ceb9f40ad70e52470eccc727b4eac581ad8138cf23ebda67b360134c6faf2d7",
       "cases": [
         {
           "source": {
@@ -3862,8 +3834,7 @@
     },
     {
       "name": "quantize an optional integer",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": {
           "object": {
             "fields": {
@@ -3883,7 +3854,7 @@
           }
         }
       },
-      "identity_digest": "sha256:b3fccc61148283d23158e00ae3820503d5d075c6eb88f1db1f4146421efe2338",
+      "identity_digest": "sha256:4ee45b1520fb6fb0cf49dadfc594a15087945ef5e57e63d2c3f44a0752dd6507",
       "cases": [
         {
           "source": {
@@ -3923,8 +3894,7 @@
     },
     {
       "name": "bool or string",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": {
           "union": [
             "bool",
@@ -3932,7 +3902,7 @@
           ]
         }
       },
-      "identity_digest": "sha256:e4c3135be1cad552bfef2f7ad2e51b4d2a636a4a425812506ee1165287cca483",
+      "identity_digest": "sha256:00ded6dfe2809b3a907a239847180d3168b8b6630d7dde10c0d2aac042d2f788",
       "cases": [
         {
           "source": true,
@@ -3966,8 +3936,7 @@
     },
     {
       "name": "externally tagged",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": {
           "tagged": {
             "variants": {
@@ -3994,7 +3963,7 @@
           }
         }
       },
-      "identity_digest": "sha256:6b860475a831b1891103f160e2417c87db4cf2c204922228d7b9ef0b5b611a43",
+      "identity_digest": "sha256:bfa73aca4e7b64ea764e06c5c01f56c51cc8d1dad585ef8176da7539051aa624",
       "cases": [
         {
           "source": "Empty",
@@ -4062,8 +4031,7 @@
     },
     {
       "name": "externally tagged, by discriminant",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": {
           "tagged": {
             "encode_as": "int",
@@ -4079,7 +4047,7 @@
           }
         }
       },
-      "identity_digest": "sha256:902acd750ca41e421596e947419225b0ab3e981cd1dee17e549c536e4843a4f5",
+      "identity_digest": "sha256:14edbf221c0dbf9bd72c9e8979f48284083cb66464a3c4d20f81625d53f8d752",
       "cases": [
         {
           "source": "Empty",
@@ -4101,8 +4069,7 @@
     },
     {
       "name": "internally tagged",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": {
           "tagged": {
             "style": "internal",
@@ -4132,7 +4099,7 @@
           }
         }
       },
-      "identity_digest": "sha256:d89278686f6af497c6fe0db8120b9b17e86553f0ec767b46b382f8ec1a657727",
+      "identity_digest": "sha256:2825cdfe0af93f73e6d14d54ba40ba84d3d28bd9cc7bb58ecca3be7d02b19806",
       "cases": [
         {
           "source": {
@@ -4192,8 +4159,7 @@
     },
     {
       "name": "adjacently tagged",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": {
           "tagged": {
             "style": "adjacent",
@@ -4208,7 +4174,7 @@
           }
         }
       },
-      "identity_digest": "sha256:63831f8838f5baafa21699aaa6917131e64990ec534e1b00407d162feff739c7",
+      "identity_digest": "sha256:cda965d5fda8a41eade5eea7b229255ccf8e9f86000cb0ee7cb90b43d61cae91",
       "cases": [
         {
           "source": {
@@ -4250,12 +4216,11 @@
     },
     {
       "name": "domain",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": "string",
         "domain": "example.label"
       },
-      "identity_digest": "sha256:e1a6cbb63a96dd0b6f3bce05d54ec3d2ac26b775014195f4cdb32cb4edabf5d9",
+      "identity_digest": "sha256:e85c9189161867d73f7a0ec01cf0a9bb8d51cd5ec5661439436af578964c5112",
       "cases": [
         {
           "source": "x",
@@ -4268,8 +4233,7 @@
     },
     {
       "name": "spec example",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "domain": "example.question",
         "root": {
           "ref": "Question"
@@ -4333,7 +4297,7 @@
           }
         }
       },
-      "identity_digest": "sha256:0bfc183c3e5d6b2b5a34fa92d1d112b54ab97bdcbea567df7752375ba2adaeb9",
+      "identity_digest": "sha256:d4a18ef515f089f62426d268249fae5c8e326086233e99a955268b3ad8f3be12",
       "cases": [
         {
           "source": {
@@ -4389,26 +4353,30 @@
       ]
     }
   ],
-  "invalid_documents": [
+  "invalid_identities": [
     {
       "name": "unknown member",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": "string",
         "extra": 1
       }
     },
     {
-      "name": "unknown kind",
-      "document": {
+      "name": "a version member",
+      "identity": {
         "quiddity": 1,
+        "root": "string"
+      }
+    },
+    {
+      "name": "unknown kind",
+      "identity": {
         "root": "text"
       }
     },
     {
       "name": "unknown option",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": {
           "bytes": {
             "text": "base32"
@@ -4418,29 +4386,18 @@
     },
     {
       "name": "missing root",
-      "document": {
-        "quiddity": 1
-      }
-    },
-    {
-      "name": "wrong version",
-      "document": {
-        "quiddity": 2,
-        "root": "string"
-      }
+      "identity": {}
     },
     {
       "name": "empty domain",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": "string",
         "domain": ""
       }
     },
     {
       "name": "undefined ref",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": {
           "ref": "Row"
         }
@@ -4448,8 +4405,7 @@
     },
     {
       "name": "cycle of refs",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": {
           "ref": "A"
         },
@@ -4470,8 +4426,7 @@
     },
     {
       "name": "union of two numbers",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": {
           "union": [
             "integer",
@@ -4482,8 +4437,7 @@
     },
     {
       "name": "union of two objects",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": {
           "union": [
             {
@@ -4503,8 +4457,7 @@
     },
     {
       "name": "union of objects with the same fields",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": {
           "union": [
             {
@@ -4531,8 +4484,7 @@
     },
     {
       "name": "union of objects one fits both",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": {
           "union": [
             {
@@ -4567,8 +4519,7 @@
     },
     {
       "name": "union of an object and a tagged union",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": {
           "union": [
             {
@@ -4595,8 +4546,7 @@
     },
     {
       "name": "union of string and uuid",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": {
           "union": [
             "string",
@@ -4607,8 +4557,7 @@
     },
     {
       "name": "union with any",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": {
           "union": [
             "any",
@@ -4619,8 +4568,7 @@
     },
     {
       "name": "union of two conversions",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": {
           "union": [
             "integer",
@@ -4631,8 +4579,7 @@
     },
     {
       "name": "map key not from strings",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": {
           "map": {
             "key": "null",
@@ -4643,8 +4590,7 @@
     },
     {
       "name": "map key union",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": {
           "map": {
             "key": {
@@ -4660,8 +4606,7 @@
     },
     {
       "name": "duplicate key",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": {
           "object": {
             "fields": {
@@ -4679,8 +4624,7 @@
     },
     {
       "name": "order with omit",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": {
           "object": {
             "fields": {
@@ -4700,8 +4644,7 @@
     },
     {
       "name": "order incomplete",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": {
           "object": {
             "fields": {
@@ -4721,8 +4664,7 @@
     },
     {
       "name": "unknown unlisted rule",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": {
           "object": {
             "fields": {},
@@ -4733,8 +4675,7 @@
     },
     {
       "name": "unknown omit condition",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": {
           "object": {
             "fields": {
@@ -4751,8 +4692,7 @@
     },
     {
       "name": "empty tuple",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": {
           "tuple": []
         }
@@ -4760,8 +4700,7 @@
     },
     {
       "name": "no variants",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": {
           "tagged": {
             "variants": {}
@@ -4771,8 +4710,7 @@
     },
     {
       "name": "internal without tag",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": {
           "tagged": {
             "style": "internal",
@@ -4785,8 +4723,7 @@
     },
     {
       "name": "adjacent without content",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": {
           "tagged": {
             "style": "adjacent",
@@ -4800,8 +4737,7 @@
     },
     {
       "name": "tag with external",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": {
           "tagged": {
             "tag": "t",
@@ -4814,8 +4750,7 @@
     },
     {
       "name": "internal variant not an object",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": {
           "tagged": {
             "style": "internal",
@@ -4831,8 +4766,7 @@
     },
     {
       "name": "internal variant with the tag field",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": {
           "tagged": {
             "style": "internal",
@@ -4856,8 +4790,7 @@
     },
     {
       "name": "duplicate label",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": {
           "tagged": {
             "variants": {
@@ -4872,8 +4805,7 @@
     },
     {
       "name": "missing discriminant",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": {
           "tagged": {
             "encode_as": "int",
@@ -4886,8 +4818,7 @@
     },
     {
       "name": "quantize a string",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": {
           "object": {
             "fields": {
@@ -4902,8 +4833,7 @@
     },
     {
       "name": "decimals on an integer",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": {
           "object": {
             "fields": {
@@ -4917,9 +4847,68 @@
       }
     },
     {
+      "name": "quantize written as a float",
+      "identity": {
+        "root": {
+          "object": {
+            "fields": {
+              "n": {
+                "kind": "integer",
+                "quantize": 5.0
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "decimals written as a float",
+      "identity": {
+        "root": {
+          "object": {
+            "fields": {
+              "x": {
+                "kind": "number",
+                "decimals": 2.0
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "quantize a string of digits",
+      "identity": {
+        "root": {
+          "object": {
+            "fields": {
+              "n": {
+                "kind": "integer",
+                "quantize": "5"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "discriminant written as a float",
+      "identity": {
+        "root": {
+          "tagged": {
+            "encode_as": "int",
+            "variants": {
+              "A": {
+                "discriminant": 1.0
+              }
+            }
+          }
+        }
+      }
+    },
+    {
       "name": "quantize zero",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": {
           "object": {
             "fields": {
@@ -4934,8 +4923,7 @@
     },
     {
       "name": "decimals out of range",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": {
           "object": {
             "fields": {
@@ -4950,8 +4938,7 @@
     },
     {
       "name": "quantize and decimals",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": {
           "object": {
             "fields": {
@@ -4967,8 +4954,7 @@
     },
     {
       "name": "quantize a union of two kinds",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": {
           "object": {
             "fields": {
@@ -4988,8 +4974,7 @@
     },
     {
       "name": "discriminant beyond 64 bits",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": {
           "tagged": {
             "encode_as": "int",
@@ -5004,8 +4989,7 @@
     },
     {
       "name": "discriminant without int",
-      "document": {
-        "quiddity": 1,
+      "identity": {
         "root": {
           "tagged": {
             "variants": {
@@ -5021,9 +5005,8 @@
   "same_identity": [
     {
       "name": "defaults, order and nesting",
-      "documents": [
+      "identities": [
         {
-          "quiddity": 1,
           "root": {
             "object": {
               "fields": {
@@ -5050,7 +5033,6 @@
         },
         {
           "definitions": {},
-          "quiddity": 1,
           "root": {
             "object": {
               "unlisted": "skip",
@@ -5085,13 +5067,12 @@
           }
         }
       ],
-      "identity_digest": "sha256:4e9123d759c4105a38ec77c3035d46b07a1ec35a8a21b68903dd8c8b493e25e5"
+      "identity_digest": "sha256:df705cc362965b47089ad7f667f5add7df29ce7317edcf25767ee8a6d390087d"
     },
     {
       "name": "a union of one",
-      "documents": [
+      "identities": [
         {
-          "quiddity": 1,
           "root": {
             "union": [
               "null",
@@ -5100,17 +5081,15 @@
           }
         },
         {
-          "quiddity": 1,
           "root": "null"
         }
       ],
-      "identity_digest": "sha256:c83f05022b47a0921d44bc3f5266322a8183f9416b0bf3609ec3911da7713d2d"
+      "identity_digest": "sha256:8d2cd8d4afe02feb7e1ead341382e1b8daf0b0a16fa8e2c6489a783d2450ef0b"
     },
     {
       "name": "quantize 1 is the default",
-      "documents": [
+      "identities": [
         {
-          "quiddity": 1,
           "root": {
             "object": {
               "fields": {
@@ -5123,7 +5102,6 @@
           }
         },
         {
-          "quiddity": 1,
           "root": {
             "object": {
               "fields": {
@@ -5135,13 +5113,12 @@
           }
         }
       ],
-      "identity_digest": "sha256:89e3f556c5e2cae13933a1cd714d327d08c784d843d35e8096890547a95f6907"
+      "identity_digest": "sha256:78a4325cfb32e19457a2d721314457e0c9e45af5c374da7081b4dfe6f0115075"
     },
     {
       "name": "unreachable definitions",
-      "documents": [
+      "identities": [
         {
-          "quiddity": 1,
           "root": {
             "ref": "A"
           },
@@ -5151,7 +5128,6 @@
           }
         },
         {
-          "quiddity": 1,
           "root": {
             "ref": "A"
           },
@@ -5160,7 +5136,7 @@
           }
         }
       ],
-      "identity_digest": "sha256:1d4c423b132e4451ed7cb750ee2ea4d4dff786210367db3eebbac02ae5a1af2f"
+      "identity_digest": "sha256:f389665a89465fea37daf148b76d09a123a4ee7a4d4e50d9fcd5e371304e55b1"
     }
   ],
   "text_forms": [

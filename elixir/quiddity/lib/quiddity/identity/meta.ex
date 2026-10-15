@@ -1,21 +1,17 @@
 defmodule Quiddity.Identity.Meta do
   @moduledoc false
-  # The identity of identity documents (spec Appendix C), under which an
+  # The identity of identities (spec Appendix C), under which an
   # identity's own digest is taken (spec 5.10).
 
-  @document %{
-    "quiddity" => 1,
+  @identity %{
     "domain" => "quiddity.identity",
     "root" => %{
-      "ref" => "Document"
+      "ref" => "Identity"
     },
     "definitions" => %{
-      "Document" => %{
+      "Identity" => %{
         "object" => %{
           "fields" => %{
-            "quiddity" => %{
-              "kind" => "integer"
-            },
             "domain" => %{
               "kind" => %{
                 "union" => ["null", "string"]
@@ -296,5 +292,5 @@ defmodule Quiddity.Identity.Meta do
     }
   }
 
-  def document, do: @document
+  def identity, do: @identity
 end

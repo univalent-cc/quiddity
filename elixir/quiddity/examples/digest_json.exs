@@ -1,4 +1,4 @@
-# Digests JSON files under an identity document.
+# Digests JSON files under an identity read from a JSON file.
 #
 #     mix run examples/digest_json.exs examples/data/task.identity.json \
 #         examples/data/task.json examples/data/task-reordered.json

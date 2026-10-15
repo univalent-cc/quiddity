@@ -935,6 +935,7 @@ mapping moved from section 5 to section 6. Choices made in the draft:
 - **Document shape.** Top-level `quiddity` (version 1), `root`,
   `domain` and `definitions`. The domain belongs to the document, since a
   domain applies only at the top level (D4); definitions carry none.
+  (Changed by D22: there is no `quiddity` member.)
 - **Kinds are written externally tagged**: a string for kinds without
   options, an object with one member otherwise. `instant` and `duration`
   are always objects (`{"instant": {}}`), so that each kind has one
@@ -1171,7 +1172,8 @@ them.
 ### Reference implementation
 
 `test-vectors/qident.py` implements spec section 5, and `generate.py`
-writes its vectors (`identities`, `invalid_documents`, `same_identity`,
+writes its vectors (`identities`, `invalid_documents` (now
+`invalid_identities`, D22), `same_identity`,
 `identity_of_identities`), taking Appendix C and the 5.3 example from the
 spec text so that they cannot drift. The generator asserts every equality
 the spec promises (sources in a group digest the same, groups differ) and
@@ -1555,6 +1557,34 @@ hand-written `Serialize` impls. The mode cannot detect `serde_repr`'s
 `Serialize_repr` (an enum as its integer) or any `Serialize` impl that
 departs from serde's attributes; such types say so with quiddity's own
 attributes (`encode_as = int`) or do not use the mode.
+
+## D22. Identities are data structures, not documents
+
+Decided 2026-10-15. An identity is a value: nested maps, lists and
+strings. JSON is the form in which it passes between implementations, as
+text is a form of a number. Section 5 of the spec was written as if it
+defined a file format, the "identity document"; it now defines the
+structure, and describes its JSON form.
+
+- **No version member.** Individual data types carry no version; the
+  encoding has one (spec 3.1). The `quiddity: 1` member is removed. An
+  implementation already rejects members it does not define (spec 5.3),
+  so an identity that uses a later version's members fails to load in an
+  earlier implementation, which is what a version would have provided.
+- **Integers are integers.** `quantize`, `decimals` and `discriminant` are
+  integers in the structure, so in JSON they are written as integers.
+  `5.0` there is a type error, as `null` would be. Spec 2.7, which reads
+  `1.0` as the integer 1, is about values being digested, not about an
+  identity's own members. `qident.py` and the Elixir package had applied
+  it (ELIXIR.md, P6); the Rust crate already rejected `5.0`.
+- **Consequences.** Every identity's digest changed, since Appendix C's
+  identity lost its `quiddity` field and its root definition is now
+  `Identity`. The vectors' `invalid_documents` group is now
+  `invalid_identities`, entries carry `identity` (pairs, `identities`)
+  rather than `document`, and new vectors reject a version member and
+  integers written as floats. The wording "identity document" is gone
+  from the spec, READMEs, documentation and error messages; `from_json`
+  and `to_json` keep their names, which say what they do.
 
 ## To revisit
 

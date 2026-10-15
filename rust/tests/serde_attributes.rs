@@ -347,7 +347,7 @@ fn scoped_to_identities() {
     );
 }
 
-/// The standard predicates map to omissions an identity document can hold;
+/// The standard predicates map to omissions an identity can hold;
 /// another function maps to `omit_if`, which it cannot.
 #[cfg(feature = "identity")]
 #[test]

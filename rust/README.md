@@ -37,7 +37,7 @@ Rust crate.
 | `uuid` | no | `Uuid` | |
 | `bytes` | no | `Bytes` and `BytesMut` | `alloc` |
 | `url` | no | `Url` | `std` |
-| `identity` | no | [Dynamic identities](#dynamic-identities): identity documents, read and written in any serde format, and digests of `Serialize` values under them | `alloc`, `serde` |
+| `identity` | no | [Dynamic identities](#dynamic-identities): identities as data, read and written in any serde format, and digests of `Serialize` values under them | `alloc`, `serde` |
 
 With `default-features = false`, `quiddity` is `no_std` and needs no
 allocator. The derive (with the `derive` feature), `Digest` and its shorter forms, numbers, `bool`,
@@ -291,7 +291,7 @@ struct Question {
 - `skip_serializing_if` becomes `omit_none` for `Option::is_none`,
   `omit_empty` for the standard collections' `is_empty`, and `omit_if`
   for any other function. Only the first two can be exported to an
-  identity document.
+  identity.
 - `serialize_with`, `with`, `into` and a variant's `untagged` digest the
   field or the type through serde (with the `serde` feature).
 - Attributes that only affect deserializing, such as `default` and
@@ -590,19 +590,18 @@ covers most types that implement `Serialize`.
 
 ## Dynamic identities
 
-An identity can also be written as data: an identity document, in JSON,
-that every implementation of quiddity can read (see the repository's
-[README](https://github.com/univalent-cc/quiddity#identity-documents) and
-[`QUIDDITY_SPEC.md`] section 5). The `identity` feature loads identity
-documents and digests values under them: a `serde_json::Value`, or any
-other value that implements `Serialize`:
+An identity can also be data, which every implementation of quiddity can
+read in its JSON form (see the repository's
+[README](https://github.com/univalent-cc/quiddity#identities-are-portable) and
+[`QUIDDITY_SPEC.md`] section 5). The `identity` feature reads identities
+and digests values under them: a `serde_json::Value`, or any other value
+that implements `Serialize`:
 
 ```rust ignore
 use quiddity::identity::Identity;
 use serde_json::json;
 
 let identity = Identity::from_json(&json!({
-    "quiddity": 1,
     "root": {"object": {"fields": {
         "prompt": {"kind": "string"},
         "priority": {"kind": "integer"},
@@ -628,9 +627,9 @@ A `Serialize` value is read in the form serde_json gives it, so it has the
 digest of its `serde_json::Value`. Where a `serde_json::Value` cannot hold
 a value, it is kept: integers beyond 64 bits, and NaN and the infinities.
 
-`Identity` implements `Serialize` and `Deserialize` as its document, so
-documents are read and written in any serde format. Reading one takes its
-canonical form and checks it. With the `serde_json` feature,
+`Identity` implements `Serialize` and `Deserialize`, so identities are
+read and written in any serde format. Reading one takes its canonical form
+and checks it. With the `serde_json` feature,
 `Identity::from_json` and `to_json` read and write `serde_json::Value`s.
 
 ### Building identities at runtime
@@ -661,7 +660,7 @@ let mut question = Identity::new(Kind::object([
 question.set_domain("example.question")?;
 question.set_field_in("Question", "asked_at", Kind::instant())?;
 
-let document = question.to_json(); // {"quiddity": 1, "root": {"ref": "Question"}, …}
+let json = question.to_json(); // {"root": {"ref": "Question"}, …}
 ```
 
 The [`identity::Kind`] and [`identity::Field`] documentation has an
@@ -676,13 +675,13 @@ language:
 
 ```rust ignore
 let identity = <Question as Quiddity>::construct_identity()?;
-let document = identity.to_json();
+let json = identity.to_json();
 ```
 
 A value's digest then equals the digest of its serde JSON form under the
 exported identity, provided the type's serde and quiddity attributes name
 fields and variants the same way (for example, with the same
-`rename_all`). Export fails for what an identity document cannot express,
+`rename_all`). Export fails for what an identity cannot express,
 such as a `with` function or `encode_as = display`.
 
 ## More examples

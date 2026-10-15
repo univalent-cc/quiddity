@@ -134,4 +134,4 @@ IO.puts("is the digest's:  #{loaded.etag == to_string(Quiddity.Digest.micro(dige
 # The resource's identity as data, for other languages to apply to a
 # record's JSON form.
 {:ok, identity} = Quiddity.identity(Helpdesk.Ticket)
-IO.puts("\nidentity document:\n#{JSON.encode!(identity)}")
+IO.puts("\nidentity as JSON:\n#{JSON.encode!(identity)}")
