@@ -632,6 +632,10 @@ fields and variants the same way (for example, with the same
 `rename_all`). Export fails for what an identity document cannot express,
 such as a `with` function or `encode_as = display`.
 
+## More examples
+
+See the [`examples`](https://github.com/univalent-cc/quiddity/tree/main/rust/examples) directory.
+
 ## Alternatives to Quiddity
 
 The repository's

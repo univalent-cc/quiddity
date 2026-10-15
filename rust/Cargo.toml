@@ -46,6 +46,26 @@ trybuild = "1"
 url = "2"
 uuid = "1"
 
+[[example]]
+name = "derive"
+required-features = ["std", "derive"]
+
+[[example]]
+name = "etag"
+required-features = ["std", "derive"]
+
+[[example]]
+name = "dynamic_identity"
+required-features = ["identity"]
+
+[[example]]
+name = "digest_json"
+required-features = ["identity"]
+
+[[example]]
+name = "export_identity"
+required-features = ["identity"]
+
 [package.metadata.docs.rs]
 all-features = true
 rustdoc-args = ["--generate-link-to-definition"]
