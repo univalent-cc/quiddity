@@ -221,6 +221,7 @@ different digests, however close they are.
 | `transparent` | The type digests as its single field. Exactly one field must remain, after skips, for every identity it applies to, or it is a compile error. |
 | `rename_all = "…"` | Rename every field (on a struct) or every variant (on an enum) to a case convention, as serde's `rename_all` does: `"lowercase"`, `"UPPERCASE"`, `"PascalCase"`, `"camelCase"`, `"snake_case"`, `"SCREAMING_SNAKE_CASE"`, `"kebab-case"` or `"SCREAMING-KEBAB-CASE"`. A field's or variant's own `rename` takes precedence. Use the same convention as the type's serde attributes so that its digest keys match its JSON keys. |
 | `tag = "…"`, `content = "…"`, `untagged` | How an enum's variants are tagged, as serde's attributes of the same names do: `tag` alone for internal tagging (`{"type": "Rect", "w": 1}`), `tag` and `content` for adjacent tagging (`{"t": "Rect", "c": …}`), `untagged` for the variant's value alone. Without them, `{"Rect": …}`, as serde's default. |
+| `serde_attributes` | Read the type's `#[serde(…)]` attributes as quiddity attributes, so one set of attributes defines both the wire form and the digest (see [Following serde's attributes](#following-serdes-attributes)). |
 | `encode_as = …` | `map` or `list` for a struct with named fields (default = `map`), `string` or `int` for an enum (default = `string`). `display` for any type that implements `Display`, encode the output. `serde` (with the `serde` feature) for any type that implements `Serialize`, encode it through serde; panics if serialization fails (see [Direct from `serde`](#direct-from-serde)). |
 
 ### On a field
@@ -262,6 +263,52 @@ identities by naming them in parentheses after the attribute's name:
 ```
 
 `Primary` does not need to be imported to use it as a macro arg.
+
+### Following serde's attributes
+
+With `#[quiddity(serde_attributes)]`, the derive reads the type's serde
+attributes as their quiddity equivalents, so they need not be repeated:
+
+```rust
+use quiddity::{Quiddity, QuiddityExt};
+use serde::Serialize;
+
+#[derive(Serialize, Quiddity)]
+#[serde(rename_all = "camelCase")]
+#[quiddity(serde_attributes)]
+struct Question {
+    brief_text: String,
+    #[serde(skip)]
+    cache_hits: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    note: Option<String>,
+}
+```
+
+- `rename`, `rename_all`, `rename_all_fields`, `tag`, `content`,
+  `untagged`, `transparent`, `skip`, `skip_serializing` and `flatten`
+  become the quiddity attributes of the same meaning.
+- `skip_serializing_if` becomes `omit_none` for `Option::is_none`,
+  `omit_empty` for the standard collections' `is_empty`, and `omit_if`
+  for any other function. Only the first two can be exported to an
+  identity document.
+- `serialize_with`, `with`, `into` and a variant's `untagged` digest the
+  field or the type through serde (with the `serde` feature).
+- Attributes that only affect deserializing, such as `default` and
+  `alias`, are ignored. `remote`, and attributes the derive does not know,
+  are compile errors.
+
+serde's attributes are then the only source of keys and omissions: a
+quiddity attribute with a serde equivalent, such as `rename` or `skip`, is
+a compile error. Attributes serde cannot express, such as `quantize`,
+`decimals` and `domain`, mix in. Field values are still digested by their
+`Quiddity` impls: a `Duration` is nanoseconds, though serde writes
+`{"secs", "nanos"}`.
+
+The mode can be scoped like other attributes. With
+`serde_attributes(Primary)`, other identities do not see serde's
+attributes, and can use quiddity's, scoped to them, such as
+`skip(Meaning)`.
 
 ## Shorter digests
 

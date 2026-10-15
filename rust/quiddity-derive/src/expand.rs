@@ -36,6 +36,8 @@ enum ValueEncoding {
     /// Through the field type's own `Quiddity<J>` impl.
     Own(TokenStream),
     With(Path),
+    /// Through a serde `serialize_with` function (`serde_attributes`).
+    SerializeWith(Path),
     Display,
     Serde,
     /// The items of a sequence, as a set.
@@ -59,7 +61,10 @@ enum Shape {
 }
 
 pub fn derive(input: DeriveInput) -> syn::Result<TokenStream> {
-    let attrs = TypeAttrs::parse(&input.attrs)?;
+    let mut attrs = TypeAttrs::parse(&input.attrs)?;
+    let is_struct = matches!(input.data, Data::Struct(_));
+    crate::serde_attrs::apply_type(&mut attrs, &input.attrs, &input.ident, is_struct)?;
+    let serde_keys = attrs.serde_keys();
     let keys = attrs.keys();
     let mut identities = vec![Identity {
         key: PRIMARY.to_owned(),
@@ -73,7 +78,10 @@ pub fn derive(input: DeriveInput) -> syn::Result<TokenStream> {
     }
 
     let body = match &input.data {
-        Data::Struct(data) => Body::Struct(fields(&data.fields, &keys)?, data.fields.clone()),
+        Data::Struct(data) => Body::Struct(
+            fields(&data.fields, &keys, &serde_keys)?,
+            data.fields.clone(),
+        ),
         Data::Enum(data) => {
             if attrs.transparent.is_set() {
                 return Err(syn::Error::new(
@@ -83,11 +91,14 @@ pub fn derive(input: DeriveInput) -> syn::Result<TokenStream> {
             }
             let mut variants = Vec::new();
             for v in &data.variants {
-                variants.push((
-                    v,
-                    VariantAttrs::parse(&v.attrs, &keys)?,
-                    fields(&v.fields, &keys)?,
-                ));
+                let mut vattrs = VariantAttrs::parse(&v.attrs, &keys)?;
+                crate::serde_attrs::apply_variant(
+                    &mut attrs,
+                    &mut vattrs,
+                    &v.attrs,
+                    v.ident.span(),
+                )?;
+                variants.push((v, vattrs, fields(&v.fields, &keys, &serde_keys)?));
             }
             Body::Enum(variants)
         }
@@ -111,10 +122,11 @@ enum Body<'a> {
     Enum(Vec<(&'a Variant, VariantAttrs, Vec<Field>)>),
 }
 
-fn fields(fields: &Fields, keys: &[String]) -> syn::Result<Vec<Field>> {
+fn fields(fields: &Fields, keys: &[String], serde_keys: &[String]) -> syn::Result<Vec<Field>> {
     let mut out = Vec::new();
     for (i, f) in fields.iter().enumerate() {
-        let attrs = FieldAttrs::parse(&f.attrs, keys)?;
+        let mut attrs = FieldAttrs::parse(&f.attrs, keys)?;
+        crate::serde_attrs::apply_field(&mut attrs, &f.attrs, serde_keys, f.ty.span())?;
         if f.ident.is_none() && attrs.rename.is_set() {
             return Err(syn::Error::new_spanned(
                 f,
@@ -163,7 +175,8 @@ fn implement(
         (_, Body::Struct(fields, form)) => {
             let shape = struct_shape(attrs, key, form, type_shape)?;
             let rename_all = attrs.rename_all.get(key).copied();
-            let write = write_fields(fields, shape, key, rename_all, None, &mut bounds)?;
+            let extra = struct_tag(attrs, key, shape)?;
+            let write = write_fields(fields, shape, key, rename_all, extra, &mut bounds)?;
             let pattern = pattern(quote!(Self), fields, form);
             quote! {
                 let #pattern = self;
@@ -173,8 +186,17 @@ fn implement(
         (_, Body::Enum(variants)) => {
             let int = enum_int(type_shape)?;
             let rename_all = attrs.rename_all.get(key).copied();
+            let fields_rule = attrs.rename_all_fields.get(key).copied();
             let style = enum_style(attrs, key, int)?;
-            write_enum(variants, int, &style, key, rename_all, &mut bounds)?
+            write_enum(
+                variants,
+                int,
+                &style,
+                key,
+                rename_all,
+                fields_rule,
+                &mut bounds,
+            )?
         }
     };
     if matches!(body, Body::Struct(..))
@@ -254,7 +276,8 @@ fn flatten_entries(
                 return Ok(None);
             }
             let rename_all = attrs.rename_all.get(key).copied();
-            let (writes, flattened) = map_writes(fields, key, rename_all, None, bounds)?;
+            let extra = struct_tag(attrs, key, Shape::Map)?;
+            let (writes, flattened) = map_writes(fields, key, rename_all, extra, bounds)?;
             let pattern = pattern(quote!(Self), fields, form);
             Ok(Some(quote! {
                 let #pattern = self;
@@ -272,6 +295,7 @@ fn flatten_entries(
             for (v, vattrs, fields) in variants {
                 let ident = &v.ident;
                 let name = variant_name(v, vattrs, key, rename_all);
+                let fr = fields_rule(attrs, vattrs, key);
                 let lit = LitStr::new(&name, Span::call_site());
                 let form = &v.fields;
                 let pattern = pattern(quote!(Self::#ident), fields, form);
@@ -285,13 +309,13 @@ fn flatten_entries(
                     }
                     Style::External => {
                         let data =
-                            write_fields(fields, variant_shape(form), key, None, None, bounds)?;
+                            write_fields(fields, variant_shape(form), key, fr, None, bounds)?;
                         quote!(__m.field_with(#lit, |__e| { #data });)
                     }
                     Style::Internal(tag) if unit => quote!(__m.field_with(#tag, |__e| { #label });),
                     Style::Internal(tag) => {
                         let (writes, flattened) =
-                            map_writes(fields, key, None, Some((tag.value(), label)), bounds)?;
+                            map_writes(fields, key, fr, Some((tag.value(), label)), bounds)?;
                         quote!(#writes #flattened)
                     }
                     Style::Adjacent(tag, _) if unit => {
@@ -299,7 +323,7 @@ fn flatten_entries(
                     }
                     Style::Adjacent(tag, content) => {
                         let data =
-                            write_fields(fields, variant_shape(form), key, None, None, bounds)?;
+                            write_fields(fields, variant_shape(form), key, fr, None, bounds)?;
                         quote! {
                             __m.field_with(#tag, |__e| { #label });
                             __m.field_with(#content, |__e| { #data });
@@ -307,7 +331,7 @@ fn flatten_entries(
                     }
                     Style::Untagged if unit => quote!(),
                     Style::Untagged if named => {
-                        let (writes, flattened) = map_writes(fields, key, None, None, bounds)?;
+                        let (writes, flattened) = map_writes(fields, key, fr, None, bounds)?;
                         quote!(#writes #flattened)
                     }
                     Style::Untagged => {
@@ -324,6 +348,35 @@ fn flatten_entries(
             }))
         }
     }
+}
+
+/// The case convention for a struct variant's fields under `key`: the
+/// variant's serde `rename_all`, else the enum's `rename_all_fields`.
+fn fields_rule(attrs: &TypeAttrs, vattrs: &VariantAttrs, key: &str) -> Option<RenameRule> {
+    vattrs
+        .fields_rename_all
+        .get(key)
+        .copied()
+        .or(attrs.rename_all_fields.get(key).copied())
+}
+
+/// A struct's serde `tag` under `key`, as the extra member it writes: the
+/// tag's name, and the struct's name as its value.
+fn struct_tag(
+    attrs: &TypeAttrs,
+    key: &str,
+    shape: Shape,
+) -> syn::Result<Option<(String, TokenStream)>> {
+    let Some((tag, name)) = attrs.struct_tag.get(key) else {
+        return Ok(None);
+    };
+    if shape != Shape::Map {
+        return Err(syn::Error::new_spanned(
+            tag,
+            "serde's `tag` on a struct applies to structs with named fields encoded as a map",
+        ));
+    }
+    Ok(Some((tag.value(), quote!(__e.str(#name);))))
 }
 
 /// The shape of a struct's fields under one identity.
@@ -419,7 +472,9 @@ impl Field {
         let a = &self.attrs;
         let (with, shape, identity) = (a.with.get(key), a.encode_as.get(key), a.identity.get(key));
         let (quantize, decimals) = (a.quantize.get(key), a.decimals.get(key));
+        let serialize_with = a.serialize_with.get(key);
         if [
+            serialize_with.is_some(),
             with.is_some(),
             shape.is_some(),
             identity.is_some(),
@@ -434,10 +489,14 @@ impl Field {
             return Err(syn::Error::new_spanned(
                 &self.ty,
                 format!(
-                    "`with`, `encode_as`, `identity`, `quantize` and `decimals` cannot be \
+                    "`with`, `encode_as`, `identity`, `quantize`, `decimals` and serde's \
+                     `serialize_with` cannot be \
                      combined (identity `{key}`)"
                 ),
             ));
+        }
+        if let Some(f) = serialize_with {
+            return Ok(ValueEncoding::SerializeWith(f.clone()));
         }
         if let Some(q) = quantize {
             return Ok(ValueEncoding::Quantize(*q));
@@ -464,6 +523,9 @@ impl Field {
                 quote!(<#ty as ::quiddity::Quiddity<#j>>::encode(#b, __e);)
             }
             ValueEncoding::With(path) => quote!(#path(#b, __e);),
+            ValueEncoding::SerializeWith(path) => {
+                quote!(::quiddity::__encode_serialize_with!(__e, |__s| #path(#b, __s));)
+            }
             ValueEncoding::Display => quote!(__e.display(#b);),
             ValueEncoding::Serde => quote!(::quiddity::__encode_serde!(#b, __e);),
             ValueEncoding::Quantize(q) => quote_spanned!(ty.span()=>
@@ -687,7 +749,7 @@ fn map_writes(
         if writes.iter().any(|(n, _)| *n == tag) {
             return Err(syn::Error::new(
                 Span::call_site(),
-                format!("a field has the key {tag:?}, which is the enum's tag"),
+                format!("a field has the key {tag:?}, which is also the tag"),
             ));
         }
         let lit = LitStr::new(&tag, Span::call_site());
@@ -882,16 +944,19 @@ fn write_enum(
     style: &Style,
     key: &str,
     rename_all: Option<RenameRule>,
+    rename_all_fields: Option<RenameRule>,
     bounds: &mut Bounds,
 ) -> syn::Result<TokenStream> {
     check_style(variants, style)?;
+    let fields_rule =
+        |v: &VariantAttrs| v.fields_rename_all.get(key).copied().or(rename_all_fields);
     if let Style::Untagged = style {
         let mut key_sets: Vec<(BTreeSet<String>, &Variant)> = Vec::new();
-        for (v, _, fields) in variants {
+        for (v, vattrs, fields) in variants {
             if !matches!(v.fields, Fields::Named(_)) {
                 continue;
             }
-            let keys: BTreeSet<String> = map_entries(fields, key, None)?
+            let keys: BTreeSet<String> = map_entries(fields, key, fields_rule(vattrs))?
                 .into_iter()
                 .map(|(k, _)| k)
                 .collect();
@@ -913,6 +978,7 @@ fn write_enum(
     for ((v, attrs, fields), disc) in variants.iter().zip(discriminants(variants)) {
         let ident = &v.ident;
         let name = variant_name(v, attrs, key, rename_all);
+        let fr = fields_rule(attrs);
         if !names.insert(name.clone()) {
             return Err(syn::Error::new_spanned(
                 v,
@@ -932,7 +998,7 @@ fn write_enum(
         let write = match style {
             Style::External if unit => label,
             Style::External => {
-                let data = write_fields(fields, shape, key, None, None, bounds)?;
+                let data = write_fields(fields, shape, key, fr, None, bounds)?;
                 if int {
                     quote! {
                         let mut __l = __e.list();
@@ -954,7 +1020,7 @@ fn write_enum(
                 __m.finish();
             },
             Style::Internal(tag) => {
-                write_fields(fields, shape, key, None, Some((tag.value(), label)), bounds)?
+                write_fields(fields, shape, key, fr, Some((tag.value(), label)), bounds)?
             }
             Style::Adjacent(tag, _) if unit => quote! {
                 let mut __m = __e.fields();
@@ -962,7 +1028,7 @@ fn write_enum(
                 __m.finish();
             },
             Style::Adjacent(tag, content) => {
-                let data = write_fields(fields, shape, key, None, None, bounds)?;
+                let data = write_fields(fields, shape, key, fr, None, bounds)?;
                 let mut entries = vec![
                     (tag.value(), quote!(__m.field_with(#tag, |__e| { #label });)),
                     (
@@ -979,7 +1045,7 @@ fn write_enum(
                 }
             }
             Style::Untagged if unit => quote!(__e.null();),
-            Style::Untagged => write_fields(fields, shape, key, None, None, bounds)?,
+            Style::Untagged => write_fields(fields, shape, key, fr, None, bounds)?,
         };
         arms.extend(quote!(#pattern => { #write }));
     }
@@ -1012,7 +1078,8 @@ fn describe(
         (_, Body::Struct(fields, form)) => {
             let shape = struct_shape(attrs, key, form, type_shape)?;
             let rename_all = attrs.rename_all.get(key).copied();
-            describe_fields(fields, form, shape, key, rename_all)
+            let tag = attrs.struct_tag.get(key).map(|(t, _)| t.value());
+            describe_fields(fields, form, shape, key, rename_all, tag)
         }
         (_, Body::Enum(variants)) => {
             let int = enum_int(type_shape)?;
@@ -1025,7 +1092,14 @@ fn describe(
                     Fields::Unit => None,
                     form => Some(within(
                         &name,
-                        describe_fields(fields, form, variant_shape(form), key, None)?,
+                        describe_fields(
+                            fields,
+                            form,
+                            variant_shape(form),
+                            key,
+                            fields_rule(attrs, vattrs, key),
+                            None,
+                        )?,
                     )),
                 };
                 alternatives.push((name, kind, disc));
@@ -1084,6 +1158,7 @@ fn describe_fields(
     shape: Shape,
     key: &str,
     rename_all: Option<RenameRule>,
+    tag: Option<String>,
 ) -> syn::Result<TokenStream> {
     let participating: Vec<&Field> = fields.iter().filter(|f| f.participates(key)).collect();
     let null = quote!(::quiddity::identity::Kind::Null);
@@ -1137,6 +1212,12 @@ fn describe_fields(
         }
         Shape::Map => {
             let mut items = Vec::new();
+            if let Some(tag) = tag {
+                // A struct's serde tag: its name, a string.
+                items.push(quote!((#tag, ::quiddity::identity::export::field(
+                    ::quiddity::identity::Kind::String, false, false
+                ))));
+            }
             let mut flattened = Vec::new();
             for f in participating
                 .iter()
@@ -1218,6 +1299,7 @@ impl Field {
                 ::quiddity::identity::export::as_set(__cx, __kind, ::core::any::type_name::<#ty>())?
             }),
             ValueEncoding::With(_) => unsupported("with"),
+            ValueEncoding::SerializeWith(_) => unsupported("serialize_with"),
             ValueEncoding::Display => unsupported("encode_as = display"),
             ValueEncoding::Serde => unsupported("encode_as = serde"),
         })

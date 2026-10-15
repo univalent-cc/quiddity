@@ -1,0 +1,7 @@
+error: a field has the key "type", which is also the tag
+ --> tests/ui/serde_attributes_tag_clash.rs:4:21
+  |
+4 | #[derive(Serialize, Quiddity)]
+  |                     ^^^^^^^^
+  |
+  = note: this error originates in the derive macro `Quiddity` (in Nightly builds, run with -Z macro-backtrace for more info)

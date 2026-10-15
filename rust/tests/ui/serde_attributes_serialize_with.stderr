@@ -1,0 +1,7 @@
+error: serde's `serialize_with` and `with` need the `serde` feature of `quiddity`
+ --> tests/ui/serde_attributes_serialize_with.rs:8:21
+  |
+8 | #[derive(Serialize, Quiddity)]
+  |                     ^^^^^^^^
+  |
+  = note: this error originates in the macro `::quiddity::__encode_serialize_with` which comes from the expansion of the derive macro `Quiddity` (in Nightly builds, run with -Z macro-backtrace for more info)

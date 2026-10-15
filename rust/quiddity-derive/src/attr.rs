@@ -86,6 +86,13 @@ impl<T: Clone> Scoped<T> {
             .or(self.all.as_ref())
     }
 
+    /// Sets the value for the identity `key`, as serde's attributes do in
+    /// the `serde_attributes` mode (D21).
+    pub fn set_for(&mut self, key: &str, value: T) {
+        self.by.retain(|(k, _)| k != key);
+        self.by.push((key.to_owned(), value));
+    }
+
     /// Whether the attribute is written at all.
     pub fn is_set(&self) -> bool {
         self.all.is_some() || !self.by.is_empty()
@@ -247,7 +254,7 @@ const RENAME_RULES: &[(&str, RenameRule)] = &[
 ];
 
 impl RenameRule {
-    fn parse(lit: &LitStr) -> syn::Result<Self> {
+    pub fn parse(lit: &LitStr) -> syn::Result<Self> {
         let value = lit.value();
         RENAME_RULES
             .iter()
@@ -344,6 +351,13 @@ pub struct TypeAttrs {
     /// Adjacent tagging of an enum: the content member's name.
     pub content: Scoped<LitStr>,
     pub untagged: Scoped<bool>,
+    /// The identities whose attributes are serde's (D21).
+    pub serde_attributes: Scoped<bool>,
+    /// Set from serde only: `rename_all_fields`, the convention for the
+    /// fields of every struct variant.
+    pub rename_all_fields: Scoped<RenameRule>,
+    /// Set from serde only: a struct's `tag`, and the name it writes there.
+    pub struct_tag: Scoped<(LitStr, String)>,
 }
 
 impl TypeAttrs {
@@ -428,10 +442,19 @@ impl TypeAttrs {
                     out.content.set(item, s, &ids)?;
                 }
                 "untagged" => out.untagged.set(item, flag(item)?, &ids)?,
+                "serde_attributes" => out.serde_attributes.set(item, flag(item)?, &ids)?,
                 _ => return Err(unknown(item, "type")),
             }
         }
         Ok(out)
+    }
+
+    /// The keys of the identities in the `serde_attributes` mode.
+    pub fn serde_keys(&self) -> Vec<String> {
+        self.keys()
+            .into_iter()
+            .filter(|k| self.serde_attributes.get(k).copied().unwrap_or(false))
+            .collect()
     }
 
     /// The keys of every identity the type implements, primary first.
@@ -457,6 +480,9 @@ pub struct FieldAttrs {
     pub encode_as: Scoped<(EncodeAs, Span)>,
     /// The field's members are written into the containing map (D21).
     pub flatten: Scoped<bool>,
+    /// Set from serde only: a `serialize_with` function (or `with`'s
+    /// `serialize`), applied through the serde bridge.
+    pub serialize_with: Scoped<Path>,
 }
 
 impl FieldAttrs {
@@ -518,6 +544,8 @@ impl FieldAttrs {
 #[derive(Default)]
 pub struct VariantAttrs {
     pub rename: Scoped<LitStr>,
+    /// Set from serde only: the variant's `rename_all`, for its fields.
+    pub fields_rename_all: Scoped<RenameRule>,
 }
 
 impl VariantAttrs {

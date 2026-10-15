@@ -226,6 +226,8 @@ pub mod __private {
 
     #[cfg(feature = "serde")]
     pub use crate::serde::encode_or_panic as encode_serde;
+    #[cfg(feature = "serde")]
+    pub use crate::serde::encode_with_or_panic as encode_serialize_with;
 }
 
 /// Used by the derive's expansion: its contents with the `identity`
@@ -302,6 +304,30 @@ macro_rules! __encode_set {
 macro_rules! __encode_set {
     ($value:expr, $e:expr) => {
         ::core::compile_error!("`encode_as = set` needs the `alloc` feature of `quiddity`")
+    };
+}
+
+/// Used by the derive's expansion for serde's `serialize_with` and `with`
+/// (`serde_attributes`, D21): `$f` is a closure calling the function with
+/// the bridge's serializer.
+#[doc(hidden)]
+#[cfg(feature = "serde")]
+#[macro_export]
+macro_rules! __encode_serialize_with {
+    ($e:expr, $f:expr) => {
+        $crate::__private::encode_serialize_with($e, $f)
+    };
+}
+
+/// Used by the derive's expansion for serde's `serialize_with` and `with`.
+#[doc(hidden)]
+#[cfg(not(feature = "serde"))]
+#[macro_export]
+macro_rules! __encode_serialize_with {
+    ($e:expr, $f:expr) => {
+        ::core::compile_error!(
+            "serde's `serialize_with` and `with` need the `serde` feature of `quiddity`"
+        )
     };
 }
 

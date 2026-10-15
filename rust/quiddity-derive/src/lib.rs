@@ -3,6 +3,7 @@
 
 mod attr;
 mod expand;
+mod serde_attrs;
 
 use proc_macro::TokenStream;
 use quote::quote;

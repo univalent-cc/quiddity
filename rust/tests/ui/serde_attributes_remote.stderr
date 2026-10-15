@@ -1,0 +1,5 @@
+error: `#[serde(remote = "Other")]` is not supported with `#[quiddity(serde_attributes)]`: a remote derive serializes `Other`, not `OtherDef`, so `OtherDef` has no serialized form to follow. Remove `Quiddity` from this derive: fields of type `Other` marked `#[serde(with = "OtherDef")]` are digested through it, with the `serde` feature. Or implement `Quiddity` for a wrapper of `Other` by hand
+ --> tests/ui/serde_attributes_remote.rs:9:9
+  |
+9 | #[serde(remote = "Other")]
+  |         ^^^^^^^^^^^^^^^^

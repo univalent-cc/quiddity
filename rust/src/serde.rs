@@ -61,8 +61,21 @@ impl ser::Error for Error {
     }
 }
 
-struct Serializer<'a> {
+/// The serializer that writes into an [`Encoder`]. Hidden: used by the
+/// derive for `serialize_with` (D21).
+#[doc(hidden)]
+pub struct Serializer<'a> {
     e: &'a mut Encoder,
+}
+
+/// Writes a value through `f`, a serde `serialize_with` function applied to
+/// the bridge's serializer, panicking on error: for the derive's
+/// `serde_attributes` mode, inside the infallible `quiddity()`.
+#[doc(hidden)]
+pub fn encode_with_or_panic(e: &mut Encoder, f: impl FnOnce(Serializer<'_>) -> Result<(), Error>) {
+    if let Err(err) = f(Serializer { e }) {
+        panic!("quiddity: a `serialize_with` function failed while computing a digest: {err}");
+    }
 }
 
 /// Writes `value` through its `Serialize` impl.
@@ -295,7 +308,8 @@ impl<'a> ser::Serializer for Serializer<'a> {
 }
 
 /// A sequence, tuple or tuple struct: a list.
-struct Seq<'a> {
+#[doc(hidden)]
+pub struct Seq<'a> {
     list: ListEncoder<'a>,
 }
 
@@ -348,7 +362,8 @@ impl ser::SerializeTupleStruct for Seq<'_> {
 
 /// A tuple variant: `{variant: [values]}`, after `begin_variant`. The
 /// elements are written as they come, then the list's and the map's counts.
-struct VariantSeq<'a> {
+#[doc(hidden)]
+pub struct VariantSeq<'a> {
     e: &'a mut Encoder,
     count: usize,
 }
@@ -372,7 +387,8 @@ impl ser::SerializeTupleVariant for VariantSeq<'_> {
 
 /// A map, struct or struct variant: entries sorted when it ends. For a
 /// struct variant, `{variant: {fields}}` after `begin_variant`.
-struct Map<'a> {
+#[doc(hidden)]
+pub struct Map<'a> {
     e: &'a mut Encoder,
     entries: Entries,
     variant: bool,

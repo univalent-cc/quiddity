@@ -1,0 +1,5 @@
+error: `skip` applies to identity `Primary`, which follows serde's attributes (`serde_attributes`): use serde's attribute instead, or scope this one to other identities, as `skip(Meaning)`
+  --> tests/ui/serde_attributes_forbidden.rs:12:15
+   |
+12 |     priority: u8,
+   |               ^^

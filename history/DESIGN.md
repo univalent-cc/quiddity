@@ -1397,8 +1397,13 @@ later, as a separate feature built on it.
 
 ## D21. Serde attributes in the derive (planned)
 
-Discussed 2026-10-14. `flatten` is implemented (2026-10-14); the
-`serde_attributes` mode is not yet.
+Discussed and implemented 2026-10-14: `flatten`, then the
+`serde_attributes` mode (`quiddity-derive/src/serde_attrs.rs`). Beyond the
+plan below: serde's `tag` on a struct (its name under the tag) is
+followed; a variant's `skip` and `skip_serializing` are ignored (serde
+fails to serialize such a variant, so there is no wire form to match); a
+variant's `untagged`, `serialize_with` and `with` digest the whole type
+through its `Serialize` impl.
 
 ### Goal
 
@@ -1777,8 +1782,8 @@ Decided in the draft, open to review:
   building a `serde_json::Value`. `QuiddityFromSerialize`, a separate
   derive reading serde's attributes, is replaced by D21's mode of the
   normal derive.)
-- **D21:** serde attributes in the derive, `#[quiddity(serde_attributes)]`:
-  designed, not implemented. Its native `flatten` is implemented.
+- **D21:** serde attributes in the derive, `#[quiddity(serde_attributes)]`,
+  and a native `flatten`: implemented.
 - **`identity` without `serde/derive`:** `Identity` and its parts derive
   `Serialize` and `Deserialize`, so `identity` pulls in `serde_derive`.
   Projects that need `identity` are mostly multi-language services, which
