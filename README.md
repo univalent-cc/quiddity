@@ -3,8 +3,9 @@
 *Quiddity* (n.): the essence of a thing; what makes it *what it is*, as
 distinct from its incidental properties.
 
-`quiddity` computes stable digests of values from the fields you mark as
-essential.
+Quiddity computes stable digests of values based on meaning annotations.
+A digest is the same in every language that implements quiddity, on every
+platform, and in every release.
 
 Properties of `quiddity` include:
 
@@ -210,7 +211,10 @@ Every implementation is tested against the shared vectors in
 
 ### Elixir
 
-Coming soon
+Two packages, in [`elixir/`](elixir/). [`quiddity`](elixir/quiddity) digests
+Elixir values and structs, and builds, loads and applies identities.
+[`ash_quiddity`](elixir/ash_quiddity) is an Ash extension that makes a
+resource's definition its identity.
 
 ### Python
 

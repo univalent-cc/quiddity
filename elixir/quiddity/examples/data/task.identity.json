@@ -1,0 +1,10 @@
+{
+  "quiddity": 1,
+  "domain": "example.task",
+  "root": {"object": {"fields": {
+    "prompt": {"kind": "string"},
+    "priority": {"kind": "integer"},
+    "tags": {"kind": {"set": "string"}, "omit": ["none", "empty"]},
+    "asked_at": {"kind": {"instant": {}}}
+  }}}
+}
