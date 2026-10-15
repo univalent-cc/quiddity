@@ -9,11 +9,9 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use core::fmt;
 
-use serde_json::{Map, Value, json};
-
 use super::{
     BytesOptions, BytesText, Field, Identity, Kind, MapKind, ObjectKind, Omit, Style, TagEncoding,
-    TaggedKind, TimeOptions, Unit, Variant,
+    TaggedKind, Variant,
 };
 use crate::{Encoder, Quiddity};
 
@@ -43,288 +41,71 @@ pub(crate) fn invalid(path: &str, message: impl Into<String>) -> InvalidIdentity
 
 type Result<T> = core::result::Result<T, InvalidIdentity>;
 
-// --- From JSON ---------------------------------------------------------------
+// --- Reading documents ---------------------------------------------------------
 
-/// An object's members, checking that every required one is present and no
-/// other is.
-fn members<'v>(
-    v: &'v Value,
-    path: &str,
-    required: &[&str],
-    optional: &[&str],
-) -> Result<&'v Map<String, Value>> {
-    let obj = v
-        .as_object()
-        .ok_or_else(|| invalid(path, "expected an object"))?;
-    for m in required {
-        if !obj.contains_key(*m) {
-            return Err(invalid(path, format!("missing member `{m}`")));
-        }
-    }
-    for m in obj.keys() {
-        if !required.contains(&m.as_str()) && !optional.contains(&m.as_str()) {
-            return Err(invalid(path, format!("unknown member `{m}`")));
-        }
-    }
-    Ok(obj)
+/// An identity document as written (spec 5.3), before its canonical form
+/// is taken and it is checked.
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Document {
+    quiddity: u32,
+    #[serde(default)]
+    domain: Option<String>,
+    root: Kind,
+    #[serde(default)]
+    definitions: BTreeMap<String, Kind>,
 }
 
-fn string(v: &Value, path: &str) -> Result<String> {
-    match v.as_str() {
-        Some(s) if !s.is_empty() => Ok(s.to_owned()),
-        _ => Err(invalid(path, "expected a non-empty string")),
+impl TryFrom<Document> for Identity {
+    type Error = InvalidIdentity;
+
+    fn try_from(doc: Document) -> Result<Identity> {
+        if doc.quiddity != 1 {
+            return Err(invalid("$.quiddity", "expected 1"));
+        }
+        build(doc.root, doc.definitions, doc.domain)
     }
 }
 
-/// One of a fixed set of strings.
-fn choice<T: Copy>(v: &Value, path: &str, choices: &[(&str, T)]) -> Result<T> {
-    let s = v.as_str().unwrap_or("");
-    choices
-        .iter()
-        .find(|(name, _)| *name == s)
-        .map(|(_, t)| *t)
-        .ok_or_else(|| {
-            let names: Vec<&str> = choices.iter().map(|(n, _)| *n).collect();
-            invalid(path, format!("expected one of {names:?}, found {v}"))
-        })
+/// What an object kind does with members it does not list (spec 5.6).
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
+enum Unlisted {
+    /// They are ignored, the default and the only choice.
+    Skip,
 }
 
-const UNITS: &[(&str, Unit)] = &[
-    ("s", Unit::S),
-    ("ms", Unit::Ms),
-    ("us", Unit::Us),
-    ("ns", Unit::Ns),
-];
-
-pub(crate) fn from_json(doc: &Value) -> Result<Identity> {
-    let obj = members(doc, "$", &["quiddity", "root"], &["domain", "definitions"])?;
-    if obj["quiddity"].as_u64() != Some(1) {
-        return Err(invalid("$.quiddity", "expected 1"));
-    }
-    let domain = obj
-        .get("domain")
-        .map(|d| string(d, "$.domain"))
-        .transpose()?;
-    let root = kind(&obj["root"], "$.root")?;
-    let mut definitions = BTreeMap::new();
-    if let Some(defs) = obj.get("definitions") {
-        let defs = defs
-            .as_object()
-            .ok_or_else(|| invalid("$.definitions", "expected an object"))?;
-        for (name, k) in defs {
-            if name.is_empty() {
-                return Err(invalid("$.definitions", "a definition's name is empty"));
-            }
-            definitions.insert(name.clone(), kind(k, &format!("$.definitions.{name}"))?);
-        }
-    }
-    build(root, definitions, domain)
+/// An object kind as written: `unlisted` is read, and is not kept.
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Object {
+    fields: BTreeMap<String, Field>,
+    #[serde(default)]
+    #[allow(dead_code)]
+    unlisted: Option<Unlisted>,
+    #[serde(default)]
+    order: Option<Vec<String>>,
 }
 
-fn kind(v: &Value, path: &str) -> Result<Kind> {
-    if let Some(s) = v.as_str() {
-        return Ok(match s {
-            "null" => Kind::Null,
-            "bool" => Kind::Bool,
-            "integer" => Kind::Integer,
-            "number" => Kind::Number,
-            "string" => Kind::String,
-            "uuid" => Kind::Uuid,
-            "path" => Kind::Path,
-            "any" => Kind::Any,
-            _ => return Err(invalid(path, format!("unknown kind `{s}`"))),
-        });
+impl From<Object> for ObjectKind {
+    fn from(o: Object) -> ObjectKind {
+        ObjectKind {
+            fields: o.fields,
+            order: o.order,
+        }
     }
-    let obj = v
-        .as_object()
-        .filter(|o| o.len() == 1)
-        .ok_or_else(|| invalid(path, "a kind is a string or an object with one member"))?;
-    let (name, opts) = obj.iter().next().unwrap();
-    let p = format!("{path}.{name}");
-    Ok(match name.as_str() {
-        "bytes" => {
-            let o = members(opts, &p, &[], &["text"])?;
-            let text = o
-                .get("text")
-                .map(|t| {
-                    choice(
-                        t,
-                        &p,
-                        &[("base64", BytesText::Base64), ("hex", BytesText::Hex)],
-                    )
-                })
-                .transpose()?;
-            Kind::Bytes(BytesOptions { text })
-        }
-        "instant" | "duration" => {
-            let o = members(opts, &p, &[], &["unit"])?;
-            let unit = o.get("unit").map(|u| choice(u, &p, UNITS)).transpose()?;
-            let t = TimeOptions { unit };
-            if name == "instant" {
-                Kind::Instant(t)
-            } else {
-                Kind::Duration(t)
-            }
-        }
-        "list" => Kind::List(Box::new(kind(opts, &p)?)),
-        "set" => Kind::Set(Box::new(kind(opts, &p)?)),
-        "tuple" => Kind::Tuple(kinds(opts, &p)?),
-        "map" => {
-            let o = members(opts, &p, &["key", "value"], &[])?;
-            Kind::Map(MapKind {
-                key: Box::new(kind(&o["key"], &format!("{p}.key"))?),
-                value: Box::new(kind(&o["value"], &format!("{p}.value"))?),
-            })
-        }
-        "object" => Kind::Object(object(opts, &p)?),
-        "union" => Kind::Union(kinds(opts, &p)?),
-        "tagged" => Kind::Tagged(tagged(opts, &p)?),
-        "ref" => Kind::Ref(super::RefName::new(string(opts, &p)?)),
-        _ => return Err(invalid(path, format!("unknown kind `{name}`"))),
-    })
 }
 
-fn kinds(v: &Value, path: &str) -> Result<Vec<Kind>> {
-    let items = v
-        .as_array()
-        .ok_or_else(|| invalid(path, "expected an array of kinds"))?;
-    items
-        .iter()
-        .enumerate()
-        .map(|(i, k)| kind(k, &format!("{path}[{i}]")))
-        .collect()
-}
-
-fn object(v: &Value, path: &str) -> Result<ObjectKind> {
-    let o = members(v, path, &["fields"], &["unlisted", "order"])?;
-    if let Some(u) = o.get("unlisted") {
-        choice(u, &format!("{path}.unlisted"), &[("skip", ())])?;
+/// A field's `omit` conditions, none of them twice.
+pub(crate) fn omit<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> core::result::Result<BTreeSet<Omit>, D::Error> {
+    let list = <Vec<Omit> as serde::Deserialize>::deserialize(deserializer)?;
+    let set: BTreeSet<Omit> = list.iter().copied().collect();
+    if set.len() != list.len() {
+        return Err(serde::de::Error::custom("an omit condition is given twice"));
     }
-    let fields_obj = o["fields"]
-        .as_object()
-        .ok_or_else(|| invalid(path, "fields must be an object"))?;
-    let mut fields = BTreeMap::new();
-    for (name, f) in fields_obj {
-        let fp = format!("{path}.fields.{name}");
-        let fo = members(
-            f,
-            &fp,
-            &["kind"],
-            &["rename", "omit", "quantize", "decimals"],
-        )?;
-        let mut field = Field::new(kind(&fo["kind"], &format!("{fp}.kind"))?);
-        if let Some(r) = fo.get("rename") {
-            field.rename = Some(string(r, &format!("{fp}.rename"))?);
-        }
-        if let Some(omit) = fo.get("omit") {
-            let items = omit
-                .as_array()
-                .ok_or_else(|| invalid(&fp, "omit must be an array"))?;
-            for c in items {
-                let condition = choice(c, &fp, &[("none", Omit::None), ("empty", Omit::Empty)])?;
-                if !field.omit.insert(condition) {
-                    return Err(invalid(&fp, "an omit condition is given twice"));
-                }
-            }
-        }
-        if let Some(q) = fo.get("quantize") {
-            field.quantize = Some(
-                q.as_u64()
-                    .filter(|q| *q >= 1)
-                    .ok_or_else(|| invalid(&fp, "quantize must be a positive integer"))?,
-            );
-        }
-        if let Some(d) = fo.get("decimals") {
-            field.decimals = Some(
-                d.as_i64()
-                    .and_then(|d| i32::try_from(d).ok())
-                    .ok_or_else(|| invalid(&fp, "decimals must be an integer"))?,
-            );
-        }
-        fields.insert(name.clone(), field);
-    }
-    let order = match o.get("order") {
-        None => None,
-        Some(order) => {
-            let items = order
-                .as_array()
-                .ok_or_else(|| invalid(path, "order must be an array"))?;
-            Some(
-                items
-                    .iter()
-                    .map(|n| string(n, &format!("{path}.order")))
-                    .collect::<Result<Vec<_>>>()?,
-            )
-        }
-    };
-    Ok(ObjectKind { fields, order })
-}
-
-fn tagged(v: &Value, path: &str) -> Result<TaggedKind> {
-    let o = members(
-        v,
-        path,
-        &["variants"],
-        &["style", "tag", "content", "encode_as"],
-    )?;
-    let style = o
-        .get("style")
-        .map(|s| {
-            choice(
-                s,
-                path,
-                &[
-                    ("external", Style::External),
-                    ("internal", Style::Internal),
-                    ("adjacent", Style::Adjacent),
-                ],
-            )
-        })
-        .transpose()?;
-    let encode_as = o
-        .get("encode_as")
-        .map(|s| {
-            choice(
-                s,
-                path,
-                &[("string", TagEncoding::String), ("int", TagEncoding::Int)],
-            )
-        })
-        .transpose()?;
-    let tag = o.get("tag").map(|t| string(t, path)).transpose()?;
-    let content = o.get("content").map(|t| string(t, path)).transpose()?;
-    let vs = o["variants"]
-        .as_object()
-        .ok_or_else(|| invalid(path, "variants must be an object"))?;
-    let mut variants = BTreeMap::new();
-    for (name, var) in vs {
-        let vp = format!("{path}.variants.{name}");
-        let vo = members(var, &vp, &[], &["kind", "rename", "discriminant"])?;
-        let discriminant = match vo.get("discriminant") {
-            None => None,
-            Some(d) => Some(
-                d.as_i64()
-                    .map(i128::from)
-                    .or_else(|| d.as_u64().map(i128::from))
-                    .ok_or_else(|| invalid(&vp, "a discriminant is an integer"))?,
-            ),
-        };
-        variants.insert(
-            name.clone(),
-            Variant {
-                kind: vo.get("kind").map(|k| kind(k, &vp)).transpose()?,
-                rename: vo.get("rename").map(|r| string(r, &vp)).transpose()?,
-                discriminant,
-            },
-        );
-    }
-    Ok(TaggedKind {
-        variants,
-        style,
-        tag,
-        content,
-        encode_as,
-    })
+    Ok(set)
 }
 
 // --- Canonical form and validation -------------------------------------------
@@ -484,6 +265,9 @@ fn canonical_tagged(t: TaggedKind, path: &str) -> Result<TaggedKind> {
             return Err(invalid(path, "content must differ from tag"));
         }
         _ => {}
+    }
+    if t.tag.as_deref() == Some("") || t.content.as_deref() == Some("") {
+        return Err(invalid(path, "tag and content are non-empty"));
     }
     if t.variants.is_empty() {
         return Err(invalid(path, "a tagged union needs at least one variant"));
@@ -903,160 +687,5 @@ fn check(k: &Kind, defs: &BTreeMap<String, Kind>, path: &str) -> Result<()> {
             Ok(())
         }
         _ => Ok(()),
-    }
-}
-
-// --- To JSON -------------------------------------------------------------------
-
-pub(crate) fn to_json(id: &Identity) -> Value {
-    let mut doc = Map::new();
-    doc.insert("quiddity".into(), json!(1));
-    if let Some(d) = &id.domain {
-        doc.insert("domain".into(), json!(d));
-    }
-    doc.insert("root".into(), kind_json(&id.root));
-    if !id.definitions.is_empty() {
-        let defs: Map<String, Value> = id
-            .definitions
-            .iter()
-            .map(|(n, k)| (n.clone(), kind_json(k)))
-            .collect();
-        doc.insert("definitions".into(), Value::Object(defs));
-    }
-    Value::Object(doc)
-}
-
-fn unit_name(u: Unit) -> &'static str {
-    UNITS.iter().find(|(_, x)| *x == u).unwrap().0
-}
-
-fn kind_json(k: &Kind) -> Value {
-    let one = |name: &str, v: Value| {
-        let mut m = Map::new();
-        m.insert(name.into(), v);
-        Value::Object(m)
-    };
-    match k {
-        Kind::Null => json!("null"),
-        Kind::Bool => json!("bool"),
-        Kind::Integer => json!("integer"),
-        Kind::Number => json!("number"),
-        Kind::String => json!("string"),
-        Kind::Uuid => json!("uuid"),
-        Kind::Path => json!("path"),
-        Kind::Any => json!("any"),
-        Kind::Bytes(o) => one(
-            "bytes",
-            match o.text {
-                Some(BytesText::Hex) => json!({"text": "hex"}),
-                _ => json!({}),
-            },
-        ),
-        Kind::Instant(o) | Kind::Duration(o) => {
-            let name = if matches!(k, Kind::Instant(_)) {
-                "instant"
-            } else {
-                "duration"
-            };
-            one(
-                name,
-                match o.unit {
-                    Some(u) => json!({"unit": unit_name(u)}),
-                    None => json!({}),
-                },
-            )
-        }
-        Kind::List(i) => one("list", kind_json(i)),
-        Kind::Set(i) => one("set", kind_json(i)),
-        Kind::Tuple(items) => one("tuple", items.iter().map(kind_json).collect()),
-        Kind::Map(m) => one(
-            "map",
-            json!({"key": kind_json(&m.key), "value": kind_json(&m.value)}),
-        ),
-        Kind::Object(o) => {
-            let fields: Map<String, Value> = o
-                .fields
-                .iter()
-                .map(|(n, f)| {
-                    let mut fo = Map::new();
-                    fo.insert("kind".into(), kind_json(&f.kind));
-                    if let Some(r) = &f.rename {
-                        fo.insert("rename".into(), json!(r));
-                    }
-                    if let Some(q) = f.quantize {
-                        fo.insert("quantize".into(), json!(q));
-                    }
-                    if let Some(d) = f.decimals {
-                        fo.insert("decimals".into(), json!(d));
-                    }
-                    if !f.omit.is_empty() {
-                        let omit: Vec<&str> = f
-                            .omit
-                            .iter()
-                            .map(|c| match c {
-                                Omit::None => "none",
-                                Omit::Empty => "empty",
-                            })
-                            .collect();
-                        fo.insert("omit".into(), json!(omit));
-                    }
-                    (n.clone(), Value::Object(fo))
-                })
-                .collect();
-            let mut obj = Map::new();
-            obj.insert("fields".into(), Value::Object(fields));
-            if let Some(order) = &o.order {
-                obj.insert("order".into(), json!(order));
-            }
-            one("object", Value::Object(obj))
-        }
-        Kind::Union(alts) => one("union", alts.iter().map(kind_json).collect()),
-        Kind::Tagged(t) => {
-            let variants: Map<String, Value> = t
-                .variants
-                .iter()
-                .map(|(n, v)| {
-                    let mut vo = Map::new();
-                    if let Some(k) = &v.kind {
-                        vo.insert("kind".into(), kind_json(k));
-                    }
-                    if let Some(r) = &v.rename {
-                        vo.insert("rename".into(), json!(r));
-                    }
-                    if let Some(d) = v.discriminant {
-                        let d = match i64::try_from(d) {
-                            Ok(i) => json!(i),
-                            Err(_) => json!(d as u64),
-                        };
-                        vo.insert("discriminant".into(), d);
-                    }
-                    (n.clone(), Value::Object(vo))
-                })
-                .collect();
-            let mut obj = Map::new();
-            obj.insert("variants".into(), Value::Object(variants));
-            if let Some(s) = t.style {
-                let name = match s {
-                    Style::External => "external",
-                    Style::Internal => "internal",
-                    Style::Adjacent => "adjacent",
-                };
-                obj.insert("style".into(), json!(name));
-            }
-            if let Some(tag) = &t.tag {
-                obj.insert("tag".into(), json!(tag));
-            }
-            if let Some(c) = &t.content {
-                obj.insert("content".into(), json!(c));
-            }
-            if t.encode_as == Some(TagEncoding::Int) {
-                obj.insert("encode_as".into(), json!("int"));
-            }
-            one("tagged", Value::Object(obj))
-        }
-        Kind::Ref(name) => one("ref", json!(name.as_str())),
-        Kind::Identity(_) | Kind::Recursive => {
-            unreachable!("an identity holds no nested identities or recursive kinds")
-        }
     }
 }

@@ -31,13 +31,13 @@ Rust crate.
 | `derive` | yes | `#[derive(Quiddity)]` and `#[derive(IdentityMarker)]` | |
 | `std` | yes | `HashMap`, `HashSet`, `SystemTime`, `Path`, `PathBuf`, `OsStr` and `OsString` | `alloc` |
 | `alloc` | yes | `String`, `Vec`, `VecDeque`, `LinkedList`, `Box`, `Rc`, `Arc`, `Cow`, `BTreeMap`, `BTreeSet` and `CString` | |
-| `serde_json` | no | `Value`, `Map` and `Number` | `alloc` |
-| `serde` | no | `encode_as = serde` and `quiddity::serde::digest`; `Serialize` and `Deserialize` for `Digest`, `Digest128` and `Digest64`, and with `identity` for `Identity` (as its identity document) | `alloc` |
+| `serde_json` | no | `Value`, `Map` and `Number`; with `identity`, `Identity::from_json` and `to_json` | `alloc` |
+| `serde` | no | `encode_as = serde` and `quiddity::serde::digest`; `Serialize` and `Deserialize` for `Digest`, `Digest128` and `Digest64` | `alloc` |
 | `indexmap` | no | `IndexMap` and `IndexSet` | `alloc` |
 | `uuid` | no | `Uuid` | |
 | `bytes` | no | `Bytes` and `BytesMut` | `alloc` |
 | `url` | no | `Url` | `std` |
-| `identity` | no | [Dynamic identities](#dynamic-identities): identity documents, and digests of `serde_json::Value`s under them | `alloc`, `serde_json` |
+| `identity` | no | [Dynamic identities](#dynamic-identities): identity documents, read and written in any serde format, and digests of `Serialize` values under them | `alloc`, `serde` |
 
 With `default-features = false`, `quiddity` is `no_std` and needs no
 allocator. The derive (with the `derive` feature), `Digest` and its shorter forms, numbers, `bool`,
@@ -546,7 +546,8 @@ An identity can also be written as data: an identity document, in JSON,
 that every implementation of quiddity can read (see the repository's
 [README](https://github.com/univalent-cc/quiddity#identity-documents) and
 [`QUIDDITY_SPEC.md`] section 5). The `identity` feature loads identity
-documents and digests `serde_json::Value`s under them:
+documents and digests values under them: a `serde_json::Value`, or any
+other value that implements `Serialize`:
 
 ```rust ignore
 use quiddity::identity::Identity;
@@ -574,6 +575,15 @@ Members that the identity does not list, such as `tag`, are skipped.
 Values written in other forms are converted: the text `"1"` to an
 integer, and RFC 3339 text to an instant. A value of the wrong shape is an
 error.
+
+A `Serialize` value is read in the form serde_json gives it, so it has the
+digest of its `serde_json::Value`. Where a `serde_json::Value` cannot hold
+a value, it is kept: integers beyond 64 bits, and NaN and the infinities.
+
+`Identity` implements `Serialize` and `Deserialize` as its document, so
+documents are read and written in any serde format. Reading one takes its
+canonical form and checks it. With the `serde_json` feature,
+`Identity::from_json` and `to_json` read and write `serde_json::Value`s.
 
 ### Building identities at runtime
 

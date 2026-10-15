@@ -268,26 +268,36 @@ fn text_forms() {
     }
 }
 
+/// An identity's document, through its `Serialize` impl.
+#[cfg(feature = "identity")]
+fn to_json(id: &crate::identity::Identity) -> serde_json::Value {
+    serde_json::to_value(id).unwrap()
+}
+
+/// An identity from its document, through its `Deserialize` impl.
+#[cfg(feature = "identity")]
+fn from_json(doc: &serde_json::Value) -> Result<crate::identity::Identity, serde_json::Error> {
+    serde_json::from_value(doc.clone())
+}
+
 /// Identities (spec 5): each document's digest, which is computed with
 /// `Identity`'s `Quiddity` impl (spec 5.10), and each source value's
 /// encoding, digest or error.
 #[cfg(feature = "identity")]
 #[test]
 fn identities() {
-    use crate::identity::Identity;
     let Some(vectors) = vectors() else { return };
     let cases = vectors["identities"].as_array().unwrap();
     assert!(cases.len() > 20);
     for case in cases {
         let name = str_of(case, "name");
-        let identity =
-            Identity::from_json(&case["document"]).unwrap_or_else(|e| panic!("{name}: {e}"));
+        let identity = from_json(&case["document"]).unwrap_or_else(|e| panic!("{name}: {e}"));
         assert_eq!(
             identity.quiddity().to_string(),
             str_of(case, "identity_digest"),
             "identity digest of {name}"
         );
-        let reloaded = Identity::from_json(&identity.to_json()).unwrap();
+        let reloaded = from_json(&to_json(&identity)).unwrap();
         assert_eq!(reloaded, identity, "{name} round-trips");
         for c in case["cases"].as_array().unwrap() {
             let source = &c["source"];
@@ -310,11 +320,10 @@ fn identities() {
 #[cfg(feature = "identity")]
 #[test]
 fn invalid_documents() {
-    use crate::identity::Identity;
     let Some(vectors) = vectors() else { return };
     for case in vectors["invalid_documents"].as_array().unwrap() {
         assert!(
-            Identity::from_json(&case["document"]).is_err(),
+            from_json(&case["document"]).is_err(),
             "{} must be rejected",
             str_of(case, "name")
         );
@@ -324,11 +333,10 @@ fn invalid_documents() {
 #[cfg(feature = "identity")]
 #[test]
 fn same_identity() {
-    use crate::identity::Identity;
     let Some(vectors) = vectors() else { return };
     for case in vectors["same_identity"].as_array().unwrap() {
         for doc in case["documents"].as_array().unwrap() {
-            let identity = Identity::from_json(doc).unwrap();
+            let identity = from_json(doc).unwrap();
             assert_eq!(
                 identity.quiddity().to_string(),
                 str_of(case, "identity_digest"),
@@ -348,11 +356,11 @@ fn identity_of_identities() {
     use crate::identity::Identity;
     let Some(vectors) = vectors() else { return };
     let case = &vectors["identity_of_identities"];
-    let meta = Identity::from_json(&case["document"]).unwrap();
+    let meta = from_json(&case["document"]).unwrap();
     let expected = str_of(case, "identity_digest");
     assert_eq!(meta.quiddity().to_string(), expected, "derived");
     assert_eq!(
-        meta.digest(&meta.to_json()).unwrap().to_string(),
+        meta.digest(&meta).unwrap().to_string(),
         expected,
         "applied to itself"
     );
@@ -360,16 +368,16 @@ fn identity_of_identities() {
     let exported = <Identity as crate::Quiddity>::construct_identity().unwrap();
     assert_eq!(exported, meta, "exported is Appendix C");
     assert_eq!(
-        exported.digest(&meta.to_json()).unwrap().to_string(),
+        exported.digest(&meta).unwrap().to_string(),
         expected,
         "exported"
     );
     // And for every identity in the vectors.
     for c in vectors["identities"].as_array().unwrap() {
-        let identity = Identity::from_json(&c["document"]).unwrap();
+        let identity = from_json(&c["document"]).unwrap();
         for m in [&meta, &exported] {
             assert_eq!(
-                m.digest(&identity.to_json()).unwrap(),
+                m.digest(&identity).unwrap(),
                 identity.quiddity(),
                 "{}",
                 str_of(c, "name")

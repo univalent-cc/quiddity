@@ -1,4 +1,4 @@
-//! Applying an identity to a JSON value (spec 5.4 to 5.8).
+//! Applying an identity to a source value (spec 5.4 to 5.8).
 
 use alloc::borrow::ToOwned;
 use alloc::collections::BTreeMap;
@@ -6,9 +6,8 @@ use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
 
-use serde_json::{Map, Number, Value};
-
 use super::load::{Claims, Types, claims, object_alternatives, required, resolve};
+use super::source::Src;
 use super::text;
 use super::value::{Decimal, Val, scaled_float};
 use super::{ApplyError, BytesText, Identity, Kind, Omit, Style, TagEncoding, TaggedKind, Unit};
@@ -26,32 +25,35 @@ fn err(path: &str, message: impl Into<String>) -> ApplyError {
     }
 }
 
-pub(crate) fn apply(id: &Identity, value: &Value) -> Result<Val> {
+pub(crate) fn apply(id: &Identity, value: &Src) -> Result<Val> {
     let cx = Cx {
         defs: &id.definitions,
     };
     cx.read(&id.root, value, "$")
 }
 
-fn source_type(v: &Value) -> Types {
+/// The value of a missing member.
+static NULL: Src = Src::Null;
+
+fn source_type(v: &Src) -> Types {
     match v {
-        Value::Null => Types::NULL,
-        Value::Bool(_) => Types::BOOLEAN,
-        Value::Number(_) => Types::NUMBER,
-        Value::String(_) => Types::STRING,
-        Value::Array(_) => Types::ARRAY,
-        Value::Object(_) => Types::OBJECT,
+        Src::Null => Types::NULL,
+        Src::Bool(_) => Types::BOOLEAN,
+        Src::Int(_) | Src::Float(_) => Types::NUMBER,
+        Src::Str(_) => Types::STRING,
+        Src::Array(_) => Types::ARRAY,
+        Src::Object(_) => Types::OBJECT,
     }
 }
 
-fn type_name(v: &Value) -> &'static str {
+fn type_name(v: &Src) -> &'static str {
     match v {
-        Value::Null => "null",
-        Value::Bool(_) => "boolean",
-        Value::Number(_) => "number",
-        Value::String(_) => "string",
-        Value::Array(_) => "array",
-        Value::Object(_) => "object",
+        Src::Null => "null",
+        Src::Bool(_) => "boolean",
+        Src::Int(_) | Src::Float(_) => "number",
+        Src::Str(_) => "string",
+        Src::Array(_) => "array",
+        Src::Object(_) => "object",
     }
 }
 
@@ -81,28 +83,35 @@ fn kind_name(k: &Kind) -> &'static str {
     }
 }
 
-/// A JSON number as the data-model value spec 2.7 gives it.
-fn number(n: &Number) -> Val {
-    if let Some(i) = n.as_i64() {
-        Val::int(i.into())
-    } else if let Some(u) = n.as_u64() {
-        Val::int(u.into())
-    } else {
-        Val::Float(n.as_f64().unwrap_or(f64::NAN))
+/// A source number as a data-model value. Only called on numbers.
+fn number(n: &Src) -> Val {
+    match n {
+        Src::Int(bytes) => Val::Int(bytes.clone()),
+        Src::Float(x) => Val::Float(*x),
+        _ => unreachable!("a number"),
     }
 }
 
-/// A JSON number as an integer, if its value is one.
-fn integer(n: &Number) -> Option<Vec<u8>> {
-    if let Some(i) = n.as_i64() {
-        return Some(i128::from(i).to_be_bytes().to_vec());
+/// A source number as an integer, if its value is one.
+fn integer(n: &Src) -> Option<Vec<u8>> {
+    match n {
+        Src::Int(bytes) => Some(bytes.clone()),
+        Src::Float(x) => {
+            let mut buf = [0u8; crate::number::FLOAT_INT_BUF];
+            let integral = crate::number::Integral::of(*x)?;
+            Some(integral.twos_complement(&mut buf).to_vec())
+        }
+        _ => None,
     }
-    if let Some(u) = n.as_u64() {
-        return Some(i128::from(u).to_be_bytes().to_vec());
+}
+
+/// A source number, as text for error messages.
+fn number_display(n: &Src) -> String {
+    match (n, n.as_i128()) {
+        (_, Some(i)) => format!("{i}"),
+        (Src::Float(x), _) => format!("{x}"),
+        _ => "an integer beyond 128 bits".to_owned(),
     }
-    let mut buf = [0u8; crate::number::FLOAT_INT_BUF];
-    let integral = crate::number::Integral::of(n.as_f64()?)?;
-    Some(integral.twos_complement(&mut buf).to_vec())
 }
 
 impl Cx<'_> {
@@ -111,11 +120,11 @@ impl Cx<'_> {
         claims(k, self.defs, &mut Vec::new()).expect("a valid identity")
     }
 
-    fn read(&self, k: &Kind, v: &Value, path: &str) -> Result<Val> {
+    fn read(&self, k: &Kind, v: &Src, path: &str) -> Result<Val> {
         let k = resolve(k, self.defs);
         if let Kind::Union(alts) = k {
             let t = source_type(v);
-            if let (Value::Object(o), Some(objects)) = (v, object_alternatives(alts, self.defs)) {
+            if let (Src::Object(o), Some(objects)) = (v, object_alternatives(alts, self.defs)) {
                 if objects.len() > 1 {
                     // Told apart by their keys (spec 5.7).
                     for a in alts {
@@ -163,35 +172,35 @@ impl Cx<'_> {
         match (k, v) {
             (Kind::Any, v) => Ok(as_is(v)),
             (Kind::Null, _) => Ok(Val::Null),
-            (Kind::Bool, Value::Bool(b)) => Ok(Val::Bool(*b)),
-            (Kind::Bool, Value::String(s)) => text::bool(s)
+            (Kind::Bool, Src::Bool(b)) => Ok(Val::Bool(*b)),
+            (Kind::Bool, Src::Str(s)) => text::bool(s)
                 .map(Val::Bool)
                 .ok_or_else(|| err(path, format!("not a boolean: {s:?}"))),
-            (Kind::Integer, Value::Number(n)) => integer(n)
+            (Kind::Integer, n @ (Src::Int(_) | Src::Float(_))) => integer(n)
                 .map(Val::Int)
-                .ok_or_else(|| err(path, format!("not an integer: {n}"))),
-            (Kind::Integer, Value::String(s)) => Decimal::parse(text::trim(s))
+                .ok_or_else(|| err(path, format!("not an integer: {}", number_display(n)))),
+            (Kind::Integer, Src::Str(s)) => Decimal::parse(text::trim(s))
                 .ok_or(())
                 .and_then(|d| d.integer(0))
                 .ok()
                 .flatten()
                 .map(Val::Int)
                 .ok_or_else(|| err(path, format!("not an integer: {s:?}"))),
-            (Kind::Number, Value::Number(n)) => Ok(number(n)),
-            (Kind::Number, Value::String(s)) => number_text(s, path),
-            (Kind::String, Value::String(s)) => Ok(Val::str(s)),
-            (Kind::Uuid, Value::String(s)) => text::uuid(s)
+            (Kind::Number, n @ (Src::Int(_) | Src::Float(_))) => Ok(number(n)),
+            (Kind::Number, Src::Str(s)) => number_text(s, path),
+            (Kind::String, Src::Str(s)) => Ok(Val::str(s)),
+            (Kind::Uuid, Src::Str(s)) => text::uuid(s)
                 .map(|u| Val::str(&u))
                 .ok_or_else(|| err(path, format!("not a UUID: {s:?}"))),
-            (Kind::Path, Value::String(s)) => Ok(Val::str(s)),
-            (Kind::Path, Value::Object(o)) => path_object(o, path),
-            (Kind::Bytes(_), Value::Array(items)) => items
+            (Kind::Path, Src::Str(s)) => Ok(Val::str(s)),
+            (Kind::Path, Src::Object(o)) => path_object(o, path),
+            (Kind::Bytes(_), Src::Array(items)) => items
                 .iter()
                 .map(|b| b.as_u64().filter(|b| *b <= 255).map(|b| b as u8))
                 .collect::<Option<Vec<u8>>>()
                 .map(Val::Str)
                 .ok_or_else(|| err(path, "bytes are integers from 0 to 255")),
-            (Kind::Bytes(o), Value::String(s)) => {
+            (Kind::Bytes(o), Src::Str(s)) => {
                 let t = text::trim(s);
                 let bytes = if o.text == Some(BytesText::Hex) {
                     text::hex(t)
@@ -206,11 +215,9 @@ impl Cx<'_> {
                 let instant = matches!(k, Kind::Instant(_));
                 time(v, o.unit, instant, path).map(Val::int)
             }
-            (Kind::List(item), Value::Array(items)) => {
-                Ok(Val::List(self.items(item, items, path)?))
-            }
-            (Kind::Set(item), Value::Array(items)) => Ok(Val::Set(self.items(item, items, path)?)),
-            (Kind::Tuple(kinds), Value::Array(items)) => {
+            (Kind::List(item), Src::Array(items)) => Ok(Val::List(self.items(item, items, path)?)),
+            (Kind::Set(item), Src::Array(items)) => Ok(Val::Set(self.items(item, items, path)?)),
+            (Kind::Tuple(kinds), Src::Array(items)) => {
                 if kinds.len() != items.len() {
                     return Err(err(
                         path,
@@ -225,16 +232,16 @@ impl Cx<'_> {
                     .collect::<Result<_>>()
                     .map(Val::List)
             }
-            (Kind::Map(m), Value::Object(o)) => {
+            (Kind::Map(m), Src::Object(o)) => {
                 let mut entries = Vec::with_capacity(o.len());
                 for (key, x) in o {
                     let p = format!("{path}.{key}");
-                    let key = self.read(&m.key, &Value::String(key.clone()), &p)?;
+                    let key = self.read(&m.key, &Src::Str(key.clone()), &p)?;
                     entries.push((key, self.read(&m.value, x, &p)?));
                 }
                 Ok(Val::Map(entries))
             }
-            (Kind::Object(obj), Value::Object(o)) => self.object(obj, o, None, path),
+            (Kind::Object(obj), Src::Object(o)) => self.object(obj, o, None, path),
             (Kind::Tagged(t), v) => self.tagged(t, v, path),
             _ => Err(err(
                 path,
@@ -243,7 +250,7 @@ impl Cx<'_> {
         }
     }
 
-    fn items(&self, item: &Kind, items: &[Value], path: &str) -> Result<Vec<Val>> {
+    fn items(&self, item: &Kind, items: &[Src], path: &str) -> Result<Vec<Val>> {
         items
             .iter()
             .enumerate()
@@ -256,7 +263,7 @@ impl Cx<'_> {
     fn object(
         &self,
         obj: &super::ObjectKind,
-        o: &Map<String, Value>,
+        o: &BTreeMap<String, Src>,
         skip: Option<&str>,
         path: &str,
     ) -> Result<Val> {
@@ -268,11 +275,7 @@ impl Cx<'_> {
             } else {
                 o.get(name)
             };
-            let v = self.read(
-                &f.kind,
-                member.unwrap_or(&Value::Null),
-                &format!("{path}.{name}"),
-            )?;
+            let v = self.read(&f.kind, member.unwrap_or(&NULL), &format!("{path}.{name}"))?;
             let v = quantize(v, f);
             if (f.omit.contains(&Omit::None) && v.is_null())
                 || (f.omit.contains(&Omit::Empty) && v.is_empty())
@@ -297,7 +300,7 @@ impl Cx<'_> {
         }
     }
 
-    fn tagged(&self, t: &TaggedKind, v: &Value, path: &str) -> Result<Val> {
+    fn tagged(&self, t: &TaggedKind, v: &Src, path: &str) -> Result<Val> {
         let int = t.encode_as == Some(TagEncoding::Int);
         let label = |name: &str| {
             let var = &t.variants[name];
@@ -306,7 +309,7 @@ impl Cx<'_> {
                 _ => Val::str(var.rename.as_deref().unwrap_or(name)),
             }
         };
-        let variant = |name: &Value| -> Result<(&str, &super::Variant)> {
+        let variant = |name: &Src| -> Result<(&str, &super::Variant)> {
             let name = name
                 .as_str()
                 .ok_or_else(|| err(path, "a variant's name is a string"))?;
@@ -317,16 +320,16 @@ impl Cx<'_> {
         };
         match t.style.unwrap_or(Style::External) {
             Style::External => match v {
-                Value::String(_) => {
+                Src::Str(_) => {
                     let (name, var) = variant(v)?;
                     if var.kind.is_some() {
                         return Err(err(path, format!("variant {name:?} needs a value")));
                     }
                     Ok(label(name))
                 }
-                Value::Object(o) if o.len() == 1 => {
+                Src::Object(o) if o.len() == 1 => {
                     let (key, x) = o.iter().next().unwrap();
-                    let (name, var) = variant(&Value::String(key.clone()))?;
+                    let (name, var) = variant(&Src::Str(key.clone()))?;
                     let Some(k) = &var.kind else {
                         return Err(err(path, format!("unit variant {name:?} has a value")));
                     };
@@ -377,14 +380,14 @@ impl Cx<'_> {
 }
 
 /// A value as it is (spec 2.7).
-fn as_is(v: &Value) -> Val {
+fn as_is(v: &Src) -> Val {
     match v {
-        Value::Null => Val::Null,
-        Value::Bool(b) => Val::Bool(*b),
-        Value::Number(n) => number(n),
-        Value::String(s) => Val::str(s),
-        Value::Array(items) => Val::List(items.iter().map(as_is).collect()),
-        Value::Object(o) => Val::Map(o.iter().map(|(k, x)| (Val::str(k), as_is(x))).collect()),
+        Src::Null => Val::Null,
+        Src::Bool(b) => Val::Bool(*b),
+        Src::Int(_) | Src::Float(_) => number(v),
+        Src::Str(s) => Val::str(s),
+        Src::Array(items) => Val::List(items.iter().map(as_is).collect()),
+        Src::Object(o) => Val::Map(o.iter().map(|(k, x)| (Val::str(k), as_is(x))).collect()),
     }
 }
 
@@ -411,7 +414,7 @@ fn number_text(s: &str, path: &str) -> Result<Val> {
     Ok(Val::Float(x))
 }
 
-fn path_object(o: &Map<String, Value>, path: &str) -> Result<Val> {
+fn path_object(o: &BTreeMap<String, Src>, path: &str) -> Result<Val> {
     let shape = "a path object has exactly one member, Unix or Windows";
     if o.len() != 1 {
         return Err(err(path, shape));
@@ -445,7 +448,7 @@ fn path_object(o: &Map<String, Value>, path: &str) -> Result<Val> {
 }
 
 /// An instant or a duration (spec 5.5), as integer nanoseconds.
-fn time(v: &Value, unit: Option<Unit>, instant: bool, path: &str) -> Result<i128> {
+fn time(v: &Src, unit: Option<Unit>, instant: bool, path: &str) -> Result<i128> {
     let what = if instant { "instant" } else { "duration" };
     let scaled = |r: core::result::Result<Option<i128>, ()>| match r {
         Ok(Some(ns)) => Ok(ns),
@@ -453,19 +456,19 @@ fn time(v: &Value, unit: Option<Unit>, instant: bool, path: &str) -> Result<i128
         Err(()) => Err(err(path, "out of range")),
     };
     match v {
-        Value::Number(n) => {
+        Src::Int(_) | Src::Float(_) => {
             let unit =
                 unit.ok_or_else(|| err(path, format!("a number as an {what} needs a unit")))?;
             let scale = unit.exponent();
-            if let Some(i) = n.as_i64() {
-                return Ok(i128::from(i) * 10i128.pow(scale));
+            match v {
+                Src::Float(x) => scaled(scaled_float(*x, scale)),
+                _ => v
+                    .as_i128()
+                    .and_then(|i| i.checked_mul(10i128.pow(scale)))
+                    .ok_or_else(|| err(path, "out of range")),
             }
-            if let Some(u) = n.as_u64() {
-                return Ok(i128::from(u) * 10i128.pow(scale));
-            }
-            scaled(scaled_float(n.as_f64().unwrap_or(f64::NAN), scale))
         }
-        Value::String(s) => {
+        Src::Str(s) => {
             let t = text::trim(s);
             if let (Some(unit), Some(d)) = (unit, Decimal::parse(t)) {
                 let bytes = match d.integer(unit.exponent()) {
@@ -482,7 +485,7 @@ fn time(v: &Value, unit: Option<Unit>, instant: bool, path: &str) -> Result<i128
             };
             parsed.map_err(|m| err(path, m))
         }
-        Value::Object(o) => {
+        Src::Object(o) => {
             let (secs, nanos) = if instant {
                 ("secs_since_epoch", "nanos_since_epoch")
             } else {

@@ -107,6 +107,7 @@ fn how_values_are_digested() -> Result {
     Ok(())
 }
 
+#[cfg(feature = "serde_json")]
 #[test]
 fn identity_documents() -> Result {
     let id = Identity::new(Kind::object([("prompt", Kind::String)])?)?;
@@ -120,6 +121,7 @@ fn identity_documents() -> Result {
 }
 
 /// This crate's README, "Building identities in code".
+#[cfg(feature = "serde_json")]
 #[test]
 fn building_identities_in_code() -> Result {
     let row = Identity::new(Kind::object([
@@ -142,5 +144,18 @@ fn building_identities_in_code() -> Result {
     let document = question.to_json();
     assert_eq!(document["root"], json!({"ref": "Question"}));
     assert_eq!(document["domain"], json!("example.question"));
+    Ok(())
+}
+
+/// The repository's README, "Digest Encoding Behavior": a large integer
+/// sent as a string is read exactly; as a JSON number, it is rounded.
+#[test]
+fn large_integers_in_json() -> Result {
+    use quiddity::QuiddityExt;
+    let id = Identity::new(Kind::Integer)?;
+    let exact = (1u128 << 64) + 1;
+    assert_eq!(id.digest(&json!("18446744073709551617"))?, exact.quiddity());
+    let rounded: serde_json::Value = serde_json::from_str("18446744073709551617")?;
+    assert_eq!(id.digest(&rounded)?, (1u128 << 64).quiddity());
     Ok(())
 }

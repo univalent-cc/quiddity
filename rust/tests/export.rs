@@ -2,7 +2,12 @@
 //! digest of its serde JSON form under its type's exported identity; and
 //! the enum tagging styles (spec 6.4) match serde's.
 
-#![cfg(all(feature = "identity", feature = "derive", feature = "serde"))]
+#![cfg(all(
+    feature = "std",
+    feature = "identity",
+    feature = "derive",
+    feature = "serde"
+))]
 
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::net::IpAddr;
@@ -12,6 +17,11 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use quiddity::identity::Identity;
 use quiddity::{IdentityMarker, Primary, Quiddity, QuiddityExt};
 use serde::Serialize;
+
+/// An identity's document, through its `Serialize` impl.
+fn to_json(id: &Identity) -> serde_json::Value {
+    serde_json::to_value(id).unwrap()
+}
 
 #[derive(IdentityMarker)]
 pub struct Meaning;
@@ -27,13 +37,15 @@ where
     let json = serde_json::to_value(value).unwrap();
     let dynamic = identity
         .digest(&json)
-        .unwrap_or_else(|e| panic!("{e}\n{json}\n{}", identity.to_json()));
+        .unwrap_or_else(|e| panic!("{e}\n{json}\n{}", to_json(&identity)));
     assert_eq!(
         value.quiddity_as::<I>(),
         dynamic,
         "\n{json}\n{:#}",
-        identity.to_json()
+        to_json(&identity)
     );
+    // Digested directly, without the `Value`, the same.
+    assert_eq!(identity.digest(value).unwrap(), dynamic);
 }
 
 #[derive(Serialize, Quiddity)]
@@ -132,7 +144,7 @@ fn derived_structs() {
 fn exported_document() {
     let id = <Question as Quiddity>::construct_identity().unwrap();
     assert_eq!(id.domain(), Some("example.question"));
-    let doc = id.to_json();
+    let doc = to_json(&id);
     let defs = doc["definitions"].as_object().unwrap();
     // One definition per type and identity reached.
     let mut names: Vec<&str> = defs.keys().map(String::as_str).collect();
@@ -397,9 +409,7 @@ fn quantized_fields() {
             maybe,
         });
     }
-    let doc = <Reading as Quiddity>::construct_identity()
-        .unwrap()
-        .to_json();
+    let doc = to_json(&<Reading as Quiddity>::construct_identity().unwrap());
     let fields = &doc["definitions"]["Reading"]["object"]["fields"];
     assert_eq!(fields["count"]["quantize"], serde_json::json!(100));
     assert_eq!(fields["big"]["decimals"], serde_json::json!(-3));
@@ -428,6 +438,7 @@ fn std_types() {
     check::<_, Primary>(&std::ffi::OsString::from("os"));
     check::<_, Primary>(&'x');
     check::<_, Primary>(&std::num::NonZero::new(7u32).unwrap());
+    #[cfg(feature = "serde_json")]
     check::<_, Primary>(&serde_json::json!({"any": [1, "two", null]}));
 }
 
@@ -442,7 +453,7 @@ fn identity_exports_itself() {
         <Question as Quiddity<Meaning>>::construct_identity().unwrap(),
         <Untagged as Quiddity>::construct_identity().unwrap(),
     ] {
-        assert_eq!(meta.digest(&id.to_json()).unwrap(), id.quiddity());
+        assert_eq!(meta.digest(&id).unwrap(), id.quiddity());
     }
 }
 
@@ -456,7 +467,7 @@ fn identity_fields_export() {
         identity: Identity,
     }
     let id = <Kind as Quiddity>::construct_identity().unwrap();
-    let doc = id.to_json();
+    let doc = to_json(&id);
     let defs = doc["definitions"].as_object().unwrap();
     assert!(defs.contains_key("Document") && defs.contains_key("Kind"));
     let value = Kind {

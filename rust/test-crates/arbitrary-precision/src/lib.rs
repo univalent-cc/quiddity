@@ -31,6 +31,33 @@ mod tests {
         }
     }
 
+    /// Under an identity, a number read from the feature's text is the
+    /// value spec 2.7 gives it, as above, both as it is and as a number.
+    #[test]
+    fn identities() {
+        use quiddity::identity::{Identity, Kind};
+        let any = Identity::new(Kind::Any).unwrap();
+        let number = Identity::new(Kind::Number).unwrap();
+        for json in [
+            "1",
+            "-1",
+            "1.0",
+            "1e2",
+            "0.1",
+            "18446744073709551615",
+            "18446744073709551617",
+            "-9223372036854775809",
+            "1e400",
+            "1e-400",
+        ] {
+            let value: Value = serde_json::from_str(json).unwrap();
+            assert_eq!(any.digest(&value).unwrap(), digest(json), "{json}");
+            assert_eq!(number.digest(&value).unwrap(), digest(json), "{json}");
+        }
+        let nested: Value = serde_json::from_str(r#"{"a": [1.5, 18446744073709551617]}"#).unwrap();
+        assert_eq!(any.digest(&nested).unwrap(), nested.quiddity());
+    }
+
     #[test]
     fn feature_is_on() {
         // Without the feature, serde_json rejects numbers beyond `f64`.

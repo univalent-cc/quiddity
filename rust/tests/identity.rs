@@ -7,9 +7,19 @@ use quiddity::QuiddityExt;
 use quiddity::identity::{Field, Identity, Kind};
 use serde_json::json;
 
+/// An identity's document, through its `Serialize` impl.
+fn to_json(id: &Identity) -> serde_json::Value {
+    serde_json::to_value(id).unwrap()
+}
+
+/// An identity from its document, through its `Deserialize` impl.
+fn from_json(doc: &serde_json::Value) -> Result<Identity, serde_json::Error> {
+    serde_json::from_value(doc.clone())
+}
+
 #[test]
 fn readme_example() {
-    let identity = Identity::from_json(&json!({
+    let identity = from_json(&json!({
         "quiddity": 1,
         "root": {"object": {"fields": {
             "prompt": {"kind": "string"},
@@ -81,7 +91,7 @@ fn question() -> Identity {
 #[test]
 fn composed_identity_matches_its_document() {
     let q = question();
-    let doc = q.to_json();
+    let doc = to_json(&q);
     // Nested identities became definitions under their names; the same
     // `Row`, nested twice, is defined once; the identity refers to itself.
     assert_eq!(doc["root"], json!({"ref": "Question"}));
@@ -97,7 +107,7 @@ fn composed_identity_matches_its_document() {
     );
     assert_eq!(fields["tags"]["omit"], json!(["none", "empty"]));
     // The document loads back to the same identity, with the same digest.
-    let loaded = Identity::from_json(&doc).unwrap();
+    let loaded = from_json(&doc).unwrap();
     assert_eq!(loaded, q);
     assert_eq!(loaded.quiddity(), q.quiddity());
     // And it digests values.
@@ -138,16 +148,16 @@ fn names_are_in_the_document() {
     // in its document, and comes back when the document is read.
     let r = row();
     assert_eq!(r.name(), Some("Row"));
-    let doc = r.to_json();
+    let doc = to_json(&r);
     assert_eq!(doc["root"], json!({"ref": "Row"}));
     assert!(doc["definitions"]["Row"]["object"].is_object());
-    let back = Identity::from_json(&doc).unwrap();
+    let back = from_json(&doc).unwrap();
     assert_eq!(back.name(), Some("Row"));
     assert_eq!(back, r);
     // Renaming renames the definition and the references to it.
     let renamed = question().named("Query");
-    assert_eq!(renamed.to_json()["root"], json!({"ref": "Query"}));
-    let parent = &renamed.to_json()["definitions"]["Query"]["object"]["fields"]["parent"];
+    assert_eq!(to_json(&renamed)["root"], json!({"ref": "Query"}));
+    let parent = &to_json(&renamed)["definitions"]["Query"]["object"]["fields"]["parent"];
     assert_eq!(parent["kind"], json!({"union": ["null", {"ref": "Query"}]}));
     assert_ne!(renamed.quiddity(), question().quiddity());
 }
@@ -158,7 +168,7 @@ fn unnamed_identities_are_inlined() {
     let id = Identity::new(Kind::list(point)).unwrap();
     assert!(id.definitions().is_empty());
     assert_eq!(
-        id.to_json()["root"],
+        to_json(&id)["root"],
         json!({"list": {"object": {"fields": {"x": {"kind": "integer"}}}}})
     );
 }
@@ -185,7 +195,7 @@ fn changing_fields() {
         .named("Node");
     node.set_field("children", Kind::list(Kind::recursive()))
         .unwrap();
-    assert_eq!(node.to_json()["root"], json!({"ref": "Node"}));
+    assert_eq!(to_json(&node)["root"], json!({"ref": "Node"}));
     let tree = json!({"value": 1, "children": [{"value": 2, "children": []}]});
     node.digest(&tree).unwrap();
 }
@@ -238,7 +248,7 @@ fn serde_round_trip() {
     let text = serde_json::to_string(&q).unwrap();
     assert_eq!(
         serde_json::from_str::<serde_json::Value>(&text).unwrap(),
-        q.to_json()
+        to_json(&q)
     );
     let back: Identity = serde_json::from_str(&text).unwrap();
     assert_eq!(back, q);
@@ -261,7 +271,7 @@ fn serde_round_trip() {
     );
     assert_eq!(
         serde_json::to_value(&config).unwrap()["identity"],
-        config.identity.to_json()
+        to_json(&config.identity)
     );
 
     // Not valid: an error, naming the problem.
@@ -271,5 +281,140 @@ fn serde_round_trip() {
     .unwrap_err();
     assert!(err.to_string().contains("natively"), "{err}");
     let err = serde_json::from_str::<Identity>(r#"{"quiddity": 1, "root": "text"}"#).unwrap_err();
-    assert!(err.to_string().contains("unknown kind"), "{err}");
+    // A structural error is serde's, with its position in the text.
+    assert!(err.to_string().contains("unknown variant `text`"), "{err}");
+    assert_eq!((err.line(), err.column()), (1, 30));
+}
+
+/// Any `Serialize` value can be digested. A value has the digest of its
+/// `serde_json::Value` form.
+#[test]
+fn serialize_values() {
+    use std::collections::{BTreeMap, HashMap};
+
+    #[derive(serde::Serialize)]
+    enum Shape {
+        Empty,
+        Circle(f64),
+        Rect { w: u32, h: u32 },
+        Pair(u8, u8),
+    }
+
+    /// Bytes, written with `serialize_bytes`.
+    struct Raw(&'static [u8]);
+    impl serde::Serialize for Raw {
+        fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+            s.serialize_bytes(self.0)
+        }
+    }
+
+    #[derive(serde::Serialize)]
+    struct Task {
+        prompt: String,
+        note: Option<String>,
+        shapes: Vec<Shape>,
+        weights: HashMap<u32, f32>,
+        flags: BTreeMap<bool, char>,
+        raw: Raw,
+        unit: (),
+    }
+    let task = Task {
+        prompt: "p".into(),
+        note: None,
+        shapes: vec![
+            Shape::Empty,
+            Shape::Circle(1.5),
+            Shape::Rect { w: 1, h: 2 },
+            Shape::Pair(3, 4),
+        ],
+        // Exact in `f32`: with serde_json's `arbitrary_precision`, a `Value`
+        // holds an `f32`'s shortest text, not its exact value.
+        weights: HashMap::from([(1, 0.5), (20, 2.5)]),
+        flags: BTreeMap::from([(true, 'y'), (false, 'n')]),
+        raw: Raw(b"ab"),
+        unit: (),
+    };
+    let any = Identity::new(Kind::Any).unwrap();
+    let json = serde_json::to_value(&task).unwrap();
+    assert_eq!(any.digest(&task).unwrap(), any.digest(&json).unwrap());
+    #[cfg(feature = "serde_json")]
+    assert_eq!(any.digest(&task).unwrap(), json.quiddity());
+
+    let id = Identity::new(
+        Kind::object([
+            ("prompt", Field::new(Kind::String)),
+            (
+                "weights",
+                Field::new(Kind::map(Kind::Integer, Kind::Number).unwrap()),
+            ),
+            ("raw", Field::new(Kind::bytes())),
+        ])
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(id.digest(&task).unwrap(), id.digest(&json).unwrap());
+}
+
+/// Where a `serde_json::Value` cannot hold a value, it is kept: integers
+/// beyond 64 bits, and non-finite floats.
+#[test]
+fn beyond_json() {
+    let any = Identity::new(Kind::Any).unwrap();
+    let integer = Identity::new(Kind::Integer).unwrap();
+    let number = Identity::new(Kind::Number).unwrap();
+    for n in [1i128 << 100, -(1i128 << 100), i128::MIN, i128::MAX] {
+        assert_eq!(any.digest(&n).unwrap(), n.quiddity());
+        assert_eq!(integer.digest(&n).unwrap(), n.quiddity());
+    }
+    assert_eq!(any.digest(&u128::MAX).unwrap(), u128::MAX.quiddity());
+    for x in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+        assert_eq!(any.digest(&x).unwrap(), x.quiddity());
+        assert_eq!(number.digest(&x).unwrap(), x.quiddity());
+    }
+    // `f32` is widened exactly.
+    assert_eq!(number.digest(&0.1f32).unwrap(), 0.1f32.quiddity());
+    assert_ne!(number.digest(&0.1f32).unwrap(), 0.1f64.quiddity());
+}
+
+/// A value that cannot be serialized, or that writes a key twice, is an
+/// error at the value itself.
+#[test]
+fn serialize_errors() {
+    struct Failing;
+    impl serde::Serialize for Failing {
+        fn serialize<S: serde::Serializer>(&self, _: S) -> Result<S::Ok, S::Error> {
+            Err(serde::ser::Error::custom("no"))
+        }
+    }
+    struct Twice;
+    impl serde::Serialize for Twice {
+        fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+            use serde::ser::SerializeMap;
+            let mut m = s.serialize_map(None)?;
+            m.serialize_entry("a", &1)?;
+            m.serialize_entry("a", &2)?;
+            m.end()
+        }
+    }
+    let any = Identity::new(Kind::Any).unwrap();
+    let err = any.digest(&Failing).unwrap_err();
+    assert_eq!(err.path, "$");
+    assert!(err.message.contains("no"), "{err}");
+    let err = any.digest(&Twice).unwrap_err();
+    assert!(err.message.contains("twice"), "{err}");
+    // A key that is not a string, a boolean or an integer.
+    let pairs = std::collections::BTreeMap::from([((1, 2), 3)]);
+    assert!(any.digest(&pairs).is_err());
+    // Float keys, which serde_json writes as text, are not accepted.
+    struct FloatKey;
+    impl serde::Serialize for FloatKey {
+        fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+            use serde::ser::SerializeMap;
+            let mut m = s.serialize_map(Some(1))?;
+            m.serialize_entry(&1.5f64, &1)?;
+            m.end()
+        }
+    }
+    let err = any.digest(&FloatKey).unwrap_err();
+    assert!(err.message.contains("map key"), "{err}");
 }

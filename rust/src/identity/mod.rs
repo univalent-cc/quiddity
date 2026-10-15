@@ -1,10 +1,12 @@
-//! Dynamic identities (spec section 5): which parts of a dynamic value, such
-//! as a [`serde_json::Value`], are digested and how, as data that every
-//! implementation of quiddity can read.
+//! Dynamic identities (spec section 5): which parts of a value, such as a
+//! `serde_json::Value` or any other `Serialize` value, are digested and
+//! how, as data that every implementation of quiddity can read.
 //!
-//! An [`Identity`] is built from a [`Kind`], or loaded from an identity
-//! document with [`Identity::from_json`]. [`Identity::digest`] applies it to
-//! a value. An `Identity` is itself digested with
+//! An [`Identity`] is built from a [`Kind`], or read from an identity
+//! document through its `Deserialize` impl, in any serde format (with the
+//! `serde_json` feature, `Identity::from_json` reads a `serde_json::Value`).
+//! Its `Serialize` impl writes its document. [`Identity::digest`] applies it
+//! to a value. An `Identity` is itself digested with
 //! [`quiddity()`](crate::QuiddityExt::quiddity), under the identity of
 //! identity documents (spec 5.10).
 //!
@@ -27,6 +29,7 @@ mod compose;
 #[doc(hidden)]
 pub mod export;
 mod load;
+mod source;
 mod text;
 mod value;
 
@@ -57,11 +60,15 @@ pub use load::InvalidIdentity;
 /// # Ok(())
 /// # }
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(try_from = "load::Document")]
 pub struct Identity {
+    #[serde(rename = "quiddity")]
     version: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
     domain: Option<String>,
     root: Kind,
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     definitions: BTreeMap<String, Kind>,
 }
 
@@ -226,7 +233,8 @@ fn meta_identity() -> Identity {
 /// # Ok(())
 /// # }
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Kind {
     /// Null.
     Null,
@@ -271,10 +279,12 @@ pub enum Kind {
     /// An identity nested in a kind being built: it becomes a definition of
     /// the identity the kind is placed in, and a reference to it. It is
     /// never found inside an `Identity`.
+    #[serde(skip)]
     Identity(Box<Identity>),
     /// The identity a kind is being built for: it becomes a reference to
     /// that identity's own definition. It is never found inside an
     /// `Identity`.
+    #[serde(skip)]
     Recursive,
 }
 
@@ -319,7 +329,10 @@ impl Quiddity for Kind {
 }
 
 /// The name of a definition that a [`Kind::Ref`] refers to.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
+)]
+#[serde(transparent)]
 pub struct RefName(String);
 
 impl Quiddity for RefName {
@@ -346,9 +359,11 @@ impl fmt::Display for RefName {
 }
 
 /// The options of [`Kind::Bytes`].
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct BytesOptions {
     /// How text is read: base64 (`None`, the default) or hex.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub text: Option<BytesText>,
 }
 
@@ -363,7 +378,10 @@ impl Quiddity for BytesOptions {
 }
 
 /// How [`Kind::Bytes`] reads text.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize,
+)]
+#[serde(rename_all = "lowercase")]
 pub enum BytesText {
     /// Base64, standard or URL-safe, with or without padding.
     Base64,
@@ -381,9 +399,11 @@ impl Quiddity for BytesText {
 }
 
 /// The options of [`Kind::Instant`] and [`Kind::Duration`].
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct TimeOptions {
     /// The unit of a number. Without one, a number is an error.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub unit: Option<Unit>,
 }
 
@@ -398,7 +418,10 @@ impl Quiddity for TimeOptions {
 }
 
 /// A unit of time.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize,
+)]
+#[serde(rename_all = "lowercase")]
 pub enum Unit {
     /// Seconds.
     S,
@@ -434,7 +457,8 @@ impl Unit {
 }
 
 /// The options of [`Kind::Map`].
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct MapKind {
     /// The kind of the keys. In JSON every key is a string, which this kind
     /// must accept.
@@ -453,12 +477,14 @@ impl Quiddity for MapKind {
 }
 
 /// The options of [`Kind::Object`] (spec 5.6).
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(from = "load::Object")]
 pub struct ObjectKind {
     /// The fields, by name.
     pub fields: BTreeMap<String, Field>,
     /// If given, the object is encoded as the list of its fields' values in
     /// this order, rather than as a map.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub order: Option<Vec<String>>,
 }
 
@@ -491,18 +517,27 @@ impl Quiddity for ObjectKind {
 /// # Ok(())
 /// # }
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Field {
     /// The field's kind. A missing member is read as null.
     pub kind: Kind,
     /// The field's key in the result, if not its name.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rename: Option<String>,
     /// When the field is left out.
+    #[serde(
+        default,
+        skip_serializing_if = "BTreeSet::is_empty",
+        deserialize_with = "load::omit"
+    )]
     pub omit: BTreeSet<Omit>,
     /// Quantizes the value, an integer, instant or duration, to a multiple
     /// of this (in nanoseconds for instants and durations).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub quantize: Option<u64>,
     /// Quantizes the value, a number, to a multiple of 10^−decimals.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub decimals: Option<i32>,
 }
 
@@ -527,7 +562,10 @@ impl Quiddity for Field {
 }
 
 /// A condition under which a field is left out.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize,
+)]
+#[serde(rename_all = "lowercase")]
 pub enum Omit {
     /// When its value is null.
     None,
@@ -545,20 +583,25 @@ impl Quiddity for Omit {
 }
 
 /// The options of [`Kind::Tagged`] (spec 5.8).
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct TaggedKind {
     /// The variants, by name.
     pub variants: BTreeMap<String, Variant>,
     /// How variants are tagged: externally (`None`, the default),
     /// internally or adjacently.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub style: Option<Style>,
     /// The member holding the variant's name, for internal and adjacent
     /// tagging.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tag: Option<String>,
     /// The member holding the variant's value, for adjacent tagging.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub content: Option<String>,
     /// How variants are identified in the result: by name (`None`, the
     /// default) or by discriminant.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub encode_as: Option<TagEncoding>,
 }
 
@@ -583,7 +626,10 @@ impl Quiddity for TaggedKind {
 }
 
 /// How a tagged union's variants are tagged.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize,
+)]
+#[serde(rename_all = "lowercase")]
 pub enum Style {
     /// `{"Variant": value}`, or `"Variant"` for a unit variant.
     External,
@@ -604,7 +650,10 @@ impl Quiddity for Style {
 }
 
 /// How a tagged union's variants are identified in the result.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize,
+)]
+#[serde(rename_all = "lowercase")]
 pub enum TagEncoding {
     /// By name.
     String,
@@ -622,13 +671,17 @@ impl Quiddity for TagEncoding {
 }
 
 /// A variant of a [`TaggedKind`].
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Variant {
     /// The variant's kind; `None` for a unit variant.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub kind: Option<Kind>,
     /// The variant's name in the result, if not its name.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rename: Option<String>,
     /// The variant's discriminant, with `TagEncoding::Int`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub discriminant: Option<i128>,
 }
 
@@ -1276,7 +1329,8 @@ impl Identity {
     /// let row = Identity::new(Kind::object([("label", Kind::String)])?)?.named("Row");
     /// let table = Identity::new(Kind::list(row))?;
     /// // The nested identity is a definition, under its name.
-    /// assert_eq!(table.to_json()["root"], json!({"list": {"ref": "Row"}}));
+    /// let document = serde_json::to_value(&table)?;
+    /// assert_eq!(document["root"], json!({"list": {"ref": "Row"}}));
     /// # Ok(())
     /// # }
     /// ```
@@ -1565,7 +1619,8 @@ impl Identity {
         load::build(root, definitions, domain)
     }
 
-    /// Loads an identity document (spec 5.3).
+    /// Loads an identity document (spec 5.3). Any serde format reads one
+    /// through `Identity`'s `Deserialize` impl, which does the same.
     ///
     /// # Examples
     ///
@@ -1583,11 +1638,15 @@ impl Identity {
     /// # Ok(())
     /// # }
     /// ```
+    #[cfg(feature = "serde_json")]
     pub fn from_json(document: &serde_json::Value) -> Result<Identity, InvalidIdentity> {
-        load::from_json(document)
+        let doc = <load::Document as serde::Deserialize>::deserialize(document)
+            .map_err(|e| load::invalid("$", alloc::string::ToString::to_string(&e)))?;
+        Identity::try_from(doc)
     }
 
-    /// The identity document, in canonical form.
+    /// The identity document, in canonical form. Any serde format writes
+    /// one through `Identity`'s `Serialize` impl, which does the same.
     ///
     /// # Examples
     ///
@@ -1601,11 +1660,21 @@ impl Identity {
     /// # Ok(())
     /// # }
     /// ```
+    #[cfg(feature = "serde_json")]
     pub fn to_json(&self) -> serde_json::Value {
-        load::to_json(self)
+        serde_json::to_value(self).expect("an identity document is valid JSON")
     }
 
     /// The digest of `value` under this identity (spec 5.1).
+    ///
+    /// `value` is read in the form serde_json gives it, so it has the digest
+    /// of its `serde_json::Value`. Where a `serde_json::Value` cannot hold a
+    /// value, it is kept: integers beyond 64 bits, and non-finite floats.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `value` does not have the shape this identity
+    /// describes, or if its `Serialize` impl fails.
     ///
     /// # Examples
     ///
@@ -1622,8 +1691,8 @@ impl Identity {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn digest(&self, value: &serde_json::Value) -> Result<Digest, ApplyError> {
-        let v = apply::apply(self, value)?;
+    pub fn digest<T: serde::Serialize + ?Sized>(&self, value: &T) -> Result<Digest, ApplyError> {
+        let v = apply::apply(self, &Self::source(value)?)?;
         let mut e = crate::Encoder::new();
         v.encode(&mut e);
         let structural = e.finish();
@@ -1633,32 +1702,25 @@ impl Identity {
         })
     }
 
+    /// The source tree of `value`; a failing `Serialize` impl is an error
+    /// at the value itself.
+    fn source<T: serde::Serialize + ?Sized>(value: &T) -> Result<source::Src, ApplyError> {
+        source::to_source(value).map_err(|e| ApplyError {
+            path: "$".into(),
+            message: alloc::format!("the value could not be serialized: {e}"),
+        })
+    }
+
     /// The encoding of `value` under this identity.
     #[cfg(test)]
-    pub(crate) fn encoding(&self, value: &serde_json::Value) -> Result<Vec<u8>, ApplyError> {
-        let v = apply::apply(self, value)?;
+    pub(crate) fn encoding<T: serde::Serialize + ?Sized>(
+        &self,
+        value: &T,
+    ) -> Result<Vec<u8>, ApplyError> {
+        let v = apply::apply(self, &Self::source(value)?)?;
         let mut e = crate::Encoder::buffer(Vec::new());
         v.encode(&mut e);
         Ok(e.into_buffer())
-    }
-}
-
-/// Writes the identity document (spec 5.3), in canonical form, as
-/// [`Identity::to_json`] does.
-#[cfg(feature = "serde")]
-impl serde::Serialize for Identity {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        serde::Serialize::serialize(&self.to_json(), serializer)
-    }
-}
-
-/// Reads an identity document and checks it, as [`Identity::from_json`]
-/// does; a document that is not valid (spec 5.9) is an error.
-#[cfg(feature = "serde")]
-impl<'de> serde::Deserialize<'de> for Identity {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let document = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
-        Identity::from_json(&document).map_err(serde::de::Error::custom)
     }
 }
 
