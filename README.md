@@ -248,32 +248,42 @@ The problem has three parts:
 
 ### Summary
 
-| Library or format | Languages | Field selection | Stable encoding | Survives evolution | Several identities | JSON values | Quantization |
+| Library or format | Languages | Field selection | Stable encoding | Survives evolution | Run-time identities | JSON values | Quantization |
 |---|---|---|---|---|---|---|---|
 | `derive-where`, `educe` | Rust | on the type | no | — | no | — | no |
 | `digestible` | Rust | on the type | no | no | no | yes | no |
-| `object-hash` | JavaScript | per call | by policy, not specified | no | per call | yes | no |
+| `object-hash` | JavaScript | per call | by policy, not specified | no | yes, a function | yes | no |
+| `ohash` | JavaScript | no | not specified | no | no | yes | no |
+| Stable stringifiers | JavaScript | no | not specified | no | no | yes | no |
 | `hashstructure` | Go | on the type | not specified | partly | no | no | no |
-| `DeepHash` (deepdiff) | Python | per call | not documented | no | per call | yes | yes (significant digits, truncated datetimes) |
+| `DeepHash` (deepdiff) | Python | per call | not documented | no | yes, paths and types | yes | yes (significant digits, truncated datetimes) |
 | `borsh` | Rust, JavaScript, others | on the type | yes, specified | no (positional) | no | no (example only) | no |
 | BCS, DAG-CBOR | Rust, Go, JavaScript, Python, others | via serde in Rust (also removes it from JSON) | yes | no | no | via serde | no |
-| JCS (RFC 8785) | many | a projection struct | yes, RFC 8785 | partly | one struct each | yes | no |
+| JCS (RFC 8785) | many | projection structs, or a field picker | yes, RFC 8785 | partly | with a run-time field picker | yes | no |
+| EIP-712 | Solidity, JavaScript, Rust, Python, Go, Elixir | a type, as data | yes, specified | no (positional) | yes, a JSON type | yes | no |
 | `stable-hash` | Rust | no | yes | yes | no | no | no |
 | objecthash | Python, C, Go, Ruby, JavaScript | no (redaction instead) | yes, specified | no | no | yes | no |
 | Ion Hash | Java, JavaScript, Python, Go, .NET, Rust | no | yes, specified | no | no | via Ion | no |
-| `quiddity` | Rust; Python and Elixir planned | on the type | yes, specified | yes | yes | yes, unordered keys | yes, per field |
+| `term_to_binary`, hashed | Erlang, Elixir | no | no | no | no | no | no |
+| `quiddity` | Rust, Python, Elixir | on the type, or as data | yes, specified | yes | yes, JSON | yes, unordered keys | yes, per field |
 
-### Object hashers in other languages
+### Object hashers
 
-These hash a language's own values, with options for which fields count and
-which containers are unordered. None has a specified encoding, so none can
-be recomputed in another language.
+These hash one language's own values, some with options for which fields
+count and which containers are unordered. None has a specified encoding, so
+none can be recomputed in another language.
 
 - [`object-hash`](https://github.com/puleos/object-hash) (JavaScript).
   Fields are excluded per call, with an `excludeKeys` function. Objects and
   sets are unordered by default, and arrays can be. The default hash is
   SHA-1. Since version 1.1.8, a change to hash values is a semver-major
   release.
+- [`ohash`](https://github.com/unjs/ohash) (JavaScript, from the UnJS
+  project). `hash` serializes a value and hashes it with SHA-256. It has no options for
+  which fields count. Its documentation says the serialization "uses best
+  efforts to generate stable serialized values" and "is not designed for
+  security purposes". Version 2 changed the serialization, so every hash
+  changed, and version 2.0.5 changed it again for typed arrays.
 - [`hashstructure`](https://github.com/mitchellh/hashstructure) (Go).
   Struct tags exclude a field (`hash:"ignore"`), treat a slice as a set
   (`hash:"set"`), or hash a field's `String()` output (`hash:"string"`). An
@@ -326,8 +336,9 @@ digest the crate produces.
 
 A canonical format encodes each value as exactly one byte string, and a hash
 of that string is a stable digest. These formats provide stability.
-Selection comes from the format's skip attribute, which also removes the
-field from the format, and allows one choice of fields per type.
+Except in EIP-712, selection comes from the format's skip attribute, which
+also removes the field from the format, and allows one choice of fields per
+type.
 
 - [`borsh`](https://borsh.io) (NEAR; "Binary Object Representation
   Serializer for Hashing"). A binary format with a written specification,
@@ -360,6 +371,15 @@ field from the format, and allows one choice of fields per type.
   [`tree_hash`](https://crates.io/crates/tree_hash)). A Merkle root allows
   proving one field without revealing the others. Designed for Ethereum's
   fixed schemas.
+- [EIP-712](https://eips.ethereum.org/EIPS/eip-712), the hash of typed
+  data that Ethereum wallets sign, implemented in Solidity, JavaScript,
+  Rust, Python, Go and Elixir. Its type is data, a JSON list of each
+  struct's members, and the hash covers only the members it lists, so one
+  value can be hashed under different types. A domain separator keeps
+  different applications' hashes apart. Positional, like borsh, and the
+  type's own encoding is part of the hash, so adding, renaming or
+  reordering a member changes every hash. Its types are Solidity's: it has
+  no maps, sets, floating-point numbers or optional members.
 
 Protocol Buffers has a deterministic serialization mode, but its
 documentation states that it is
@@ -370,6 +390,14 @@ recommends a fingerprint function that names the fields that matter.
 Erlang's `erlang:phash2` gives the same hash for the same term on every
 machine and ERTS version. It has no field selection, and its result has at
 most 32 bits.
+
+In Erlang and Elixir, a common way to get a longer digest is to hash a
+term's external format: `:crypto.hash(:sha256, :erlang.term_to_binary(term))`.
+That format is a serialization, not a canonical encoding. Map entries were
+written in an order that could differ between equal maps until OTP 24.1
+added a `deterministic` option. OTP 26 changed the default encoding of
+atoms to UTF-8, which changed the bytes of terms containing atoms. It has
+no field selection.
 
 ### JSON canonicalization (RFC 8785)
 
@@ -388,6 +416,14 @@ fields that count, serialized with JCS and then hashed. Which fields count is
 then recorded in that second struct, one per identity, and kept in step with
 the original by hand. Adding a field changes every digest unless the field is
 skipped when empty, and renaming a field always does.
+
+In JavaScript, stable stringifiers serve the same purpose:
+[`fast-json-stable-stringify`](https://github.com/epoberezkin/fast-json-stable-stringify),
+[`safe-stable-stringify`](https://github.com/BridgeAR/safe-stable-stringify)
+and [`json-stable-stringify`](https://github.com/ljharb/json-stable-stringify)
+write object keys in sorted order, and the result is often hashed. None
+specifies how numbers and strings are written, so a digest of the result
+can be recomputed only with the same library.
 
 ### Schema-tolerant and structural hashing
 
