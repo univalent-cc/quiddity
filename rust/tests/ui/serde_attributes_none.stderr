@@ -1,0 +1,7 @@
+error: `serde_attributes` found no `#[serde(…)]` attribute on this type, its variants or its fields. If they are behind `cfg_attr`, they are compiled out in this build, and the type's digests would differ between builds. Derive `Quiddity` only where the serde attributes are present, or use quiddity's own attributes
+ --> tests/ui/serde_attributes_none.rs:7:10
+  |
+7 | #[derive(Quiddity)]
+  |          ^^^^^^^^
+  |
+  = note: this error originates in the derive macro `Quiddity` (in Nightly builds, run with -Z macro-backtrace for more info)

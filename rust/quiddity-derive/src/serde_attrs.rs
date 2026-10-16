@@ -238,6 +238,37 @@ fn forbidden(span: Span, name: &str, key: &str) -> syn::Error {
     )
 }
 
+/// Fails if the mode is on and the type has no `#[serde(…)]` attribute
+/// anywhere. Such attributes are usually behind `cfg_attr`, with serde's
+/// derive; in a build without them the mode would read nothing, and the
+/// type's digests would differ between the crate's builds.
+pub fn require_any(attrs: &TypeAttrs, input: &syn::DeriveInput) -> syn::Result<()> {
+    if attrs.serde_keys().is_empty() {
+        return Ok(());
+    }
+    let is_serde = |a: &[Attribute]| a.iter().any(|a| a.path().is_ident("serde"));
+    let fields = |f: &syn::Fields| f.iter().any(|f| is_serde(&f.attrs));
+    let found = is_serde(&input.attrs)
+        || match &input.data {
+            syn::Data::Struct(d) => fields(&d.fields),
+            syn::Data::Enum(d) => d
+                .variants
+                .iter()
+                .any(|v| is_serde(&v.attrs) || fields(&v.fields)),
+            syn::Data::Union(_) => false,
+        };
+    if found {
+        return Ok(());
+    }
+    Err(syn::Error::new(
+        Span::call_site(),
+        "`serde_attributes` found no `#[serde(…)]` attribute on this type, its variants \
+         or its fields. If they are behind `cfg_attr`, they are compiled out in this \
+         build, and the type's digests would differ between builds. Derive `Quiddity` \
+         only where the serde attributes are present, or use quiddity's own attributes",
+    ))
+}
+
 /// Applies serde's type attributes to the identities in the mode.
 pub fn apply_type(
     attrs: &mut TypeAttrs,

@@ -1407,6 +1407,19 @@ fails to serialize such a variant, so there is no wire form to match); a
 variant's `untagged`, `serialize_with` and `with` digest the whole type
 through its `Serialize` impl.
 
+Added 2026-10-15: the mode is a compile error on a type with no
+`#[serde(…)]` attribute on it, its variants or its fields. A crate with an
+optional `serde` feature gates serde's attributes with `cfg_attr` along
+with serde's derive, since `#[serde]` is a helper attribute of serde's
+derives only. In a build without the feature, the derive saw no serde
+attributes and digested the type by its Rust names, so its digests
+differed between the crate's builds, silently. Requiring `Serialize` was
+considered and not taken: a type may derive `Deserialize` without
+`Serialize`, and "`Serialize` or `Deserialize`" can be checked only for
+non-generic types. The check misses a type whose serde attributes are
+only partly gated. On a type with no serde attributes the mode had no
+effect, so removing it leaves digests unchanged.
+
 ### Goal
 
 One set of attributes on a type that serves both its identity and its

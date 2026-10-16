@@ -172,7 +172,6 @@ fn struct_tag() {
     // With `rename_all`, which does not apply to the tag, and a flattened
     // field: {"type": "Flat", "TERM": "t", "n": 1}.
     #[derive(Serialize, Quiddity)]
-    #[quiddity(serde_attributes)]
     struct Page {
         n: u32,
     }
@@ -206,7 +205,6 @@ fn transparent_and_flatten() {
     struct Id(u64);
 
     #[derive(Serialize, Quiddity)]
-    #[quiddity(serde_attributes)]
     struct Page {
         number: u32,
     }

@@ -110,6 +110,8 @@ pub fn derive(input: DeriveInput) -> syn::Result<TokenStream> {
         }
     };
 
+    crate::serde_attrs::require_any(&attrs, &input)?;
+
     let mut impls = TokenStream::new();
     for id in &identities {
         impls.extend(implement(&input, &attrs, &body, id)?);
