@@ -235,6 +235,17 @@ The Rust crate in [`rust/`](rust/) includes:
   identities exported from derived types.
 - Compatibility with `no_std` environments.
 
+### TypeScript and JavaScript
+
+The npm package in [`typescript/`](typescript/) includes:
+
+- Digests of JavaScript values, including `Date`, `Set`, `Map`, `bigint`
+  and Temporal types.
+- Identities built in code, with their TypeScript types inferred.
+- Identities checked against existing types at compile time.
+- Identities read from and written to JSON.
+- No dependencies, and only standard ECMAScript, so it is not tied to Node.
+
 ## Alternatives to Quiddity
 
 This section lists libraries and formats that address parts of the same
@@ -265,7 +276,7 @@ The problem has three parts:
 | objecthash | Python, C, Go, Ruby, JavaScript | no (redaction instead) | yes, specified | no | no | yes | no |
 | Ion Hash | Java, JavaScript, Python, Go, .NET, Rust | no | yes, specified | no | no | via Ion | no |
 | `term_to_binary`, hashed | Erlang, Elixir | no | no | no | no | no | no |
-| `quiddity` | Rust, Python, Elixir | on the type, or as data | yes, specified | yes | yes, JSON | yes, unordered keys | yes, per field |
+| `quiddity` | Rust, Python, Elixir, TypeScript | on the type, or as data | yes, specified | yes | yes, JSON | yes, unordered keys | yes, per field |
 
 ### Object hashers
 

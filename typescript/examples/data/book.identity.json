@@ -1,0 +1,8 @@
+{
+  "domain": "example.book",
+  "root": {"object": {"fields": {
+    "title": {"kind": "string"},
+    "pages": {"kind": "integer"},
+    "genres": {"kind": {"union": ["null", {"set": "string"}]}, "omit": ["none", "empty"]}
+  }}}
+}

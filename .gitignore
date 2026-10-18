@@ -15,3 +15,7 @@ python/dist/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+
+# TypeScript package
+typescript/node_modules/
+typescript/dist/
