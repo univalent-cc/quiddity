@@ -61,8 +61,8 @@ defmodule QuiddityTest do
 
   describe "digests" do
     test "agree with the Rust crate's README" do
-      digest = Quiddity.digest!("Summarize the report")
-      assert to_string(Digest.micro(digest)) == "sha256-64:366d2ab7f2c3e7db"
+      digest = Quiddity.digest!("Moby Dick")
+      assert to_string(Digest.micro(digest)) == "sha256-64:0fee15a3fd24f466"
     end
 
     test "text forms round-trip, and encode to JSON as text" do

@@ -1,11 +1,11 @@
 error: unknown serde field attribute `someday_maybe`
  --> tests/ui/serde_attributes_unknown.rs:7:27
   |
-7 |     #[serde(rename = "p", someday_maybe)]
+7 |     #[serde(rename = "t", someday_maybe)]
   |                           ^^^^^^^^^^^^^
 
 error: unknown serde attribute `someday_maybe` on a field: `serde_attributes` does not know how it affects serialization, so it cannot follow it. This version of quiddity may be older than the serde in use; please report it
  --> tests/ui/serde_attributes_unknown.rs:7:27
   |
-7 |     #[serde(rename = "p", someday_maybe)]
+7 |     #[serde(rename = "t", someday_maybe)]
   |                           ^^^^^^^^^^^^^

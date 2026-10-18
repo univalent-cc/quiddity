@@ -28,7 +28,7 @@ It needs Elixir 1.18 or later, and has no required dependencies.
 ## Digests of values
 
 ```elixir
-iex> digest = Quiddity.digest!(%{prompt: "Summarize the report", priority: 1})
+iex> digest = Quiddity.digest!(%{title: "Moby Dick", pages: 635})
 #Quiddity.Digest<sha256:…>
 iex> to_string(digest)
 "sha256:…"
@@ -57,33 +57,34 @@ Derive `Quiddity.Encoder` to digest a struct's fields, as `JSON.Encoder` is
 derived:
 
 ```elixir
-defmodule MyApp.Task do
+defmodule MyApp.Book do
   @derive {Quiddity.Encoder,
-           except: [:submitted_at],
-           domain: "example.task",
+           except: [:last_opened],
+           domain: "example.book",
            fields: [
-             tags: [encode_as: :set],
-             asked_at: [quantize: 1_000_000_000],
-             note: [omit_nil: true]
+             genres: [encode_as: :set],
+             catalogued_at: [quantize: 1_000_000_000],
+             subtitle: [omit_nil: true]
            ]}
-  defstruct [:prompt, :priority, :tags, :asked_at, :note, :submitted_at]
+  defstruct [:title, :pages, :genres, :catalogued_at, :subtitle, :last_opened]
 end
 ```
 
-The digest covers every field except `submitted_at`. The order of `tags`
-does not count, `asked_at` is rounded down to the second, and `note` is
-left out when it is `nil`, so that adding it did not change the digests of
-existing tasks. The domain keeps a task's digests apart from those of any
-other type with the same fields.
+The digest covers every field except `last_opened`, which is when you last
+read the book, not part of it. The order of `genres` does not count,
+`catalogued_at` is rounded down to the second, and `subtitle` is left out
+when it is `nil`, so that adding it did not change the digests of existing
+books. The domain keeps a book's digests apart from those of any other type
+with the same fields.
 
 A struct can have more than one identity, for different purposes:
 
 ```elixir
 @derive {Quiddity.Encoder,
-         identities: [meaning: [fields: [priority: [skip: true]]]]}
+         identities: [meaning: [fields: [pages: [skip: true]]]]}
 
-Quiddity.digest!(task)            # every field
-Quiddity.digest!(task, :meaning)  # every field except the priority
+Quiddity.digest!(book)            # every field
+Quiddity.digest!(book, :meaning)  # the work, whatever the edition: every field except pages
 ```
 
 ### Derive options
@@ -142,25 +143,25 @@ value, such as a map decoded from JSON:
 iex> {:ok, identity} =
 ...>   Quiddity.Identity.from_json(~s({
 ...>     "root": {"object": {"fields": {
-...>       "prompt": {"kind": "string"},
-...>       "priority": {"kind": "integer"},
-...>       "asked_at": {"kind": {"instant": {}}}
+...>       "title": {"kind": "string"},
+...>       "pages": {"kind": "integer"},
+...>       "published": {"kind": {"instant": {}}}
 ...>     }}}
 ...>   }))
-iex> a = Quiddity.digest!(%{"prompt" => "p", "priority" => 1, "asked_at" => "2024-01-01T00:00:00Z", "tag" => "x"}, identity)
-iex> b = Quiddity.digest!(%{"prompt" => "p", "priority" => "1", "asked_at" => "2024-01-01T01:00:00+01:00"}, identity)
+iex> a = Quiddity.digest!(%{"title" => "Moby Dick", "pages" => 635, "published" => "1851-10-18T00:00:00Z", "shelf" => "B4"}, identity)
+iex> b = Quiddity.digest!(%{"title" => "Moby Dick", "pages" => "635", "published" => "1851-10-18T01:00:00+01:00"}, identity)
 iex> a == b
 true
 ```
 
 Members the identity does not list are left out, and values written in
-other forms are converted: the text `"1"` to an integer, RFC 3339 text to
+other forms are converted: the text `"635"` to an integer, RFC 3339 text to
 an instant.
 
 The same identity, built in code:
 
 ```elixir
-Quiddity.Identity.new!({:object, prompt: :string, priority: :integer, asked_at: :instant})
+Quiddity.Identity.new!({:object, title: :string, pages: :integer, published: :instant})
 ```
 
 `Quiddity.Identity` describes the kinds, building and changing identities,

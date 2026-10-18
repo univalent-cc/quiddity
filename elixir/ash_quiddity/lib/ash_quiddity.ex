@@ -5,18 +5,18 @@ defmodule AshQuiddity do
   Add `AshQuiddity.Resource` to a resource's extensions, and its records
   can be digested with `Quiddity.digest/2`:
 
-      defmodule Helpdesk.Ticket do
+      defmodule Library.Book do
         use Ash.Resource, extensions: [AshQuiddity.Resource]
 
         attributes do
           uuid_primary_key :id
-          attribute :subject, :string, public?: true
-          attribute :priority, :integer, public?: true
+          attribute :title, :string, public?: true
+          attribute :pages, :integer, public?: true
           timestamps()
         end
       end
 
-      Quiddity.digest!(ticket)
+      Quiddity.digest!(book)
 
   The resource's definition is its identity, so the digest and the
   resource cannot drift apart.

@@ -10,9 +10,9 @@ defmodule Quiddity.Digest do
 
   ## Examples
 
-      iex> digest = Quiddity.digest!("Summarize the report")
+      iex> digest = Quiddity.digest!(%{"title" => "Moby Dick"})
       iex> digest |> Quiddity.Digest.micro() |> to_string()
-      "sha256-64:366d2ab7f2c3e7db"
+      "sha256-64:2b9a626f5983b54b"
   """
 
   @enforce_keys [:bytes]

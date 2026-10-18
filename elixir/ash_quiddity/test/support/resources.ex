@@ -1,15 +1,15 @@
-defmodule AshQuiddity.Test.Address do
+defmodule AshQuiddity.Test.Publisher do
   @moduledoc false
   use Ash.Resource, data_layer: :embedded, extensions: [AshQuiddity.Resource]
 
   attributes do
+    attribute(:name, :string, public?: true)
     attribute(:city, :string, public?: true)
-    attribute(:zip, :string, public?: true)
-    attribute(:note, :string, public?: true, sensitive?: true)
+    attribute(:contact, :string, public?: true, sensitive?: true)
   end
 end
 
-defmodule AshQuiddity.Test.Ticket do
+defmodule AshQuiddity.Test.Book do
   @moduledoc false
   use Ash.Resource,
     domain: AshQuiddity.Test.Domain,
@@ -18,50 +18,50 @@ defmodule AshQuiddity.Test.Ticket do
 
   attributes do
     uuid_primary_key(:id)
-    attribute(:subject, :string, public?: true, allow_nil?: false)
-    attribute(:priority, :integer, public?: true)
-    attribute(:tags, {:array, :string}, public?: true, default: [])
-    attribute(:status, :atom, public?: true, constraints: [one_of: [:open, :closed]])
-    attribute(:due_on, :date, public?: true)
-    attribute(:asked_at, :utc_datetime_usec, public?: true)
+    attribute(:title, :string, public?: true, allow_nil?: false)
+    attribute(:pages, :integer, public?: true)
+    attribute(:genres, {:array, :string}, public?: true, default: [])
+    attribute(:binding, :atom, public?: true, constraints: [one_of: [:hardcover, :paperback]])
+    attribute(:published_on, :date, public?: true)
+    attribute(:catalogued_at, :utc_datetime_usec, public?: true)
     attribute(:price, :decimal, public?: true)
-    attribute(:address, AshQuiddity.Test.Address, public?: true)
-    attribute(:internal_note, :string)
-    attribute(:secret, :string, public?: true, sensitive?: true)
+    attribute(:publisher, AshQuiddity.Test.Publisher, public?: true)
+    attribute(:shelf_note, :string)
+    attribute(:borrower, :string, public?: true, sensitive?: true)
     timestamps()
   end
 
   calculations do
-    calculate(:shout, :string, expr(subject <> "!"), public?: true)
+    calculate(:shout, :string, expr(title <> "!"), public?: true)
     calculate(:etag, :string, {AshQuiddity.Calculation, form: :micro})
     calculate(:meaning_digest, :string, {AshQuiddity.Calculation, identity: :meaning})
   end
 
   actions do
     default_accept([
-      :subject,
-      :priority,
-      :tags,
-      :status,
-      :due_on,
-      :asked_at,
+      :title,
+      :pages,
+      :genres,
+      :binding,
+      :published_on,
+      :catalogued_at,
       :price,
-      :address,
-      :internal_note,
-      :secret
+      :publisher,
+      :shelf_note,
+      :borrower
     ])
 
     defaults([:read, :destroy, :create, :update])
   end
 
   quiddity do
-    domain("helpdesk.ticket")
-    field(:tags, encode_as: :set)
-    field(:asked_at, quantize: 1_000_000_000)
+    domain("library.book")
+    field(:genres, encode_as: :set)
+    field(:catalogued_at, quantize: 1_000_000_000)
     field(:id, skip: true)
 
     identity :meaning do
-      field(:priority, skip: true)
+      field(:pages, skip: true)
       field(:shout, include: true)
     end
   end
@@ -107,7 +107,7 @@ defmodule AshQuiddity.Test.Domain do
   use Ash.Domain, validate_config_inclusion?: false
 
   resources do
-    resource(AshQuiddity.Test.Ticket)
+    resource(AshQuiddity.Test.Book)
     resource(AshQuiddity.Test.Article)
   end
 end

@@ -20,21 +20,21 @@ end
 Add the extension to a resource:
 
 ```elixir
-defmodule Helpdesk.Ticket do
+defmodule Library.Book do
   use Ash.Resource, extensions: [AshQuiddity.Resource]
 
   attributes do
     uuid_primary_key :id
-    attribute :subject, :string, public?: true
-    attribute :priority, :integer, public?: true
-    attribute :tags, {:array, :string}, public?: true
+    attribute :title, :string, public?: true
+    attribute :pages, :integer, public?: true
+    attribute :genres, {:array, :string}, public?: true
     timestamps(public?: true)
   end
 
   quiddity do
-    domain "helpdesk.ticket"
+    domain "library.book"
     field :id, skip: true
-    field :tags, encode_as: :set
+    field :genres, encode_as: :set
     field :updated_at, skip: true
   end
 end
@@ -43,7 +43,7 @@ end
 Then digest its records with Quiddity:
 
 ```elixir
-Quiddity.digest!(ticket)
+Quiddity.digest!(book)
 #=> #Quiddity.Digest<sha256:…>
 ```
 
@@ -60,11 +60,11 @@ changed per field: `skip`, `include`, `rename`, `omit_nil`, `omit_empty`,
 ```elixir
 quiddity do
   identity :meaning do
-    field :priority, skip: true
+    field :pages, skip: true
   end
 end
 
-Quiddity.digest!(ticket, :meaning)
+Quiddity.digest!(book, :meaning)  # the work, whatever the edition
 ```
 
 ### Following AshJsonApi
@@ -86,7 +86,7 @@ loads the fields it covers.
 
 ### The identity as data
 
-`Quiddity.identity(Helpdesk.Ticket)` exports the resource's identity,
+`Quiddity.identity(Library.Book)` exports the resource's identity,
 which other implementations of quiddity apply to a record's JSON form.
 
 See `AshQuiddity` and `AshQuiddity.Resource` for the details.

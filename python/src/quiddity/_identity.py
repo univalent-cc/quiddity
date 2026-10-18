@@ -35,7 +35,7 @@ class Identity:
     JSON, a dataclass, a pydantic model.
 
     An identity is built from a type, as pydantic's ``TypeAdapter`` takes
-    any type: ``Identity(list[str])``, ``Identity(Task)`` for a declared
+    any type: ``Identity(list[str])``, ``Identity(Book)`` for a declared
     class or a ``TypedDict``. ``Annotated`` markers say what a type cannot:
     ``Annotated[datetime, Unit("ms")]``. It is also read from its JSON form,
     which every implementation of quiddity reads and writes, with
@@ -44,20 +44,22 @@ class Identity:
     >>> from typing import NotRequired, TypedDict
     >>> from datetime import datetime
     >>> import quiddity as q
-    >>> class Task(TypedDict):
-    ...     prompt: str
-    ...     priority: int
-    ...     asked_at: datetime
-    >>> task = q.Identity(Task)
-    >>> a = task.digest(
-    ...     {"prompt": "p", "priority": 1, "asked_at": "2024-01-01T00:00:00Z", "tag": "x"}
+    >>> class Book(TypedDict):
+    ...     title: str
+    ...     pages: int
+    ...     published: datetime
+    >>> book = q.Identity(Book)
+    >>> a = book.digest(
+    ...     {"title": "Moby Dick", "pages": 635, "published": "1851-10-18T00:00:00Z", "tag": "x"}
     ... )
-    >>> b = task.digest({"prompt": "p", "priority": "1", "asked_at": "2024-01-01T01:00:00+01:00"})
+    >>> b = book.digest(
+    ...     {"title": "Moby Dick", "pages": "635", "published": "1851-10-18T01:00:00+01:00"}
+    ... )
     >>> a == b
     True
 
     Members the identity does not list, such as ``"tag"``, are left out.
-    Values written in other forms are converted: the text ``"1"`` to an
+    Values written in other forms are converted: the text ``"635"`` to an
     integer, RFC 3339 text to an instant. A value of the wrong shape is an
     error.
 

@@ -17,130 +17,131 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // An identity with a name becomes a definition of the identities it is
     // nested in, under that name.
-    let document_ref = Identity::new(Kind::object([
-        ("label", Kind::String),
-        ("content", Kind::String), // a digest, in its text form
+    let author = Identity::new(Kind::object([
+        ("name", Kind::String),
+        ("born", Kind::Integer),
     ])?)?
-    .named("DocumentRef");
+    .named("Author");
 
     // Each variant of a tagged union is a unit variant (`None`) or an object.
-    let answer_format = Kind::internally_tagged(
+    let format = Kind::internally_tagged(
         "type",
         [
-            ("Free", None),
-            (
-                "Paragraphs",
-                Some(Kind::object([("count", Kind::Integer)])?),
-            ),
+            ("Ebook", None),
+            ("Print", Some(Kind::object([("volumes", Kind::Integer)])?)),
         ],
     )?;
 
-    let mut task = Identity::new(Kind::object([
-        ("prompt", Field::new(Kind::String)),
-        ("documents", Field::new(Kind::list(document_ref))),
-        ("priority", Field::new(Kind::Integer)),
-        ("format", Field::new(answer_format)),
+    let mut book = Identity::new(Kind::object([
+        ("title", Field::new(Kind::String)),
+        ("authors", Field::new(Kind::list(author))),
+        ("pages", Field::new(Kind::Integer)),
+        ("format", Field::new(format)),
         // Left out when null or missing.
-        ("note", Field::optional(Kind::String)),
+        ("subtitle", Field::optional(Kind::String)),
         // Left out when empty; the order of its members does not count.
-        ("tags", Field::omit_empty(Kind::set(Kind::String))),
-        // Read from the member `askedAt`, digested under the key `asked_at`
-        // (as a value with the member `asked_at` would be), and rounded
-        // down to the second.
+        ("genres", Field::omit_empty(Kind::set(Kind::String))),
+        // When the library record was made. Read from the member
+        // `cataloguedAt`, digested under the key `catalogued_at` (as a value
+        // with the member `catalogued_at` would be), and rounded down to the
+        // second.
         (
-            "askedAt",
+            "cataloguedAt",
             Field::new(Kind::instant())
-                .rename("asked_at")
+                .rename("catalogued_at")
                 .quantize(1_000_000_000),
         ),
-        // Another task, or null: `Kind::recursive()` is the identity being built.
+        // The book this one follows, or null: `Kind::recursive()` is the
+        // identity being built.
         ("follows", Field::optional(Kind::recursive())),
     ])?)?
-    .named("Task");
+    .named("Book");
     // A domain keeps this identity's digests apart from those of any other
     // identity with the same fields.
-    task.set_domain("example.task")?;
+    book.set_domain("example.book")?;
 
     // --- Digesting ----------------------------------------------------------
 
     let value = json!({
-        "prompt": "Summarize the report",
-        "documents": [{"label": "report", "content": "sha256:9f2c…"}],
-        "priority": 1,
-        "format": {"type": "Paragraphs", "count": 2},
-        "tags": ["finance", "q3"],
-        "askedAt": "2026-10-14T09:30:00.250Z",
-        "submitted_by": "alice", // not a field: skipped
+        "title": "Moby Dick",
+        "authors": [{"name": "Herman Melville", "born": 1819}],
+        "pages": 635,
+        "format": {"type": "Print", "volumes": 3},
+        "genres": ["novel", "adventure"],
+        "cataloguedAt": "2026-10-14T09:30:00.250Z",
+        "last_opened": "2026-10-16T21:05:00Z", // not a field: skipped
     });
-    let digest = task.digest(&value)?;
+    let digest = book.digest(&value)?;
     println!("digest:            {digest}");
 
-    // The same task, written differently: members in another order, the
+    // The same book, written differently: members in another order, the
     // integer as text, the instant in another time zone and with other
-    // milliseconds, the set reordered, and a null note.
+    // milliseconds, the set reordered, and a null subtitle.
     let same = json!({
-        "askedAt": "2026-10-14T11:30:00+02:00",
-        "tags": ["q3", "finance"],
-        "note": null,
-        "format": {"count": 2, "type": "Paragraphs"},
-        "priority": "1",
-        "documents": [{"content": "sha256:9f2c…", "label": "report"}],
-        "prompt": "Summarize the report",
-        "submitted_by": "bob",
+        "cataloguedAt": "2026-10-14T11:30:00+02:00",
+        "genres": ["adventure", "novel"],
+        "subtitle": null,
+        "format": {"volumes": 3, "type": "Print"},
+        "pages": "635",
+        "authors": [{"born": 1819, "name": "Herman Melville"}],
+        "title": "Moby Dick",
+        "last_opened": "2026-10-16T21:15:00Z",
     });
-    assert_eq!(task.digest(&same)?, digest);
+    assert_eq!(book.digest(&same)?, digest);
     println!("written differently: same digest");
 
     // A change to a field that counts changes the digest.
     let mut other = value.clone();
-    other["priority"] = json!(2);
-    assert_ne!(task.digest(&other)?, digest);
-    println!("another priority:  {}", task.digest(&other)?);
+    other["pages"] = json!(720);
+    assert_ne!(book.digest(&other)?, digest);
+    println!("other pages:       {}", book.digest(&other)?);
 
     // A recursive value.
-    let mut follow_up = value.clone();
-    follow_up["prompt"] = json!("Now list the risks");
-    follow_up["follows"] = value.clone();
-    println!("follow-up:         {}", task.digest(&follow_up)?);
+    let mut typee = value.clone();
+    typee["title"] = json!("Typee");
+    typee["pages"] = json!(298);
+    let mut sequel = value.clone();
+    sequel["follows"] = typee;
+    println!("follows Typee:     {}", book.digest(&sequel)?);
 
     // A value of the wrong shape is an error that says where.
     let mut wrong = value.clone();
-    wrong["documents"][0]["label"] = json!(7);
-    let err = task.digest(&wrong).unwrap_err();
-    assert_eq!(err.path, "$.documents[0].label");
+    wrong["authors"][0]["name"] = json!(7);
+    let err = book.digest(&wrong).unwrap_err();
+    assert_eq!(err.path, "$.authors[0].name");
     println!("wrong shape:       {err}");
 
     // --- Changing -----------------------------------------------------------
 
     // A change that would make the identity invalid fails and changes
-    // nothing: `prompt` is already a key.
-    let before = task.clone();
+    // nothing: `title` is already a key.
+    let before = book.clone();
     assert!(
-        task.set_field_in("Task", "title", Field::new(Kind::String).rename("prompt"))
+        book.set_field_in("Book", "name", Field::new(Kind::String).rename("title"))
             .is_err()
     );
-    assert_eq!(task, before);
+    assert_eq!(book, before);
 
-    // Priority no longer counts. Fields of a named identity's root are
-    // changed in its definition.
-    task.remove_field_in("Task", "priority")?;
-    assert_eq!(task.digest(&value)?, task.digest(&other)?);
-    println!("without priority:  {}", task.digest(&value)?);
+    // Pages no longer count. Fields of a named identity's root are changed
+    // in its definition.
+    book.remove_field_in("Book", "pages")?;
+    assert_eq!(book.digest(&value)?, book.digest(&other)?);
+    println!("without pages:     {}", book.digest(&value)?);
 
     // --- As JSON ------------------------------------------------------------
 
     // An identity is data: written out as JSON, it can be read by any
     // implementation of quiddity, in any language.
-    let json = task.to_json();
+    let json = book.to_json();
     println!("\nidentity as JSON:\n{json:#}\n");
 
     let loaded = Identity::from_json(&json)?;
-    assert_eq!(loaded, task);
-    assert_eq!(loaded.digest(&value)?, task.digest(&value)?);
+    assert_eq!(loaded, book);
+    assert_eq!(loaded.digest(&value)?, book.digest(&value)?);
 
     // An identity has a digest of its own, which every implementation
     // computes the same way. It tells whether two identities are the same.
-    println!("identity's digest: {}", task.quiddity());
+    println!("identity's digest: {}", book.quiddity());
 
     // An identity that is not valid is an error that says where.
     let err = Identity::from_json(&json!({

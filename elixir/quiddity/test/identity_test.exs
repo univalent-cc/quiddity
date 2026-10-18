@@ -10,9 +10,9 @@ defmodule Quiddity.IdentityTest do
         "root" => %{
           "object" => %{
             "fields" => %{
-              "prompt" => %{"kind" => "string"},
-              "priority" => %{"kind" => "integer"},
-              "asked_at" => %{"kind" => %{"instant" => %{}}}
+              "title" => %{"kind" => "string"},
+              "pages" => %{"kind" => "integer"},
+              "published" => %{"kind" => %{"instant" => %{}}}
             }
           }
         }
@@ -20,21 +20,26 @@ defmodule Quiddity.IdentityTest do
 
     a =
       Quiddity.digest!(
-        %{"prompt" => "p", "priority" => 1, "asked_at" => "2024-01-01T00:00:00Z", "tag" => "x"},
+        %{
+          "title" => "Moby Dick",
+          "pages" => 635,
+          "published" => "1851-10-18T00:00:00Z",
+          "shelf" => "B4"
+        },
         identity
       )
 
     b =
       Quiddity.digest!(
-        %{"prompt" => "p", "priority" => "1", "asked_at" => "2024-01-01T01:00:00+01:00"},
+        %{"title" => "Moby Dick", "pages" => "635", "published" => "1851-10-18T01:00:00+01:00"},
         identity
       )
 
     assert a == b
 
-    assert {:error, %Quiddity.Error{path: "$.prompt"}} =
+    assert {:error, %Quiddity.Error{path: "$.title"}} =
              Quiddity.digest(
-               %{"prompt" => 5, "priority" => 1, "asked_at" => "2024-01-01T00:00:00Z"},
+               %{"title" => 5, "pages" => 635, "published" => "1851-10-18T00:00:00Z"},
                identity
              )
   end
@@ -238,47 +243,51 @@ defmodule Quiddity.IdentityTest do
   # The Rust crate's examples/dynamic_identity.rs builds the same identity
   # and prints these digests.
   test "agrees with the Rust crate" do
-    doc_ref =
-      {:object, label: :string, content: :string}
+    author =
+      {:object, name: :string, born: :integer}
       |> Identity.new!()
-      |> Identity.named("DocumentRef")
+      |> Identity.named("Author")
 
     format =
-      {:tagged, [Free: nil, Paragraphs: {:object, count: :integer}],
-       style: :internal, tag: "type"}
+      {:tagged, [Ebook: nil, Print: {:object, volumes: :integer}], style: :internal, tag: "type"}
 
-    task =
+    book =
       {:object,
-       prompt: :string,
-       documents: {:list, doc_ref},
-       priority: :integer,
+       title: :string,
+       authors: {:list, author},
+       pages: :integer,
        format: format,
-       note: field(:string, optional: true),
-       tags: field({:set, :string}, omit_empty: true),
-       askedAt: field(:instant, rename: "asked_at", quantize: 1_000_000_000),
+       subtitle: field(:string, optional: true),
+       genres: field({:set, :string}, omit_empty: true),
+       cataloguedAt: field(:instant, rename: "catalogued_at", quantize: 1_000_000_000),
        follows: field(:recursive, optional: true)}
-      |> Identity.new!(domain: "example.task")
-      |> Identity.named("Task")
+      |> Identity.new!(domain: "example.book")
+      |> Identity.named("Book")
 
     value = %{
-      "prompt" => "Summarize the report",
-      "documents" => [%{"label" => "report", "content" => "sha256:9f2c…"}],
-      "priority" => 1,
-      "format" => %{"type" => "Paragraphs", "count" => 2},
-      "tags" => ["finance", "q3"],
-      "askedAt" => "2026-10-14T09:30:00.250Z",
-      "submitted_by" => "alice"
+      "title" => "Moby Dick",
+      "authors" => [%{"name" => "Herman Melville", "born" => 1819}],
+      "pages" => 635,
+      "format" => %{"type" => "Print", "volumes" => 3},
+      "genres" => ["novel", "adventure"],
+      "cataloguedAt" => "2026-10-14T09:30:00.250Z",
+      "last_opened" => "2026-10-16T21:05:00Z"
     }
 
-    assert to_string(Quiddity.digest!(value, task)) ==
-             "sha256:cec09cdc08e108362c09d5a45368b813906922d79bd3554468eeb49728990a67"
+    assert to_string(Quiddity.digest!(value, book)) ==
+             "sha256:cadb496f7865e4fea62732c25f187c400b16e707a5f32721d56253dd1ef0d867"
 
-    {:ok, task} = Identity.remove_field_in(task, "Task", "priority")
+    typee = %{value | "title" => "Typee", "pages" => 298}
 
-    assert to_string(Quiddity.digest!(value, task)) ==
-             "sha256:3c59fa972f11f5a88c3b255813fd42540843f9aee3e1fc9280400c3163287a7f"
+    assert to_string(Quiddity.digest!(Map.put(value, "follows", typee), book)) ==
+             "sha256:a4b74427b4d91929350c175b5ec6f0455d0fcaec9215486d58fb93021623ae64"
 
-    assert to_string(Quiddity.digest!(task)) ==
-             "sha256:4a910ed3f74d8304a617b21a09cbc9be24e148700f4f21425aeddea16bc05632"
+    {:ok, book} = Identity.remove_field_in(book, "Book", "pages")
+
+    assert to_string(Quiddity.digest!(value, book)) ==
+             "sha256:bfe610c85a00edf4f1839547de54986b056346540c734d9f31de8eb6eee4a3e0"
+
+    assert to_string(Quiddity.digest!(book)) ==
+             "sha256:0c0c0a3d2307dfd21e5ae5acbec47e4e9228d0e54fbafd0061f2060c153dde8a"
   end
 end

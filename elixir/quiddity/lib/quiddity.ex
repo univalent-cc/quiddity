@@ -16,7 +16,7 @@ defmodule Quiddity do
   Which fields count, and how each is read, is an *identity*:
 
     * a struct's identity comes from its `Quiddity.Encoder` implementation,
-      usually derived (`@derive {Quiddity.Encoder, except: [:submitted_at]}`),
+      usually derived (`@derive {Quiddity.Encoder, except: [:last_opened]}`),
       and a struct can declare further named identities;
     * a `Quiddity.Identity` is an identity as data, built in code or read
       from its JSON form, which every implementation of quiddity reads,
@@ -40,9 +40,9 @@ defmodule Quiddity do
 
   ## Examples
 
-      iex> {:ok, digest} = Quiddity.digest(%{"prompt" => "Summarize the report"})
+      iex> {:ok, digest} = Quiddity.digest(%{"title" => "Moby Dick"})
       iex> to_string(digest)
-      "sha256:d438cd022c59365720a55a65784c1d62922c74d2870c86899570f9cbf40c6757"
+      "sha256:2b9a626f5983b54b439c22562ed18f65a0331e34e4788d0471706330ed9cc541"
 
       iex> Quiddity.digest({:ok, 1})
       {:error, %Quiddity.Error{path: "$", message: "a tuple has no data-model value (a keyword list is a list of tuples); use a list or a map"}}

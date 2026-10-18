@@ -8,80 +8,79 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use quiddity::{Digest, Digest64, IdentityMarker, Quiddity, QuiddityExt};
 
-/// A second identity: what the task asks, regardless of how it is run.
+/// A second identity: the work, whatever the edition.
 #[derive(IdentityMarker)]
 pub struct Meaning;
 
 #[derive(Quiddity)]
-#[quiddity(identities(Meaning), domain = "example.task")]
-pub struct Task {
-    prompt: String,
-    documents: Vec<DocumentRef>,
+#[quiddity(identities(Meaning), domain = "example.book")]
+pub struct Book {
+    title: String,
+    authors: Vec<Author>,
+    text: Digest, // a digest is itself hashable
 
     /// Not part of `Meaning`.
     #[quiddity(skip(Meaning))]
-    priority: u8,
+    pages: u16,
 
-    /// The order of the tags does not count.
+    /// The order of the genres does not count.
     #[quiddity(encode_as = set)]
-    tags: Vec<String>,
+    genres: Vec<String>,
 
-    /// Left out when `None`, so that tasks from before this field existed
+    /// Left out when `None`, so that books from before this field existed
     /// keep their digests.
     #[quiddity(omit_none)]
-    deadline: Option<SystemTime>,
+    subtitle: Option<String>,
 
     /// Rounded down to the cent.
     #[quiddity(decimals = 2)]
-    budget: f64,
+    price: f64,
 
-    /// Not part of any identity.
+    /// When you last read it: not part of any identity.
     #[quiddity(skip)]
-    submitted_at: SystemTime,
+    last_opened: SystemTime,
 }
 
 #[derive(Quiddity)]
-pub struct DocumentRef {
-    label: String,
-    content: Digest, // a digest is itself hashable
+pub struct Author {
+    name: String,
+    born: u16,
 }
 
 fn main() {
-    let task = Task {
-        prompt: "Summarize the report".into(),
-        documents: vec![DocumentRef {
-            label: "report".into(),
-            content: "The report's text".quiddity(),
+    let book = Book {
+        title: "Moby Dick".into(),
+        authors: vec![Author {
+            name: "Herman Melville".into(),
+            born: 1819,
         }],
-        priority: 1,
-        tags: vec!["finance".into(), "q3".into()],
-        deadline: None,
-        budget: 12.50,
-        submitted_at: SystemTime::now(),
+        text: "Call me Ishmael. Some years ago…".quiddity(),
+        pages: 635,
+        genres: vec!["novel".into(), "adventure".into()],
+        subtitle: Some("or, The Whale".into()),
+        price: 12.50,
+        last_opened: SystemTime::now(),
     };
-    let digest: Digest = task.quiddity();
-    let meaning: Digest = task.quiddity_as::<Meaning>();
+    let digest: Digest = book.quiddity();
+    let meaning: Digest = book.quiddity_as::<Meaning>();
     println!("primary:  {digest}");
     println!("meaning:  {meaning}");
 
     // Fields that do not count, or that differ by less than a cent or in
     // order only, leave the digest unchanged.
-    let same = Task {
-        tags: vec!["q3".into(), "finance".into()],
-        budget: 12.501,
-        submitted_at: UNIX_EPOCH,
-        ..task
+    let same = Book {
+        genres: vec!["adventure".into(), "novel".into()],
+        price: 12.501,
+        last_opened: UNIX_EPOCH,
+        ..book
     };
     assert_eq!(same.quiddity(), digest);
 
-    // A change in priority changes the primary digest, and not `Meaning`'s.
-    let urgent = Task {
-        priority: 9,
-        ..same
-    };
-    assert_ne!(urgent.quiddity(), digest);
-    assert_eq!(urgent.quiddity_as::<Meaning>(), meaning);
-    println!("urgent:   {}", urgent.quiddity());
+    // Another edition changes the primary digest, and not `Meaning`'s.
+    let reprint = Book { pages: 720, ..same };
+    assert_ne!(reprint.quiddity(), digest);
+    assert_eq!(reprint.quiddity_as::<Meaning>(), meaning);
+    println!("reprint:  {}", reprint.quiddity());
 
     // A shorter form, for example for an ETag.
     let short: Digest64 = digest.micro();

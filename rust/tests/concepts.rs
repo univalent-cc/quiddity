@@ -11,55 +11,55 @@ type Result = std::result::Result<(), Box<dyn std::error::Error>>;
 
 #[test]
 fn example() -> Result {
-    let document_ref = Identity::new(Kind::object([
-        ("label", Kind::String),
-        ("content", Kind::String), // a digest, in its text form
+    let author = Identity::new(Kind::object([
+        ("name", Kind::String),
+        ("born", Kind::Integer),
     ])?)?
-    .named("DocumentRef");
+    .named("Author");
 
-    let task = Identity::new(Kind::object([
-        ("prompt", Field::new(Kind::String)),
-        ("documents", Field::new(Kind::list(document_ref))),
-        ("priority", Field::new(Kind::Integer)),
+    let book = Identity::new(Kind::object([
+        ("title", Field::new(Kind::String)),
+        ("authors", Field::new(Kind::list(author))),
+        ("pages", Field::new(Kind::Integer)),
     ])?)?
-    .named("Task");
+    .named("Book");
 
-    let digest = task.digest(&json!({
-        "prompt": "Summarize the report",
-        "documents": [{"label": "report", "content": "sha256:…"}],
-        "priority": 1,
-        "submitted_at": "2026-10-14T09:30:00Z", // not a field: not part of the digest
+    let digest = book.digest(&json!({
+        "title": "Moby Dick",
+        "authors": [{"name": "Herman Melville", "born": 1819}],
+        "pages": 635,
+        "last_opened": "2026-10-14T09:30:00Z", // not a field: not part of the digest
     }))?;
-    let later = task.digest(&json!({
-        "prompt": "Summarize the report",
-        "documents": [{"label": "report", "content": "sha256:…"}],
-        "priority": 1,
-        "submitted_at": "2026-10-15T17:45:00Z",
+    let later = book.digest(&json!({
+        "title": "Moby Dick",
+        "authors": [{"name": "Herman Melville", "born": 1819}],
+        "pages": 635,
+        "last_opened": "2026-10-16T21:15:00Z",
     }))?;
     assert_eq!(digest, later);
-    assert!(digest.to_string().starts_with("sha256:"));
+    assert!(digest.to_string().starts_with("sha256:d9bc7fdb"));
     Ok(())
 }
 
 #[test]
 fn additional_identities() -> Result {
     let primary = Identity::new(Kind::object([
-        ("prompt", Kind::String),
-        ("priority", Kind::Integer),
+        ("title", Kind::String),
+        ("pages", Kind::Integer),
     ])?)?;
     let meaning = Identity::new(Kind::object([
-        ("prompt", Kind::String),
-        ("answer_format", Kind::String),
+        ("title", Kind::String),
+        ("first_published", Kind::Integer),
     ])?)?;
 
-    let task = json!({
-        "prompt": "Summarize the report",
-        "priority": 1,
-        "answer_format": "one paragraph",
-        "submitted_at": "2026-10-14T09:30:00Z",
+    let book = json!({
+        "title": "Moby Dick",
+        "pages": 635,
+        "first_published": 1851,
+        "last_opened": "2026-10-14T09:30:00Z",
     });
-    let a = primary.digest(&task)?; // the prompt and priority
-    let b = meaning.digest(&task)?; // the prompt and answer format
+    let a = primary.digest(&book)?; // the title and pages
+    let b = meaning.digest(&book)?; // the title and year first published
     assert_ne!(a, b);
     Ok(())
 }
@@ -110,11 +110,11 @@ fn how_values_are_digested() -> Result {
 #[cfg(feature = "serde_json")]
 #[test]
 fn identities_as_json() -> Result {
-    let id = Identity::new(Kind::object([("prompt", Kind::String)])?)?;
+    let id = Identity::new(Kind::object([("title", Kind::String)])?)?;
     let json = id.to_json();
     assert_eq!(
         json,
-        json!({"root": {"object": {"fields": {"prompt": {"kind": "string"}}}}})
+        json!({"root": {"object": {"fields": {"title": {"kind": "string"}}}}})
     );
     assert_eq!(Identity::from_json(&json)?, id);
     Ok(())

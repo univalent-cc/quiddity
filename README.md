@@ -51,30 +51,30 @@ how to encode them.
 use quiddity::identity::{Field, Identity, Kind};
 use serde_json::json;
 
-// Define an Identity for the DocumentRef type
-let document_ref = Identity::new(Kind::object([
-    ("label", Kind::String),
-    ("content", Kind::String), // a digest, in its text form
+// Define an Identity for the Author type
+let author = Identity::new(Kind::object([
+    ("name", Kind::String),
+    ("born", Kind::Integer),
 ])?)?
-.named("DocumentRef");
+.named("Author");
 
-// Define an Identity for the Task type, which includes the `document_ref` Identity
-let task = Identity::new(Kind::object([
-    ("prompt", Field::new(Kind::String)),
-    ("documents", Field::new(Kind::list(document_ref))),
-    ("priority", Field::new(Kind::Integer)),
+// Define an Identity for the Book type, which includes the `author` Identity
+let book = Identity::new(Kind::object([
+    ("title", Field::new(Kind::String)),
+    ("authors", Field::new(Kind::list(author))),
+    ("pages", Field::new(Kind::Integer)),
 ])?)?
-.named("Task");
+.named("Book");
 
-// Use the `task` identity to digest the JSON
-let digest = task.digest(&json!({
-    "prompt": "Summarize the report",
-    "documents": [{"label": "report", "content": "sha256:…"}],
-    "priority": 1,
-    "submitted_at": "2026-10-14T09:30:00Z", // not a field: not part of the digest
+// Use the `book` identity to digest the JSON
+let digest = book.digest(&json!({
+    "title": "Moby Dick",
+    "authors": [{"name": "Herman Melville", "born": 1819}],
+    "pages": 635,
+    "last_opened": "2026-10-14T09:30:00Z", // not a field: not part of the digest
 }))?;
 
-println!("{digest}"); // sha256:9f2c…
+println!("{digest}"); // sha256:d9bc7fdb…
 ```
 
 #### Identities are portable
@@ -85,9 +85,9 @@ identity has a digest of its own, which every implementation computes the
 same way:
 
 ```rust
-let id = Identity::new(Kind::object([("prompt", Kind::String)])?)?;
+let id = Identity::new(Kind::object([("title", Kind::String)])?)?;
 let json = id.to_json();
-// {"root": {"object": {"fields": {"prompt": {"kind": "string"}}}}}
+// {"root": {"object": {"fields": {"title": {"kind": "string"}}}}}
 assert_eq!(Identity::from_json(&json)?, id);
 ```
 
@@ -211,17 +211,24 @@ Every implementation is tested against the shared vectors in
 
 ### Elixir
 
-Two packages, in [`elixir/`](elixir/). [`quiddity`](elixir/quiddity) digests
-Elixir values and structs, and builds, loads and applies identities.
-[`ash_quiddity`](elixir/ash_quiddity) is an Ash extension that makes a
-resource's definition its identity.
+The packages in [`elixir/`](elixir/) include:
+
+- [`quiddity`](elixir/quiddity): digests of Elixir values and structs, with
+  options declared on the struct.
+- Identities built in code, read from and written to JSON, and exported
+  from structs.
+- [`ash_quiddity`](elixir/ash_quiddity): an Ash extension that makes a
+  resource's definition its identity.
 
 ### Python
 
-The package [`quiddity-digest`](python/), imported as `quiddity`, digests
-Python values, dataclasses, attrs classes and pydantic models, with options
-in `Annotated` markers. Identities are written as types, read from JSON,
-and exported from declared classes.
+The package [`quiddity-digest`](python/), imported as `quiddity`, includes:
+
+- Digests of Python values, dataclasses, attrs classes and pydantic models.
+- Options declared on fields with `Annotated` markers.
+- Identities written as types, read from and written to JSON, and exported
+  from declared classes.
+- No dependencies; pydantic support is an optional extra.
 
 ### Rust
 

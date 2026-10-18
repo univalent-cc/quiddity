@@ -1,7 +1,7 @@
 """Digests JSON files under an identity read from a JSON file.
 
-    python examples/digest_json.py examples/data/task.identity.json \\
-        examples/data/task.json examples/data/task-reordered.json
+    python examples/digest_json.py examples/data/book.identity.json \\
+        examples/data/book.json examples/data/book-reordered.json
 
 With no value files, reads one JSON value from standard input.
 """

@@ -73,23 +73,23 @@ mod serde_json_feature {
 
     /// The README's example, with a nested JSON value.
     #[derive(Quiddity)]
-    struct Task {
-        prompt: String,
-        inputs: Vec<Value>,
+    struct Book {
+        title: String,
+        metadata: Vec<Value>,
         #[quiddity(skip)]
-        submitted_at: std::time::SystemTime,
+        last_opened: std::time::SystemTime,
     }
 
     #[test]
     fn json_fields() {
-        let task = Task {
-            prompt: "p".into(),
-            inputs: vec![json!({"k": 1.0})],
-            submitted_at: std::time::SystemTime::now(),
+        let book = Book {
+            title: "Moby Dick".into(),
+            metadata: vec![json!({"edition": 1.0})],
+            last_opened: std::time::SystemTime::now(),
         };
         assert_eq!(
-            task.quiddity(),
-            json!({"prompt": "p", "inputs": [{"k": 1}]}).quiddity()
+            book.quiddity(),
+            json!({"title": "Moby Dick", "metadata": [{"edition": 1}]}).quiddity()
         );
     }
 

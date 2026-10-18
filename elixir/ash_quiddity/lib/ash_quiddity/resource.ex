@@ -61,7 +61,7 @@ defmodule AshQuiddity.Resource do
     examples: [
       """
       identity :meaning do
-        field :priority, skip: true
+        field :pages, skip: true
       end
       """
     ],
@@ -83,8 +83,8 @@ defmodule AshQuiddity.Resource do
     examples: [
       """
       quiddity do
-        domain "helpdesk.ticket"
-        field :tags, encode_as: :set
+        domain "library.book"
+        field :genres, encode_as: :set
         field :updated_at, skip: true
       end
       """
@@ -103,19 +103,19 @@ defmodule AshQuiddity.Resource do
   The Ash extension that makes records of a resource digestible with
   `Quiddity.digest/2`.
 
-      defmodule Helpdesk.Ticket do
+      defmodule Library.Book do
         use Ash.Resource, extensions: [AshQuiddity.Resource]
 
         attributes do
           uuid_primary_key :id
-          attribute :subject, :string, public?: true
-          attribute :tags, {:array, :string}, public?: true
+          attribute :title, :string, public?: true
+          attribute :genres, {:array, :string}, public?: true
           timestamps(public?: true)
         end
 
         quiddity do
-          domain "helpdesk.ticket"
-          field :tags, encode_as: :set
+          domain "library.book"
+          field :genres, encode_as: :set
           field :updated_at, skip: true
         end
       end

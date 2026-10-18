@@ -312,36 +312,39 @@ pub struct Meaning;
 fn scoped_to_identities() {
     #[derive(Serialize, Quiddity)]
     #[quiddity(identities(Meaning), serde_attributes(Primary))]
-    struct Task {
-        #[serde(rename = "p")]
-        prompt: String,
+    struct Book {
+        #[serde(rename = "t")]
+        title: String,
         #[quiddity(skip(Meaning))]
-        priority: u8,
+        pages: u16,
     }
     #[derive(Quiddity)]
     struct Wire {
-        p: String,
-        priority: u8,
+        t: String,
+        pages: u16,
     }
     #[derive(Quiddity)]
     struct Rust {
-        prompt: String,
+        title: String,
     }
-    let t = Task {
-        prompt: "x".into(),
-        priority: 1,
+    let b = Book {
+        title: "Moby Dick".into(),
+        pages: 635,
     };
     assert_eq!(
-        t.quiddity(),
+        b.quiddity(),
         Wire {
-            p: "x".into(),
-            priority: 1
+            t: "Moby Dick".into(),
+            pages: 635
         }
         .quiddity()
     );
     assert_eq!(
-        t.quiddity_as::<Meaning>(),
-        Rust { prompt: "x".into() }.quiddity()
+        b.quiddity_as::<Meaning>(),
+        Rust {
+            title: "Moby Dick".into()
+        }
+        .quiddity()
     );
 }
 

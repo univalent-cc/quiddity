@@ -2,66 +2,72 @@
 #
 #     mix run examples/structs.exs
 
-defmodule MyApp.DocumentRef do
+defmodule MyApp.Author do
   @derive [Quiddity.Encoder, JSON.Encoder]
-  defstruct [:label, :content]
+  defstruct [:name, :born]
 end
 
-defmodule MyApp.Task do
+defmodule MyApp.Book do
   @derive {Quiddity.Encoder,
-           except: [:submitted_at],
-           domain: "example.task",
+           except: [:last_opened],
+           domain: "example.book",
            fields: [
-             tags: [encode_as: :set],
-             asked_at: [quantize: 1_000_000_000, kind: :instant],
-             budget: [decimals: 2, kind: :number],
-             note: [omit_nil: true, kind: :string]
+             genres: [encode_as: :set],
+             catalogued_at: [quantize: 1_000_000_000, kind: :instant],
+             price: [decimals: 2, kind: :number],
+             subtitle: [omit_nil: true, kind: :string]
            ],
            identities: [
-             meaning: [fields: [priority: [skip: true]]]
+             meaning: [fields: [pages: [skip: true]]]
            ]}
   @derive JSON.Encoder
-  defstruct [:prompt, :documents, :priority, :tags, :asked_at, :budget, :note, :submitted_at]
+  defstruct [:title, :authors, :pages, :genres, :catalogued_at, :price, :subtitle, :last_opened]
 end
 
 # A script is compiled as a whole, so it builds the structs it defines with
-# struct!/2 rather than %MyApp.Task{} literals.
-task =
-  struct!(MyApp.Task,
-    prompt: "Summarize the report",
-    documents: [
-      struct!(MyApp.DocumentRef, label: "report", content: Quiddity.digest!("The report's text"))
-    ],
-    priority: 1,
-    tags: ["finance", "q3"],
-    asked_at: ~U[2026-10-15 09:30:00.250Z],
-    budget: 12.5,
-    note: nil,
-    submitted_at: DateTime.utc_now()
+# struct!/2 rather than %MyApp.Book{} literals.
+book =
+  struct!(MyApp.Book,
+    title: "Moby Dick",
+    authors: [struct!(MyApp.Author, name: "Herman Melville", born: 1819)],
+    pages: 635,
+    genres: ["novel", "adventure"],
+    catalogued_at: ~U[2026-10-15 09:30:00.250Z],
+    price: 12.5,
+    subtitle: nil,
+    # When you last read it: not part of the book.
+    last_opened: DateTime.utc_now()
   )
 
-digest = Quiddity.digest!(task)
+digest = Quiddity.digest!(book)
 IO.puts("primary:   #{digest}")
-IO.puts("meaning:   #{Quiddity.digest!(task, :meaning)}")
+IO.puts("meaning:   #{Quiddity.digest!(book, :meaning)}")
 
 # Fields that do not count, or that differ by less than the grid, or in
 # order only, leave the digest unchanged.
-same = %{task | submitted_at: ~U[2000-01-01 00:00:00Z], tags: ["q3", "finance"], budget: 12.501}
+same = %{
+  book
+  | last_opened: ~U[2000-01-01 00:00:00Z],
+    genres: ["adventure", "novel"],
+    price: 12.501
+}
+
 IO.puts("unchanged: #{Quiddity.digest!(same) == digest}")
 
-# A change in priority changes the primary digest, not :meaning's.
-urgent = %{task | priority: 9}
-IO.puts("primary changed: #{Quiddity.digest!(urgent) != digest}")
+# Another edition, with another page count, changes the primary digest,
+# not :meaning's: the work, whatever the edition.
+abridged = %{book | pages: 320}
+IO.puts("primary changed: #{Quiddity.digest!(abridged) != digest}")
 
 IO.puts(
-  "meaning same:    #{Quiddity.digest!(urgent, :meaning) == Quiddity.digest!(task, :meaning)}"
+  "meaning same:    #{Quiddity.digest!(abridged, :meaning) == Quiddity.digest!(book, :meaning)}"
 )
 
 # The struct's identity as data, for another language to apply to its JSON
 # form. Kinds come from `kind:` options, or from a @type t typespec in a
 # compiled module (a script's modules have none), or are :any.
-{:ok, identity} = Quiddity.identity(MyApp.Task)
+{:ok, identity} = Quiddity.identity(MyApp.Book)
 IO.puts("\nidentity as JSON:\n#{JSON.encode!(identity)}\n")
 
-json = task |> JSON.encode!() |> JSON.decode!()
+json = book |> JSON.encode!() |> JSON.decode!()
 IO.puts("JSON form digests alike: #{Quiddity.digest!(json, identity) == digest}")

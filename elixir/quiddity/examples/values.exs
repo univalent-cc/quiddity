@@ -6,16 +6,16 @@
 # order, atom or string keys, 1 and 1.0, a DateTime in any time zone.
 a =
   Quiddity.digest!(%{
-    prompt: "Summarize the report",
-    priority: 1,
-    asked_at: ~U[2026-10-15 09:30:00Z]
+    title: "Moby Dick",
+    pages: 635,
+    published: ~U[1851-10-18 00:00:00Z]
   })
 
 b =
   Quiddity.digest!(%{
-    "asked_at" => DateTime.shift_zone!(~U[2026-10-15 09:30:00Z], "Etc/UTC"),
-    "priority" => 1.0,
-    "prompt" => "Summarize the report"
+    "published" => DateTime.shift_zone!(~U[1851-10-18 00:00:00Z], "Etc/UTC"),
+    "pages" => 635.0,
+    "title" => "Moby Dick"
   })
 
 IO.puts("digest:         #{a}")

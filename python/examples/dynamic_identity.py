@@ -21,74 +21,74 @@ import quiddity as q
 # identities it is nested in, under its name.
 
 
-class DocumentRef(TypedDict):
-    label: str
-    content: str
+class Author(TypedDict):
+    name: str
+    born: int
 
 
 # A union of classes told apart by their "type" member: a class with only the
 # tag is a unit variant.
-class Free(TypedDict):
-    type: Literal["Free"]
+class Ebook(TypedDict):
+    type: Literal["Ebook"]
 
 
-class Paragraphs(TypedDict):
-    type: Literal["Paragraphs"]
-    count: int
+class Print(TypedDict):
+    type: Literal["Print"]
+    volumes: int
 
 
-@q.digestible(domain="example.task")
-class Task(TypedDict):
-    prompt: str
-    documents: list[DocumentRef]
-    priority: int
-    format: Annotated[Free | Paragraphs, q.Tagged("type")]
+@q.digestible(domain="example.book")
+class Book(TypedDict):
+    title: str
+    authors: list[Author]
+    pages: int
+    format: Annotated[Ebook | Print, q.Tagged("type")]
     # Left out when null or missing.
-    note: NotRequired[str | None]
+    subtitle: NotRequired[str | None]
     # Left out when empty; the order of its members does not count.
-    tags: Annotated[set[str], q.OmitEmpty()]
-    # Read from the member askedAt, digested under the key asked_at, and
-    # rounded down to the second.
-    askedAt: Annotated[datetime, q.Rename("asked_at"), q.Quantize(1_000_000_000)]
-    # Another task, or null.
-    follows: NotRequired[Task | None]
+    genres: Annotated[set[str], q.OmitEmpty()]
+    # When the library record was made: read from the member cataloguedAt,
+    # digested under the key catalogued_at, and rounded down to the second.
+    cataloguedAt: Annotated[datetime, q.Rename("catalogued_at"), q.Quantize(1_000_000_000)]
+    # The book this one follows, or null.
+    follows: NotRequired[Book | None]
 
 
-task = q.Identity(Task)
+book = q.Identity(Book)
 
 # --- Digesting ------------------------------------------------------------------
 
 value = {
-    "prompt": "Summarize the report",
-    "documents": [{"label": "report", "content": "sha256:9f2c…"}],
-    "priority": 1,
-    "format": {"type": "Paragraphs", "count": 2},
-    "tags": ["finance", "q3"],
-    "askedAt": "2026-10-14T09:30:00.250Z",
+    "title": "Moby Dick",
+    "authors": [{"name": "Herman Melville", "born": 1819}],
+    "pages": 635,
+    "format": {"type": "Print", "volumes": 3},
+    "genres": ["novel", "adventure"],
+    "cataloguedAt": "2026-10-14T09:30:00.250Z",
     # Not a field: skipped.
-    "submitted_by": "alice",
+    "last_opened": "2026-10-16T21:05:00Z",
 }
 
-digest = task.digest(value)
+digest = book.digest(value)
 print(f"digest:            {digest}")
 
-# The same task, written differently: members in another order, the integer
+# The same book, written differently: members in another order, the integer
 # as text, the instant in another time zone, the set reordered.
 same = {
-    "askedAt": "2026-10-14T11:30:00+02:00",
-    "tags": ["q3", "finance"],
-    "note": None,
-    "format": {"count": 2, "type": "Paragraphs"},
-    "priority": "1",
-    "documents": [{"content": "sha256:9f2c…", "label": "report"}],
-    "prompt": "Summarize the report",
+    "cataloguedAt": "2026-10-14T11:30:00+02:00",
+    "genres": ["adventure", "novel"],
+    "subtitle": None,
+    "format": {"volumes": 3, "type": "Print"},
+    "pages": "635",
+    "authors": [{"born": 1819, "name": "Herman Melville"}],
+    "title": "Moby Dick",
 }
-print(f"written differently: same digest: {task.digest(same) == digest}")
+print(f"written differently: same digest: {book.digest(same) == digest}")
 
 # A value of the wrong shape is an error that says where.
-wrong = {**value, "documents": [{"label": 7, "content": "x"}]}
+wrong = {**value, "authors": [{"name": 7, "born": 1819}]}
 try:
-    task.digest(wrong)
+    book.digest(wrong)
 except q.QuiddityError as e:
     print(f"wrong shape:       at {e.path}: {e.message}")
 
@@ -96,18 +96,18 @@ except q.QuiddityError as e:
 
 # A change that would make the identity invalid raises, and changes nothing.
 try:
-    task.with_field_in("Task", "title", Annotated[str, q.Rename("prompt")])
+    book.with_field_in("Book", "name", Annotated[str, q.Rename("title")])
 except q.InvalidIdentity as e:
     print(f"invalid change:    {e}")
 
-task = task.without_field_in("Task", "priority")
-print(f"without priority:  {task.digest(value)}")
+book = book.without_field_in("Book", "pages")
+print(f"without pages:     {book.digest(value)}")
 
 # --- As JSON --------------------------------------------------------------------
 
 # An identity is data: written out as JSON, any implementation reads it.
-loaded = q.Identity.from_json(json.dumps(task.to_json()))
-print(f"loaded back:       {loaded == task}")
+loaded = q.Identity.from_json(json.dumps(book.to_json()))
+print(f"loaded back:       {loaded == book}")
 
 # An identity has a digest of its own, the same in every implementation.
-print(f"identity's digest: {q.digest(task)}")
+print(f"identity's digest: {q.digest(book)}")

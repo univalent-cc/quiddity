@@ -6,9 +6,9 @@ defprotocol Quiddity.Encoder do
   Derive it to digest a struct's fields, as `JSON.Encoder` and Jason are
   derived:
 
-      defmodule MyApp.Task do
-        @derive {Quiddity.Encoder, except: [:submitted_at]}
-        defstruct [:prompt, :priority, :submitted_at]
+      defmodule MyApp.Book do
+        @derive {Quiddity.Encoder, except: [:last_opened]}
+        defstruct [:title, :pages, :last_opened]
       end
 
   ## Options

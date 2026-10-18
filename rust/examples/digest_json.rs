@@ -2,7 +2,7 @@
 //!
 //! ```sh
 //! cargo run --example digest_json -- \
-//!     examples/data/task.identity.json examples/data/task.json
+//!     examples/data/book.identity.json examples/data/book.json
 //! ```
 //!
 //! With no value files, reads one JSON value from standard input.

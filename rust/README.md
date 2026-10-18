@@ -55,35 +55,37 @@ quiddity = { version = "0.1", default-features = false, features = ["derive"] }
 use quiddity::{Digest, Quiddity, QuiddityExt};
 
 #[derive(Quiddity)]
-pub struct Task {
-    prompt: String,
-    documents: Vec<DocumentRef>,
-    priority: u8,
+pub struct Book {
+    title: String,
+    authors: Vec<Author>,
+    pages: u16,
+    text: Digest, // a digest is itself hashable
 
-    /// Not part of the digest.
+    /// When you last read it: not part of the book.
     #[quiddity(skip)]
-    submitted_at: std::time::SystemTime,
+    last_opened: std::time::SystemTime,
 }
 
 #[derive(Quiddity)]
-pub struct DocumentRef {
-    label: String,
-    content: Digest, // a digest is itself hashable
+pub struct Author {
+    name: String,
+    born: u16,
 }
 
-let task = Task {
-    prompt: "Summarize the report".into(),
-    documents: vec![DocumentRef {
-        label: "report".into(),
-        content: "The report's text".quiddity(),
+let book = Book {
+    title: "Moby Dick".into(),
+    authors: vec![Author {
+        name: "Herman Melville".into(),
+        born: 1819,
     }],
-    priority: 1,
-    submitted_at: std::time::SystemTime::now(),
+    pages: 635,
+    text: "Call me Ishmael. Some years ago…".quiddity(),
+    last_opened: std::time::SystemTime::now(),
 };
 
-let digest: Digest = task.quiddity(); // every field except `submitted_at`
+let digest: Digest = book.quiddity(); // every field except `last_opened`
 
-println!("{digest}"); // sha256:9f2c…
+println!("{digest}"); // sha256:d22d377b…
 ```
 
 A [`Digest`] is written as text in the form `sha256:<64 hex digits>`.
@@ -94,8 +96,8 @@ This example uses a digest as an HTTP `ETag` to detect concurrent changes:
 ```rust
 # use quiddity::{Quiddity, QuiddityExt};
 # #[derive(Quiddity)]
-# struct Task { prompt: String }
-# let task = Task { prompt: "Summarize the report".into() };
+# struct Book { title: String }
+# let book = Book { title: "Moby Dick".into() };
 use http::{HeaderMap, StatusCode, header::IF_MATCH};
 use quiddity::Digest;
 
@@ -111,8 +113,8 @@ fn check_if_match(headers: &HeaderMap, current: Digest) -> Result<(), StatusCode
     }
 }
 # let mut headers = HeaderMap::new();
-# headers.insert(IF_MATCH, format!("\"{}\"", task.quiddity()).parse().unwrap());
-# assert!(check_if_match(&headers, task.quiddity()).is_ok());
+# headers.insert(IF_MATCH, format!("\"{}\"", book.quiddity()).parse().unwrap());
+# assert!(check_if_match(&headers, book.quiddity()).is_ok());
 ```
 
 ## Additional Identities
@@ -130,31 +132,31 @@ pub struct Meaning;
 
 #[derive(Quiddity)]
 #[quiddity(identities(Meaning))]
-pub struct Task {
-    prompt: String,
+pub struct Book {
+    title: String,
 
-    // Left out of `Meaning`
+    // Left out of `Meaning`: the work, whatever the edition
     #[quiddity(skip(Meaning))]
-    priority: u8,
+    pages: u16,
 
     // Part of `Meaning`, but not the `Primary` identity
     #[quiddity(skip(Primary))]
-    answer_format: String,
+    first_published: u16,
 
     /// Not part of any identity.
     #[quiddity(skip)]
-    submitted_at: std::time::SystemTime,
+    last_opened: std::time::SystemTime,
 }
 
-let task = Task {
-    prompt: "Summarize the report".into(),
-    priority: 1,
-    answer_format: "one paragraph".into(),
-    submitted_at: std::time::SystemTime::now(),
+let book = Book {
+    title: "Moby Dick".into(),
+    pages: 635,
+    first_published: 1851,
+    last_opened: std::time::SystemTime::now(),
 };
 
-let primary: Digest = task.quiddity();               // the prompt and priority
-let meaning: Digest = task.quiddity_as::<Meaning>(); // the prompt and answer format
+let primary: Digest = book.quiddity();               // the title and pages
+let meaning: Digest = book.quiddity_as::<Meaning>(); // the title and year first published
 ```
 
 An attribute written without an identity applies to every identity. An
@@ -318,8 +320,8 @@ and [`Digest::micro()`] the first 64 bits, as a [`Digest64`]:
 ```rust
 use quiddity::{Digest64, QuiddityExt};
 
-let etag: Digest64 = "Summarize the report".quiddity().micro();
-assert_eq!(etag.to_string(), "sha256-64:366d2ab7f2c3e7db");
+let etag: Digest64 = "Moby Dick".quiddity().micro();
+assert_eq!(etag.to_string(), "sha256-64:0fee15a3fd24f466");
 ```
 
 They save space where many digests are stored or sent; computing costs
@@ -603,23 +605,24 @@ use serde_json::json;
 
 let identity = Identity::from_json(&json!({
     "root": {"object": {"fields": {
-        "prompt": {"kind": "string"},
-        "priority": {"kind": "integer"},
-        "asked_at": {"kind": {"instant": {}}}
+        "title": {"kind": "string"},
+        "pages": {"kind": "integer"},
+        "published": {"kind": {"instant": {}}}
     }}}
 }))?;
 
 let a = identity.digest(&json!({
-    "prompt": "p", "priority": 1, "asked_at": "2024-01-01T00:00:00Z", "tag": "x"
+    "title": "Moby Dick", "pages": 635, "published": "1851-10-18T00:00:00Z",
+    "last_opened": "2026-10-14T09:30:00Z"
 }))?;
 let b = identity.digest(&json!({
-    "prompt": "p", "priority": "1", "asked_at": "2024-01-01T01:00:00+01:00"
+    "title": "Moby Dick", "pages": "635", "published": "1851-10-18T01:00:00+01:00"
 }))?;
 assert_eq!(a, b);
 ```
 
-Members that the identity does not list, such as `tag`, are skipped.
-Values written in other forms are converted: the text `"1"` to an
+Members that the identity does not list, such as `last_opened`, are skipped.
+Values written in other forms are converted: the text `"635"` to an
 integer, and RFC 3339 text to an instant. A value of the wrong shape is an
 error.
 

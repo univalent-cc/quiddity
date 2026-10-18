@@ -21,27 +21,28 @@ fn from_json(doc: &serde_json::Value) -> Result<Identity, serde_json::Error> {
 fn readme_example() {
     let identity = from_json(&json!({
         "root": {"object": {"fields": {
-            "prompt": {"kind": "string"},
-            "priority": {"kind": "integer"},
-            "asked_at": {"kind": {"instant": {}}}
+            "title": {"kind": "string"},
+            "pages": {"kind": "integer"},
+            "published": {"kind": {"instant": {}}}
         }}}
     }))
     .unwrap();
     let a = identity
         .digest(&json!({
-            "prompt": "p", "priority": 1, "asked_at": "2024-01-01T00:00:00Z", "tag": "x"
+            "title": "Moby Dick", "pages": 635, "published": "1851-10-18T00:00:00Z",
+            "last_opened": "2026-10-14T09:30:00Z"
         }))
         .unwrap();
     let b = identity
         .digest(&json!({
-            "prompt": "p", "priority": "1", "asked_at": "2024-01-01T01:00:00+01:00"
+            "title": "Moby Dick", "pages": "635", "published": "1851-10-18T01:00:00+01:00"
         }))
         .unwrap();
     assert_eq!(a, b);
     let err = identity
-        .digest(&json!({"prompt": 5, "priority": 1, "asked_at": "2024-01-01T00:00:00Z"}))
+        .digest(&json!({"title": 5, "pages": 635, "published": "1851-10-18T00:00:00Z"}))
         .unwrap_err();
-    assert_eq!(err.path, "$.prompt");
+    assert_eq!(err.path, "$.title");
 }
 
 fn row() -> Identity {
@@ -308,18 +309,18 @@ fn serialize_values() {
     }
 
     #[derive(serde::Serialize)]
-    struct Task {
-        prompt: String,
-        note: Option<String>,
+    struct Book {
+        title: String,
+        subtitle: Option<String>,
         shapes: Vec<Shape>,
         weights: HashMap<u32, f32>,
         flags: BTreeMap<bool, char>,
         raw: Raw,
         unit: (),
     }
-    let task = Task {
-        prompt: "p".into(),
-        note: None,
+    let book = Book {
+        title: "Moby Dick".into(),
+        subtitle: None,
         shapes: vec![
             Shape::Empty,
             Shape::Circle(1.5),
@@ -334,14 +335,14 @@ fn serialize_values() {
         unit: (),
     };
     let any = Identity::new(Kind::Any).unwrap();
-    let json = serde_json::to_value(&task).unwrap();
-    assert_eq!(any.digest(&task).unwrap(), any.digest(&json).unwrap());
+    let json = serde_json::to_value(&book).unwrap();
+    assert_eq!(any.digest(&book).unwrap(), any.digest(&json).unwrap());
     #[cfg(feature = "serde_json")]
-    assert_eq!(any.digest(&task).unwrap(), json.quiddity());
+    assert_eq!(any.digest(&book).unwrap(), json.quiddity());
 
     let id = Identity::new(
         Kind::object([
-            ("prompt", Field::new(Kind::String)),
+            ("title", Field::new(Kind::String)),
             (
                 "weights",
                 Field::new(Kind::map(Kind::Integer, Kind::Number).unwrap()),
@@ -351,7 +352,7 @@ fn serialize_values() {
         .unwrap(),
     )
     .unwrap();
-    assert_eq!(id.digest(&task).unwrap(), id.digest(&json).unwrap());
+    assert_eq!(id.digest(&book).unwrap(), id.digest(&json).unwrap());
 }
 
 /// Where a `serde_json::Value` cannot hold a value, it is kept: integers

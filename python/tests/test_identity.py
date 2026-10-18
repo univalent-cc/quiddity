@@ -93,7 +93,7 @@ class Row(TypedDict):
 class Doc(TypedDict):
     rows: list[Row]
     note: NotRequired[str | None]
-    at: Annotated[datetime, q.Rename("asked_at")]
+    at: Annotated[datetime, q.Rename("written_at")]
 
 
 def test_typed_dicts_nest_by_name() -> None:
@@ -103,13 +103,13 @@ def test_typed_dicts_nest_by_name() -> None:
     assert set(j["definitions"]) == {"Doc", "Row"}
     assert j["definitions"]["Doc"]["object"]["fields"]["at"] == {
         "kind": {"instant": {}},
-        "rename": "asked_at",
+        "rename": "written_at",
     }
     value = {"rows": [{"label": "x", "value": 1, "extra": True}], "at": "2024-01-01T00:00:00Z"}
     assert doc.digest(value) == q.digest(
         {
             "rows": [{"label": "x", "value": 1}],
-            "asked_at": datetime(2024, 1, 1, tzinfo=UTC),
+            "written_at": datetime(2024, 1, 1, tzinfo=UTC),
         }
     )
 

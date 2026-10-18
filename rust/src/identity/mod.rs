@@ -47,14 +47,14 @@ pub use load::InvalidIdentity;
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// # use quiddity::identity::{Field, Identity, Kind, Omit, Unit};
 /// # use serde_json::json;
-/// let task = Identity::new(Kind::object([
-///     ("prompt", Field::new(Kind::String)),
-///     ("priority", Field::new(Kind::Integer)),
-///     ("note", Field::optional(Kind::String)),
+/// let book = Identity::new(Kind::object([
+///     ("title", Field::new(Kind::String)),
+///     ("pages", Field::new(Kind::Integer)),
+///     ("subtitle", Field::optional(Kind::String)),
 /// ])?)?;
-/// // `submitted_at` is not a field of the identity, so it does not count.
-/// let a = task.digest(&json!({"prompt": "p", "priority": 1, "submitted_at": "09:30"}))?;
-/// let b = task.digest(&json!({"prompt": "p", "priority": 1, "submitted_at": "17:45"}))?;
+/// // `last_opened` is not a field of the identity, so it does not count.
+/// let a = book.digest(&json!({"title": "Moby Dick", "pages": 635, "last_opened": "2026-10-14"}))?;
+/// let b = book.digest(&json!({"title": "Moby Dick", "pages": 635, "last_opened": "2026-10-16"}))?;
 /// assert_eq!(a, b);
 /// # Ok(())
 /// # }
@@ -1299,8 +1299,8 @@ impl Identity {
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// # use quiddity::identity::{Field, Identity, Kind, Omit, Unit};
     /// # use serde_json::json;
-    /// let id = Identity::new(Kind::object([("prompt", Kind::String)])?)?;
-    /// assert!(id.digest(&json!({"prompt": "Summarize the report"})).is_ok());
+    /// let id = Identity::new(Kind::object([("title", Kind::String)])?)?;
+    /// assert!(id.digest(&json!({"title": "Moby Dick"})).is_ok());
     /// // An identity is checked when it is made.
     /// assert!(Identity::new(Kind::recursive()).is_err());
     /// # Ok(())
@@ -1505,11 +1505,11 @@ impl Identity {
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// # use quiddity::identity::{Field, Identity, Kind, Omit, Unit};
     /// # use serde_json::json;
-    /// let mut id = Identity::new(Kind::object([("prompt", Kind::String)])?)?;
-    /// id.set_field("priority", Kind::Integer)?;
-    /// assert!(id.digest(&json!({"prompt": "p", "priority": 1})).is_ok());
+    /// let mut id = Identity::new(Kind::object([("title", Kind::String)])?)?;
+    /// id.set_field("pages", Kind::Integer)?;
+    /// assert!(id.digest(&json!({"title": "Moby Dick", "pages": 635})).is_ok());
     /// // A change that would make the identity invalid fails, and changes nothing.
-    /// assert!(id.set_field("other", Field::new(Kind::String).rename("prompt")).is_err());
+    /// assert!(id.set_field("other", Field::new(Kind::String).rename("title")).is_err());
     /// # Ok(())
     /// # }
     /// ```
@@ -1533,9 +1533,9 @@ impl Identity {
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// # use quiddity::identity::{Field, Identity, Kind, Omit, Unit};
     /// # use serde_json::json;
-    /// let mut id = Identity::new(Kind::object([("prompt", Kind::String), ("priority", Kind::Integer)])?)?;
-    /// id.remove_field("priority")?;
-    /// assert!(id.digest(&json!({"prompt": "p"})).is_ok());
+    /// let mut id = Identity::new(Kind::object([("title", Kind::String), ("pages", Kind::Integer)])?)?;
+    /// id.remove_field("pages")?;
+    /// assert!(id.digest(&json!({"title": "Moby Dick"})).is_ok());
     /// # Ok(())
     /// # }
     /// ```
@@ -1624,9 +1624,9 @@ impl Identity {
     /// # use quiddity::identity::{Field, Identity, Kind, Omit, Unit};
     /// # use serde_json::json;
     /// let id = Identity::from_json(&json!({
-    ///     "root": {"object": {"fields": {"prompt": {"kind": "string"}}}}
+    ///     "root": {"object": {"fields": {"title": {"kind": "string"}}}}
     /// }))?;
-    /// assert_eq!(id, Identity::new(Kind::object([("prompt", Kind::String)])?)?);
+    /// assert_eq!(id, Identity::new(Kind::object([("title", Kind::String)])?)?);
     /// // An identity that is not valid is an error.
     /// assert!(Identity::from_json(&json!({"root": "text"})).is_err());
     /// # Ok(())
@@ -1676,12 +1676,12 @@ impl Identity {
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// # use quiddity::identity::{Field, Identity, Kind, Omit, Unit};
     /// # use serde_json::json;
-    /// let id = Identity::new(Kind::object([("prompt", Kind::String)])?)?;
-    /// let digest = id.digest(&json!({"prompt": "Summarize the report"}))?;
+    /// let id = Identity::new(Kind::object([("title", Kind::String)])?)?;
+    /// let digest = id.digest(&json!({"title": "Moby Dick"}))?;
     /// assert!(digest.to_string().starts_with("sha256:"));
     /// // A value of the wrong shape is an error that says where.
-    /// let err = id.digest(&json!({"prompt": 5})).unwrap_err();
-    /// assert_eq!(err.path, "$.prompt");
+    /// let err = id.digest(&json!({"title": 5})).unwrap_err();
+    /// assert_eq!(err.path, "$.title");
     /// # Ok(())
     /// # }
     /// ```

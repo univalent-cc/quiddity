@@ -60,65 +60,65 @@ fn struct_is_a_map() {
 
 #[derive(Quiddity)]
 #[quiddity(identities(Meaning, Routing))]
-struct Task {
-    prompt: String,
+struct Book {
+    title: String,
     #[quiddity(skip(Meaning))]
-    priority: u8,
+    pages: u16,
     #[quiddity(skip(Primary))]
-    answer_schema: String,
+    first_published: u16,
     #[quiddity(skip)]
-    submitted_at: u64,
+    last_opened: u64,
     #[quiddity(skip, skip(Routing) = false)]
-    queue: &'static str,
-    #[quiddity(rename = "documents", rename(Meaning) = "docs")]
-    document_refs: Vec<String>,
+    shelf: &'static str,
+    #[quiddity(rename = "authors", rename(Meaning) = "by")]
+    author_names: Vec<String>,
 }
 
-fn task() -> Task {
-    Task {
-        prompt: "Summarize".into(),
-        priority: 3,
-        answer_schema: "text".into(),
-        submitted_at: 1_700_000_000,
-        queue: "fast",
-        document_refs: vec!["a".into()],
+fn book() -> Book {
+    Book {
+        title: "Moby Dick".into(),
+        pages: 635,
+        first_published: 1851,
+        last_opened: 1_700_000_000,
+        shelf: "fiction",
+        author_names: vec!["Herman Melville".into()],
     }
 }
 
 #[test]
 fn identities_and_scoped_attributes() {
-    let t = task();
-    let docs = vec![String::from("a")];
+    let b = book();
+    let authors = vec![String::from("Herman Melville")];
     assert_eq!(
-        t.quiddity(),
+        b.quiddity(),
         Map::new()
-            .with("prompt", "Summarize")
-            .with("priority", 3u8)
-            .with("documents", docs.clone())
+            .with("title", "Moby Dick")
+            .with("pages", 635u16)
+            .with("authors", authors.clone())
             .quiddity()
     );
     assert_eq!(
-        t.quiddity_as::<Meaning>(),
+        b.quiddity_as::<Meaning>(),
         Map::new()
-            .with("prompt", "Summarize")
-            .with("answer_schema", "text")
-            .with("docs", docs.clone())
+            .with("title", "Moby Dick")
+            .with("first_published", 1851u16)
+            .with("by", authors.clone())
             .quiddity()
     );
     assert_eq!(
-        t.quiddity_as::<Routing>(),
+        b.quiddity_as::<Routing>(),
         Map::new()
-            .with("prompt", "Summarize")
-            .with("priority", 3u8)
-            .with("answer_schema", "text")
-            .with("queue", "fast")
-            .with("documents", docs)
+            .with("title", "Moby Dick")
+            .with("pages", 635u16)
+            .with("first_published", 1851u16)
+            .with("shelf", "fiction")
+            .with("authors", authors)
             .quiddity()
     );
     // Skipped fields do not affect the digest.
-    let mut later = task();
-    later.submitted_at += 1;
-    assert_eq!(later.quiddity(), t.quiddity());
+    let mut later = book();
+    later.last_opened += 1;
+    assert_eq!(later.quiddity(), b.quiddity());
 }
 
 #[derive(Quiddity)]
@@ -514,8 +514,8 @@ fn digest_as<I: IdentityMarker, T: Quiddity<I>>(value: &T) -> quiddity::Digest {
 #[test]
 fn identity_as_generic_parameter() {
     assert_eq!(
-        digest_as::<Meaning, _>(&task()),
-        task().quiddity_as::<Meaning>()
+        digest_as::<Meaning, _>(&book()),
+        book().quiddity_as::<Meaning>()
     );
 }
 

@@ -11,16 +11,16 @@ import quiddity as q
 # order, 1 and 1.0, a datetime in any time zone.
 a = q.digest(
     {
-        "prompt": "Summarize the report",
-        "priority": 1,
-        "asked_at": datetime(2026, 10, 15, 9, 30, tzinfo=UTC),
+        "title": "Moby Dick",
+        "pages": 635,
+        "published": datetime(1851, 10, 18, tzinfo=UTC),
     }
 )
 b = q.digest(
     {
-        "asked_at": datetime(2026, 10, 15, 11, 30, tzinfo=timezone(timedelta(hours=2))),
-        "priority": 1.0,
-        "prompt": "Summarize the report",
+        "published": datetime(1851, 10, 18, 2, tzinfo=timezone(timedelta(hours=2))),
+        "pages": 635.0,
+        "title": "Moby Dick",
     }
 )
 print(f"digest:         {a}")

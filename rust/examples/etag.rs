@@ -9,60 +9,60 @@ use http::{HeaderMap, HeaderValue, StatusCode, header::IF_MATCH};
 use quiddity::{Digest64, Quiddity, QuiddityExt};
 
 #[derive(Clone, Quiddity)]
-struct Task {
-    prompt: String,
-    priority: u8,
+struct Book {
+    title: String,
+    pages: u16,
     /// Changes on every read; not part of the version.
     #[quiddity(skip)]
     reads: u32,
 }
 
-/// The `ETag` of a task: its digest, shortened, in quotes.
-fn etag(task: &Task) -> HeaderValue {
-    format!("\"{}\"", task.quiddity().micro()).parse().unwrap()
+/// The `ETag` of a book: its digest, shortened, in quotes.
+fn etag(book: &Book) -> HeaderValue {
+    format!("\"{}\"", book.quiddity().micro()).parse().unwrap()
 }
 
 /// Applies `change` if the request's `If-Match` names the current version.
 fn update(
-    task: &mut Task,
+    book: &mut Book,
     headers: &HeaderMap,
-    change: impl FnOnce(&mut Task),
+    change: impl FnOnce(&mut Book),
 ) -> Result<HeaderValue, StatusCode> {
     let claimed: Option<Digest64> = headers
         .get(IF_MATCH)
         .and_then(|v| v.to_str().ok())
         .and_then(|v| v.trim_matches('"').parse().ok());
     match claimed {
-        Some(claimed) if claimed == task.quiddity().micro() => {
-            change(task);
-            Ok(etag(task))
+        Some(claimed) if claimed == book.quiddity().micro() => {
+            change(book);
+            Ok(etag(book))
         }
         _ => Err(StatusCode::PRECONDITION_FAILED),
     }
 }
 
 fn main() {
-    let mut task = Task {
-        prompt: "Summarize the report".into(),
-        priority: 1,
+    let mut book = Book {
+        title: "Moby Dick".into(),
+        pages: 635,
         reads: 0,
     };
 
-    // Two clients read the task, and get the same ETag.
-    let seen = etag(&task);
-    task.reads += 2; // not part of the version: the ETag stays valid
+    // Two clients read the book, and get the same ETag.
+    let seen = etag(&book);
+    book.reads += 2; // not part of the version: the ETag stays valid
     println!("ETag:        {}", seen.to_str().unwrap());
 
     let mut headers = HeaderMap::new();
     headers.insert(IF_MATCH, seen);
 
     // The first client's change is accepted, and gets a new ETag.
-    let new = update(&mut task, &headers, |t| t.priority = 2).unwrap();
+    let new = update(&mut book, &headers, |b| b.pages = 636).unwrap();
     println!("first:       accepted, new ETag {}", new.to_str().unwrap());
 
     // The second client's change is based on the old version: refused.
-    let refused = update(&mut task, &headers, |t| t.prompt = "List the risks".into());
+    let refused = update(&mut book, &headers, |b| b.title = "Typee".into());
     assert_eq!(refused, Err(StatusCode::PRECONDITION_FAILED));
     println!("second:      {}", refused.unwrap_err());
-    assert_eq!(task.prompt, "Summarize the report");
+    assert_eq!(book.title, "Moby Dick");
 }

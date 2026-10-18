@@ -25,9 +25,9 @@ the `pydantic` extra installs: `pip install 'quiddity-digest[pydantic]'`.
 
 ```python
 >>> import quiddity as q
->>> digest = q.digest({"prompt": "Summarize the report", "priority": 1})
+>>> digest = q.digest({"title": "Moby Dick", "pages": 635})
 >>> str(digest)
-'sha256:523ab623108ab0e744116a6d4a753551d880b0c862df3062fd0866680c62bc7b'
+'sha256:4188827b9812bba3630f092d3cce34db66dcc8992df7afe02eb37d6365347382'
 
 ```
 
@@ -65,22 +65,23 @@ digested under their names. Options are markers in the field's
 ```python
 >>> from dataclasses import dataclass
 >>> from typing import Annotated
->>> @q.digestible(domain="example.task")
+>>> @q.digestible(domain="example.book")
 ... @dataclass
-... class Task:
-...     prompt: str
-...     tags: Annotated[list[str], q.AsSet()]
-...     asked_at: Annotated[datetime, q.Quantize(1_000_000_000)]
-...     note: Annotated[str | None, q.OmitNone()] = None
-...     submitted_at: Annotated[datetime | None, q.Skip()] = None
+... class Book:
+...     title: str
+...     genres: Annotated[list[str], q.AsSet()]
+...     catalogued_at: Annotated[datetime, q.Quantize(1_000_000_000)]
+...     subtitle: Annotated[str | None, q.OmitNone()] = None
+...     last_opened: Annotated[datetime | None, q.Skip()] = None
 
 ```
 
-The digest covers every field except `submitted_at`. The order of `tags`
-does not count, `asked_at` is rounded down to the second, and `note` is
-left out when it is `None`, so that adding it did not change the digests
-of existing tasks. The domain keeps a task's digests apart from those of
-any other type with the same fields.
+The digest covers every field except `last_opened`, when you last read
+the book, which is not part of it. The order of `genres` does not count,
+`catalogued_at` is rounded down to the second, and `subtitle` is left out
+when it is `None`, so that adding it did not change the digests of
+existing books. The domain keeps a book's digests apart from those of any
+other type with the same fields.
 
 A class can have more than one identity, for different purposes. A marker
 given identity names applies under those identities only:
@@ -88,10 +89,10 @@ given identity names applies under those identities only:
 ```python
 >>> @q.digestible(identities=["meaning"])
 ... @dataclass
-... class Request:
-...     prompt: str
-...     priority: Annotated[int, q.Skip("meaning")]
->>> a, b = Request("p", 1), Request("p", 9)
+... class Book:
+...     title: str
+...     pages: Annotated[int, q.Skip("meaning")]
+>>> a, b = Book("Moby Dick", 635), Book("Moby Dick", 720)
 >>> q.digest(a) == q.digest(b), q.digest(a, "meaning") == q.digest(b, "meaning")
 (False, True)
 
@@ -162,22 +163,24 @@ decoded from JSON:
 
 ```python
 >>> from typing import TypedDict
->>> class Question(TypedDict):
-...     prompt: str
-...     priority: int
-...     asked_at: datetime
->>> identity = q.Identity(Question)
+>>> class Book(TypedDict):
+...     title: str
+...     pages: int
+...     published: datetime
+>>> identity = q.Identity(Book)
 >>> a = identity.digest(
-...     {"prompt": "p", "priority": 1, "asked_at": "2024-01-01T00:00:00Z", "tag": "x"}
+...     {"title": "Moby Dick", "pages": 635, "published": "1851-10-18T00:00:00Z", "tag": "x"}
 ... )
->>> b = identity.digest({"prompt": "p", "priority": "1", "asked_at": "2024-01-01T01:00:00+01:00"})
+>>> b = identity.digest(
+...     {"title": "Moby Dick", "pages": "635", "published": "1851-10-18T01:00:00+01:00"}
+... )
 >>> a == b
 True
 
 ```
 
 Members the identity does not list are left out, and values written in
-other forms are converted: the text `"1"` to an integer, RFC 3339 text to
+other forms are converted: the text `"635"` to an integer, RFC 3339 text to
 an instant. `NotRequired` members may be missing, and `Annotated` markers
 say what a type cannot: `Annotated[datetime, q.Unit("ms")]` reads numbers
 as milliseconds, and `Annotated[Circle | Square, q.Tagged("type")]` is a
@@ -186,7 +189,7 @@ are.
 
 Every implementation of quiddity reads and writes an identity's JSON form:
 `identity.to_json()` writes it, and `q.Identity.from_json(text)` reads it.
-`q.identity_of(Task)` exports a declared class's identity, for other
+`q.identity_of(Book)` exports a declared class's identity, for other
 languages to apply to its JSON form. An identity is immutable; its
 `with_field`, `without_field`, `named` and `with_domain` methods return
 changed copies, and `q.digest(identity)` is its own digest.

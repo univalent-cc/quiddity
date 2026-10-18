@@ -6,8 +6,8 @@ platform, and in every release. Which parts of a value count is an
 markers, or an :class:`Identity` as data, which applies to any value.
 
 >>> import quiddity
->>> str(quiddity.digest({"prompt": "Summarize the report"}))
-'sha256:d438cd022c59365720a55a65784c1d62922c74d2870c86899570f9cbf40c6757'
+>>> str(quiddity.digest({"title": "Moby Dick"}))
+'sha256:2b9a626f5983b54b439c22562ed18f65a0331e34e4788d0471706330ed9cc541'
 
 The encoding is specified in ``QUIDDITY_SPEC.md``, in the repository at
 https://github.com/univalent-cc/quiddity.

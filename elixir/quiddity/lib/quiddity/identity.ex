@@ -8,17 +8,17 @@ defmodule Quiddity.Identity do
   `from_json/1`. `Quiddity.digest/2` applies it to any value: a map decoded
   from JSON, a struct, an Ash record.
 
-      iex> {:ok, task} =
+      iex> {:ok, book} =
       ...>   Quiddity.Identity.new(
-      ...>     {:object, prompt: :string, priority: :integer, asked_at: :instant}
+      ...>     {:object, title: :string, pages: :integer, published: :instant}
       ...>   )
-      iex> a = Quiddity.digest!(%{"prompt" => "p", "priority" => 1, "asked_at" => "2024-01-01T00:00:00Z", "tag" => "x"}, task)
-      iex> b = Quiddity.digest!(%{prompt: "p", priority: "1", asked_at: "2024-01-01T01:00:00+01:00"}, task)
+      iex> a = Quiddity.digest!(%{"title" => "Moby Dick", "pages" => 635, "published" => "1851-10-18T00:00:00Z", "shelf" => "B4"}, book)
+      iex> b = Quiddity.digest!(%{title: "Moby Dick", pages: "635", published: "1851-10-18T01:00:00+01:00"}, book)
       iex> a == b
       true
 
-  Members the identity does not list, such as `"tag"`, are left out.
-  Values written in other forms are converted: the text `"1"` to an
+  Members the identity does not list, such as `"shelf"`, are left out.
+  Values written in other forms are converted: the text `"635"` to an
   integer, RFC 3339 text to an instant. A value of the wrong shape is an
   error.
 
@@ -115,8 +115,8 @@ defmodule Quiddity.Identity do
 
   ## Examples
 
-      iex> {:ok, id} = Quiddity.Identity.new({:object, note: Quiddity.Identity.field(:string, optional: true)})
-      iex> Quiddity.digest!(%{}, id) == Quiddity.digest!(%{"note" => nil}, id)
+      iex> {:ok, id} = Quiddity.Identity.new({:object, subtitle: Quiddity.Identity.field(:string, optional: true)})
+      iex> Quiddity.digest!(%{}, id) == Quiddity.digest!(%{"subtitle" => nil}, id)
       true
   """
   @spec field(kind, keyword) :: {:field, kind, keyword}
@@ -199,10 +199,10 @@ defmodule Quiddity.Identity do
 
   ## Examples
 
-      iex> id = Quiddity.Identity.new!({:object, prompt: :string})
-      iex> {:ok, id} = Quiddity.Identity.set_field(id, :priority, :integer)
+      iex> id = Quiddity.Identity.new!({:object, title: :string})
+      iex> {:ok, id} = Quiddity.Identity.set_field(id, :pages, :integer)
       iex> Quiddity.Identity.to_json(id)["root"]["object"]["fields"] |> Map.keys()
-      ["priority", "prompt"]
+      ["pages", "title"]
   """
   @spec set_field(t, atom | String.t(), kind | tuple) :: {:ok, t} | {:error, InvalidIdentity.t()}
   def set_field(%__MODULE__{} = id, name, field) do

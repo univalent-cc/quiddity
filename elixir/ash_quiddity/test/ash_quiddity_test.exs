@@ -3,25 +3,25 @@ defmodule AshQuiddityTest do
   require Ash.Query
   require Spark.Test
 
-  alias AshQuiddity.Test.{Address, Article, Ticket}
+  alias AshQuiddity.Test.{Article, Book, Publisher}
   alias Quiddity.{Digest, Identity}
 
-  defp ticket(overrides \\ %{}) do
-    Ticket
+  defp book(overrides \\ %{}) do
+    Book
     |> Ash.Changeset.for_create(
       :create,
       Map.merge(
         %{
-          subject: "Printer jam",
-          priority: 1,
-          tags: ["hw", "office"],
-          status: :open,
-          due_on: ~D[2026-10-20],
-          asked_at: ~U[2026-10-15 09:30:00.250000Z],
+          title: "Moby Dick",
+          pages: 635,
+          genres: ["novel", "adventure"],
+          binding: :hardcover,
+          published_on: ~D[1851-10-18],
+          catalogued_at: ~U[2026-10-15 09:30:00.250000Z],
           price: Decimal.new("12.50"),
-          address: %{city: "Lyon", zip: "69001", note: "back door"},
-          internal_note: "call first",
-          secret: "hunter2"
+          publisher: %{name: "Harper & Brothers", city: "New York", contact: "front desk"},
+          shelf_note: "spine is loose",
+          borrower: "Ishmael"
         },
         overrides
       )
@@ -29,83 +29,83 @@ defmodule AshQuiddityTest do
     |> Ash.create!()
   end
 
-  # The data-model map of a ticket's public, non-sensitive attributes, as
+  # The data-model map of a book's public, non-sensitive attributes, as
   # the section configures them.
-  defp expected(t) do
+  defp expected(b) do
     %{
-      "subject" => t.subject,
-      "priority" => t.priority,
-      "tags" => MapSet.new(t.tags),
-      "status" => t.status,
-      "due_on" => t.due_on,
-      "asked_at" => DateTime.truncate(%{t.asked_at | microsecond: {0, 0}}, :second),
+      "title" => b.title,
+      "pages" => b.pages,
+      "genres" => MapSet.new(b.genres),
+      "binding" => b.binding,
+      "published_on" => b.published_on,
+      "catalogued_at" => DateTime.truncate(%{b.catalogued_at | microsecond: {0, 0}}, :second),
       "price" => "12.50",
-      "address" => %{"city" => t.address.city, "zip" => t.address.zip}
+      "publisher" => %{"name" => b.publisher.name, "city" => b.publisher.city}
     }
   end
 
   test "a record digests as its public, non-sensitive attributes, in its domain" do
-    t = ticket()
+    b = book()
 
-    assert Quiddity.digest!(t) ==
-             t |> expected() |> Quiddity.digest!() |> Digest.in_domain("helpdesk.ticket")
+    assert Quiddity.digest!(b) ==
+             b |> expected() |> Quiddity.digest!() |> Digest.in_domain("library.book")
   end
 
   test "incidental differences leave the digest unchanged" do
-    a = ticket()
+    a = book()
 
     b =
-      ticket(%{
-        tags: ["office", "hw"],
-        asked_at: ~U[2026-10-15 09:30:00.900000Z],
-        internal_note: "other",
-        secret: "other",
-        address: %{city: "Lyon", zip: "69001", note: "front door"}
+      book(%{
+        genres: ["adventure", "novel"],
+        catalogued_at: ~U[2026-10-15 09:30:00.900000Z],
+        shelf_note: "returned late",
+        borrower: "Queequeg",
+        publisher: %{name: "Harper & Brothers", city: "New York", contact: "the editor"}
       })
 
     refute a.id == b.id
     assert Quiddity.digest!(a) == Quiddity.digest!(b)
-    refute Quiddity.digest!(a) == Quiddity.digest!(ticket(%{priority: 2}))
+    refute Quiddity.digest!(a) == Quiddity.digest!(book(%{pages: 720}))
   end
 
   test "an additional identity, with a calculation it includes" do
-    a = ticket() |> Ash.load!(:shout)
-    b = ticket(%{priority: 9}) |> Ash.load!(:shout)
+    a = book() |> Ash.load!(:shout)
+    b = book(%{pages: 720}) |> Ash.load!(:shout)
     refute Quiddity.digest!(a) == Quiddity.digest!(b)
     assert Quiddity.digest!(a, :meaning) == Quiddity.digest!(b, :meaning)
 
     refute Quiddity.digest!(a, :meaning) ==
-             Quiddity.digest!(ticket(%{subject: "x"}) |> Ash.load!(:shout), :meaning)
+             Quiddity.digest!(book(%{title: "Typee"}) |> Ash.load!(:shout), :meaning)
   end
 
   test "a field that is not loaded, or forbidden, is an error, not an omission" do
-    t = ticket()
+    b = book()
 
     assert {:error, %Quiddity.Error{path: "$.shout", message: message}} =
-             Quiddity.digest(t, :meaning)
+             Quiddity.digest(b, :meaning)
 
     assert message =~ "not loaded"
 
-    partial = Ticket |> Ash.Query.select([:subject]) |> Ash.read!() |> hd()
-    assert {:error, %Quiddity.Error{path: "$.priority"}} = Quiddity.digest(partial)
+    partial = Book |> Ash.Query.select([:title]) |> Ash.read!() |> hd()
+    assert {:error, %Quiddity.Error{path: "$.pages"}} = Quiddity.digest(partial)
 
-    forbidden = %{t | priority: %Ash.ForbiddenField{field: :priority, type: :attribute}}
+    forbidden = %{b | pages: %Ash.ForbiddenField{field: :pages, type: :attribute}}
     assert {:error, %Quiddity.Error{message: message}} = Quiddity.digest(forbidden)
     assert message =~ "forbidden"
   end
 
   test "the digest as a calculation loads what it covers" do
-    t = ticket()
-    loaded = Ash.load!(t, [:etag, :meaning_digest])
-    assert loaded.etag == to_string(Digest.micro(Quiddity.digest!(t)))
-    assert loaded.meaning_digest == to_string(Quiddity.digest!(Ash.load!(t, :shout), :meaning))
+    b = book()
+    loaded = Ash.load!(b, [:etag, :meaning_digest])
+    assert loaded.etag == to_string(Digest.micro(Quiddity.digest!(b)))
+    assert loaded.meaning_digest == to_string(Quiddity.digest!(Ash.load!(b, :shout), :meaning))
 
     # A query that selects only one attribute still gives the digest: the
     # calculation loads the fields it covers.
     [partial] =
-      Ticket
-      |> Ash.Query.filter(id == ^t.id)
-      |> Ash.Query.select([:subject])
+      Book
+      |> Ash.Query.filter(id == ^b.id)
+      |> Ash.Query.select([:title])
       |> Ash.Query.load(:etag)
       |> Ash.read!()
 
@@ -113,8 +113,10 @@ defmodule AshQuiddityTest do
   end
 
   test "an embedded resource digests under its own configuration" do
-    address = %Address{city: "Lyon", zip: "69001", note: "x"}
-    assert Quiddity.digest!(address) == Quiddity.digest!(%{city: "Lyon", zip: "69001"})
+    publisher = %Publisher{name: "Harper & Brothers", city: "New York", contact: "x"}
+
+    assert Quiddity.digest!(publisher) ==
+             Quiddity.digest!(%{name: "Harper & Brothers", city: "New York"})
   end
 
   test "following AshJsonApi: its fields, names, primary key and nil values" do
@@ -135,26 +137,26 @@ defmodule AshQuiddityTest do
   end
 
   test "a resource exports its identity, which gives a record's digest to its JSON form" do
-    t = ticket()
-    {:ok, identity} = Quiddity.identity(Ticket)
+    b = book()
+    {:ok, identity} = Quiddity.identity(Book)
     doc = Identity.to_json(identity)
-    assert doc["domain"] == "helpdesk.ticket"
-    assert doc["root"] == %{"ref" => "Ticket"}
-    assert Map.has_key?(doc["definitions"], "Address")
+    assert doc["domain"] == "library.book"
+    assert doc["root"] == %{"ref" => "Book"}
+    assert Map.has_key?(doc["definitions"], "Publisher")
 
     json = %{
-      "subject" => "Printer jam",
-      "priority" => 1,
-      "tags" => ["office", "hw"],
-      "status" => "open",
-      "due_on" => "2026-10-20",
-      "asked_at" => "2026-10-15T09:30:00.250000Z",
+      "title" => "Moby Dick",
+      "pages" => 635,
+      "genres" => ["adventure", "novel"],
+      "binding" => "hardcover",
+      "published_on" => "1851-10-18",
+      "catalogued_at" => "2026-10-15T09:30:00.250000Z",
       "price" => "12.50",
-      "address" => %{"city" => "Lyon", "zip" => "69001"},
+      "publisher" => %{"name" => "Harper & Brothers", "city" => "New York"},
       "inserted_at" => "ignored"
     }
 
-    assert Quiddity.digest!(json, identity) == Quiddity.digest!(t)
+    assert Quiddity.digest!(json, identity) == Quiddity.digest!(b)
   end
 
   test "the section is checked when the resource is compiled" do

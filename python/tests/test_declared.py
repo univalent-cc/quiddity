@@ -25,53 +25,59 @@ def test_a_plain_dataclass_is_its_fields() -> None:
         q.digest(Plain(1, "x"), "meaning")
 
 
-@q.digestible(domain="example.task", identities=["meaning"])
+@q.digestible(domain="example.book", identities=["meaning"])
 @dataclass
-class Task:
-    prompt: str
-    priority: Annotated[int, q.Skip("meaning")]
-    tags: Annotated[list[str], q.AsSet()]
-    asked_at: Annotated[datetime, q.Quantize(1_000_000_000)]
-    budget: Annotated[float, q.Decimals(2)] = 0.0
-    note: Annotated[str | None, q.OmitNone()] = None
-    submitted_at: Annotated[datetime | None, q.Skip()] = None
+class Book:
+    title: str
+    pages: Annotated[int, q.Skip("meaning")]
+    genres: Annotated[list[str], q.AsSet()]
+    catalogued_at: Annotated[datetime, q.Quantize(1_000_000_000)]
+    price: Annotated[float, q.Decimals(2)] = 0.0
+    subtitle: Annotated[str | None, q.OmitNone()] = None
+    last_opened: Annotated[datetime | None, q.Skip()] = None
     kind: Annotated[str, q.Rename("type"), q.Rename("sort", "meaning")] = "q"
 
 
-def task(**changes: Any) -> Task:
-    t = Task("p", 1, ["a", "b"], datetime(2026, 1, 1, 0, 0, 0, 250_000, tzinfo=UTC), 12.5)
-    return dataclasses.replace(t, **changes)
+def book(**changes: Any) -> Book:
+    b = Book(
+        "Moby Dick",
+        635,
+        ["novel", "adventure"],
+        datetime(2026, 1, 1, 0, 0, 0, 250_000, tzinfo=UTC),
+        12.5,
+    )
+    return dataclasses.replace(b, **changes)
 
 
 def test_markers() -> None:
     expected = {
-        "prompt": "p",
-        "priority": 1,
-        "tags": q._model.Set(["a", "b"]),
-        "asked_at": datetime(2026, 1, 1, tzinfo=UTC),
-        "budget": 12.5,
+        "title": "Moby Dick",
+        "pages": 635,
+        "genres": q._model.Set(["novel", "adventure"]),
+        "catalogued_at": datetime(2026, 1, 1, tzinfo=UTC),
+        "price": 12.5,
         "type": "q",
     }
-    assert q.digest(task()) == q.digest(expected).in_domain("example.task")
+    assert q.digest(book()) == q.digest(expected).in_domain("example.book")
     assert q.digest(
-        task(tags=["b", "a"], budget=12.509, submitted_at=datetime.now(UTC))
-    ) == q.digest(task())
-    assert q.digest(task(note="n")) != q.digest(task())
+        book(genres=["adventure", "novel"], price=12.509, last_opened=datetime.now(UTC))
+    ) == q.digest(book())
+    assert q.digest(book(subtitle="or, The Whale")) != q.digest(book())
 
 
 def test_scoped_markers() -> None:
-    meaning = q.digest(task(), "meaning")
-    assert q.digest(task(priority=9), "meaning") == meaning
-    assert q.digest(task(priority=9)) != q.digest(task())
+    meaning = q.digest(book(), "meaning")
+    assert q.digest(book(pages=720), "meaning") == meaning
+    assert q.digest(book(pages=720)) != q.digest(book())
     expected = q.digest(
         {
-            "prompt": "p",
-            "tags": q._model.Set(["a", "b"]),
-            "asked_at": datetime(2026, 1, 1, tzinfo=UTC),
-            "budget": 12.5,
+            "title": "Moby Dick",
+            "genres": q._model.Set(["novel", "adventure"]),
+            "catalogued_at": datetime(2026, 1, 1, tzinfo=UTC),
+            "price": 12.5,
             "sort": "q",
         }
-    ).in_domain("example.task")
+    ).in_domain("example.book")
     assert meaning == expected
 
 
@@ -239,15 +245,15 @@ class Row:
     value: float
 
 
-@q.digestible(domain="example.question", rename_all="camelCase")
+@q.digestible(domain="example.review", rename_all="camelCase")
 @dataclass
-class Question:
-    brief: str
+class Review:
+    summary: str
     rows: list[Row]
-    asked_at: Annotated[datetime, q.Quantize(1_000)]
+    written_at: Annotated[datetime, q.Quantize(1_000)]
     tags: Annotated[list[str], q.AsSet(), q.OmitEmpty()] = field(default_factory=list)
     note: Annotated[str | None, q.OmitNone()] = None
-    parent: "Question | None" = None
+    parent: "Review | None" = None
 
 
 def json_form(x: Any) -> Any:
@@ -260,29 +266,33 @@ def json_form(x: Any) -> Any:
 
 
 def test_exported_identity() -> None:
-    identity = q.identity_of(Question)
+    identity = q.identity_of(Review)
     j = identity.to_json()
-    assert j["domain"] == "example.question"
-    assert j["root"] == {"ref": "Question"}
-    fields = j["definitions"]["Question"]["object"]["fields"]
-    assert fields["asked_at"] == {"kind": {"instant": {}}, "rename": "askedAt", "quantize": 1000}
+    assert j["domain"] == "example.review"
+    assert j["root"] == {"ref": "Review"}
+    fields = j["definitions"]["Review"]["object"]["fields"]
+    assert fields["written_at"] == {
+        "kind": {"instant": {}},
+        "rename": "writtenAt",
+        "quantize": 1000,
+    }
     assert fields["tags"] == {
         "kind": {"union": ["null", {"set": "string"}]},
         "omit": ["empty", "none"],
     }
-    assert fields["parent"] == {"kind": {"union": ["null", {"ref": "Question"}]}}
+    assert fields["parent"] == {"kind": {"union": ["null", {"ref": "Review"}]}}
     assert j["definitions"]["Row"] == {
         "object": {"fields": {"label": {"kind": "string"}, "value": {"kind": "number"}}}
     }
-    assert q.Identity(Question) == identity
+    assert q.Identity(Review) == identity
 
 
 def test_exported_identity_agrees_with_digests() -> None:
-    identity = q.identity_of(Question)
+    identity = q.identity_of(Review)
     at = datetime(2026, 1, 1, 0, 0, 0, 123_456, tzinfo=UTC)
     for value in [
-        Question("b", [Row("x", 1.5)], at),
-        Question("b", [], at, ["t", "s"], "n", Question("p", [], at)),
+        Review("b", [Row("x", 1.5)], at),
+        Review("b", [], at, ["t", "s"], "n", Review("p", [], at)),
     ]:
         assert identity.digest(json_form(value)) == q.digest(value)
 
