@@ -61,7 +61,7 @@ __all__ = [
     "parse_json",
 ]
 
-__version__ = "0.1.0"
+__version__ = "0.1.0a1"
 
 # The public classes are documented, and shown in tracebacks, as quiddity's.
 for _cls in (Digest, Identity, InvalidIdentity, QuiddityError):

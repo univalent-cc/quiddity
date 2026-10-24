@@ -46,7 +46,7 @@ allocator. The derive (with the `derive` feature), `Digest` and its shorter form
 
 ```toml
 [dependencies]
-quiddity = { version = "0.1", default-features = false, features = ["derive"] }
+quiddity = { version = "0.1.0-alpha.1", default-features = false, features = ["derive"] }
 ```
 
 ## Example

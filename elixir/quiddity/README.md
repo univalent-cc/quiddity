@@ -18,7 +18,7 @@ Add `quiddity` to your dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:quiddity, "~> 0.1"}
+    {:quiddity, "~> 0.1.0-alpha.1"}
   ]
 end
 ```

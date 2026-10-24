@@ -10,7 +10,7 @@ types say. The digest and the resource cannot drift apart.
 ```elixir
 def deps do
   [
-    {:ash_quiddity, "~> 0.1"}
+    {:ash_quiddity, "~> 0.1.0-alpha.1"}
   ]
 end
 ```

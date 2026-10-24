@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "quiddity-digest"
-version = "0.1.0"
+version = "0.1.0a1"
 description = "Stable, configurable digests that capture the essence of values."
 readme = "README.md"
 license = "MIT"
