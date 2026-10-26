@@ -206,6 +206,41 @@ TypeScript's types are not checked at run time, and data from
 `JSON.parse(text) as Book` may not be a `Book`. An identity always checks
 the values it reads, whatever their type says.
 
+#### Types from a schema library
+
+Where the type is inferred from a schema, as with zod, the identity is
+checked against the inferred type, so a change to the schema that the
+identity does not follow can be treated as a compile error:
+
+```ts
+import * as q from "quiddity";
+import { z } from "zod";
+
+const Book = z.object({
+  title: z.string(),
+  pages: z.number().int(),
+  genres: z.array(z.string()).optional(),
+  lastOpened: z.date(),
+});
+
+const BookIdentity = q.objectFor<z.infer<typeof Book>>({
+  title: q.string(),
+  pages: q.integer(),
+  genres: q.optional(q.set(q.string())).omit("none", "empty"),
+  lastOpened: q.skip(),
+});
+
+const digest = BookIdentity.digest(Book.parse(input));
+```
+
+The schema says which values are valid, and the identity provides instructions
+for digesting them. In this example, `genres` is a list to zod but a set to the
+digest, and `lastOpened` is a valid field but does not influence the digest.
+
+In the future, we may add the ability to infer a quiddity identity directly
+from a zod schema, using default behaviors for all fields, and allowing overrides to
+be specified directly.
+
 ### Classes
 
 A class can carry its identity, which `q.digest` uses for its instances,
