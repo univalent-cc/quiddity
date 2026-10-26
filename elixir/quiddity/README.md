@@ -111,7 +111,8 @@ puts an existing digest in a domain.
 
 A field's value can be rounded down to a grid before it is digested, so
 that small differences, such as a float's last digits or a timestamp's
-milliseconds, don't change the digest:
+milliseconds, don't change the digest. Times and durations are best
+quantized; see [Times and durations](https://github.com/univalent-cc/quiddity#times-and-durations).
 
 ```elixir
 defmodule Reading do

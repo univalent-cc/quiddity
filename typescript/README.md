@@ -133,7 +133,8 @@ The kinds are those of the spec (5.4): `q.null()`, `q.bool()`,
 `q.union(k, …)`, `q.tagged({…})` and `q.ref(name)`. `q.optional(k)` is
 `q.union(q.null(), k)`, which also reads a missing member. A field takes
 the options of spec 5.6 as methods: `.rename(key)`, `.omit("none",
-"empty")`, `.quantize(step)` and `.decimals(places)`.
+"empty")`, `.quantize(step)` and `.decimals(places)`. Times and durations
+are best quantized; see [Times and durations](https://github.com/univalent-cc/quiddity#times-and-durations).
 
 `kind.inDomain("example.book")` is the identity of the kind's values in a
 domain, an `Identity`; `kind.named("Book")` makes the kind a definition,

@@ -122,7 +122,7 @@ Values are digested according to the following rules:
   existing values.
 - An instant is digested as the integer number of nanoseconds since the
   Unix epoch, and a duration as an integer number of nanoseconds, whatever
-  form they are written in.
+  form they are written in. See [Times and durations](#times-and-durations).
 
 An identity reads the forms values are commonly written in: the text `"1"`
 where an integer is expected, RFC 3339 text for an instant, base64 for
@@ -162,6 +162,31 @@ Values are rounded down, so 99 and 100 fall in different bands: values on
 either side of a band's edge have different digests, however close they
 are. A float is taken as the decimal it is written as, so `2.67` stays
 `2.67`.
+
+### Times and durations
+
+Quiddity natively represents instants and durations with nanosecond precision.
+
+When normalizing from time types that use separate fields, e.g. years, months,
+days, hours, etc., Quiddity uses a 12-month year and a mean Gregorian month
+of 2 629 746 seconds.
+
+Nanosecond precision is seldom desired and may give practically equal times different
+digests. Additionally, many languages and libraries have underlying data types that are
+not capable of nanosecond precision.
+
+Therefore it is recommended to use a `quantize` option to specify the meaningful
+time increment. Quantizing a field to the appropriate precision, such as to the
+second for a timestamp or to the day for a loan period, will give these values
+the same digest.
+
+Care must be taken when sending time types between languages
+because there is a lot of variation across the string representations of
+equivalent values. Identities read RFC 3339 instants and ISO 8601 durations,
+but not every variant of them. It is beyond the scope of Quiddity to try to interpret
+all the flavors of stringified time values, so it is recommended to digest time
+in data types native to each language, such as `Date` in JavaScript, `datetime`
+in Python, `DateTime` in Elixir, `SystemTime` in Rust, etc.
 
 ### Domains
 
