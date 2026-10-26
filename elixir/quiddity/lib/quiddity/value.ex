@@ -62,10 +62,11 @@ defmodule Quiddity.Value do
 
     * atoms other than `nil`, `true` and `false` are strings of their
       names, and map keys that are atoms are strings too;
-    * `Date`, `Time`, `NaiveDateTime` and `Duration` are their ISO 8601
-      text, and a `Decimal` its decimal text (`"12.50"`, `"1E+10"`), as
-      Elixir's `JSON` writes it;
-    * a `DateTime` is an instant, and a `MapSet` a set;
+    * `Date`, `Time` and `NaiveDateTime` are their ISO 8601 text, and a
+      `Decimal` its decimal text (`"12.50"`, `"1E+10"`), as Elixir's
+      `JSON` writes it;
+    * a `DateTime` is an instant, a `Duration` a duration (see
+      `duration_ns/1`), and a `MapSet` a set;
     * a `Quiddity.Digest` is the string of its text form (spec 6.2);
     * a struct is read through its `Quiddity.Encoder` implementation.
 
@@ -86,6 +87,35 @@ defmodule Quiddity.Value do
   """
   @spec from(term) :: t
   def from(term), do: from(term, "$")
+
+  @doc """
+  A `Duration` as integer nanoseconds (spec 2.6), each of its fields at a
+  fixed length: a week of 7 days, a day of 86 400 seconds, a month of
+  2 629 746 seconds and a year of 12 months, which are the mean Gregorian
+  month and year. Each field keeps its own sign. The microsecond's
+  precision is how it is displayed, and does not count.
+
+  ## Examples
+
+      iex> Quiddity.Value.duration_ns(Duration.new!(minute: 1, second: 30))
+      90_000_000_000
+
+      iex> Quiddity.Value.duration_ns(Duration.new!(hour: 1, minute: -30))
+      1_800_000_000_000
+
+      iex> Quiddity.Value.duration_ns(Duration.new!(month: 1))
+      2_629_746_000_000_000
+  """
+  @spec duration_ns(Duration.t()) :: integer
+  def duration_ns(%Duration{} = d) do
+    {us, _precision} = d.microsecond
+
+    seconds =
+      (d.year * 12 + d.month) * 2_629_746 + (d.week * 7 + d.day) * 86_400 +
+        d.hour * 3_600 + d.minute * 60 + d.second
+
+    seconds * 1_000_000_000 + us * 1_000
+  end
 
   @doc false
   def from(nil, _path), do: nil
@@ -110,7 +140,7 @@ defmodule Quiddity.Value do
   def from(%NaiveDateTime{} = dt, _path), do: NaiveDateTime.to_iso8601(dt)
   def from(%Date{} = d, _path), do: Date.to_iso8601(d)
   def from(%Time{} = t, _path), do: Time.to_iso8601(t)
-  def from(%Duration{} = d, _path), do: Duration.to_iso8601(d)
+  def from(%Duration{} = d, _path), do: {:duration, duration_ns(d)}
 
   def from(%{__struct__: Decimal} = d, _path) do
     # The General Decimal Arithmetic "to-scientific-string", as Elixir's

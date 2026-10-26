@@ -32,11 +32,29 @@ defmodule QuiddityTest do
       assert Quiddity.digest!(utc) == Quiddity.digest!(1_704_067_200_000_000_000)
     end
 
-    test "dates, times and durations as ISO 8601 text" do
+    test "dates and times as ISO 8601 text" do
       assert Value.from(~D[2026-10-15]) == "2026-10-15"
       assert Value.from(~N[2026-10-15 01:02:03]) == "2026-10-15T01:02:03"
       assert Value.from(~T[01:02:03]) == "01:02:03"
-      assert Value.from(Duration.new!(month: 1, second: 2)) == "P1MT2S"
+    end
+
+    test "durations as integer nanoseconds, each field at a fixed length" do
+      assert Value.from(Duration.new!(second: 90)) == {:duration, 90_000_000_000}
+
+      assert Quiddity.digest!(Duration.new!(minute: 1, second: 30)) ==
+               Quiddity.digest!(90_000_000_000)
+
+      assert Value.from(Duration.new!(week: 1, day: -1)) == {:duration, 6 * 86_400_000_000_000}
+
+      assert Value.from(Duration.new!(second: -1, microsecond: {-5, 6})) ==
+               {:duration, -1_000_005_000}
+
+      # The precision is how the microseconds are displayed, not their value.
+      assert Value.from(Duration.new!(second: 1, microsecond: {5, 3})) ==
+               {:duration, 1_000_005_000}
+
+      assert Value.from(Duration.new!(month: 1)) == {:duration, 2_629_746_000_000_000}
+      assert Value.from(Duration.new!(year: 1)) == {:duration, 31_556_952_000_000_000}
     end
 
     test "sets are unordered, and are not lists" do

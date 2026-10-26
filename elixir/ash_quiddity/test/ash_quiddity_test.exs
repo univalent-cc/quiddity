@@ -18,6 +18,7 @@ defmodule AshQuiddityTest do
           binding: :hardcover,
           published_on: ~D[1851-10-18],
           catalogued_at: ~U[2026-10-15 09:30:00.250000Z],
+          loan_period: Duration.new!(week: 3),
           price: Decimal.new("12.50"),
           publisher: %{name: "Harper & Brothers", city: "New York", contact: "front desk"},
           shelf_note: "spine is loose",
@@ -39,6 +40,7 @@ defmodule AshQuiddityTest do
       "binding" => b.binding,
       "published_on" => b.published_on,
       "catalogued_at" => DateTime.truncate(%{b.catalogued_at | microsecond: {0, 0}}, :second),
+      "loan_period" => b.loan_period,
       "price" => "12.50",
       "publisher" => %{"name" => b.publisher.name, "city" => b.publisher.city}
     }
@@ -143,6 +145,8 @@ defmodule AshQuiddityTest do
     assert doc["domain"] == "library.book"
     assert doc["root"] == %{"ref" => "Book"}
     assert Map.has_key?(doc["definitions"], "Publisher")
+    fields = doc["definitions"]["Book"]["object"]["fields"]
+    assert fields["loan_period"]["kind"] == %{"union" => [%{"duration" => %{}}, "null"]}
 
     json = %{
       "title" => "Moby Dick",
@@ -151,6 +155,7 @@ defmodule AshQuiddityTest do
       "binding" => "hardcover",
       "published_on" => "1851-10-18",
       "catalogued_at" => "2026-10-15T09:30:00.250000Z",
+      "loan_period" => "P21D",
       "price" => "12.50",
       "publisher" => %{"name" => "Harper & Brothers", "city" => "New York"},
       "inserted_at" => "ignored"

@@ -262,8 +262,7 @@ export function instant(options?: { unit?: TimeUnit }): Kind<Date, InstantSource
 }
 
 /**
- * A duration (spec 2.6): a `Duration`, a `Temporal.Duration` without years
- * or months, ISO 8601 text such as `"PT1H30M"`, or, with `unit`, a number of
+ * A duration (spec 2.6): a `Duration`, a `Temporal.Duration`, ISO 8601 text such as `"PT1H30M"`, or, with `unit`, a number of
  * units.
  */
 export function duration(): Kind<Duration | string, DurationSource>;

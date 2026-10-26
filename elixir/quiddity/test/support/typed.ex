@@ -12,12 +12,13 @@ defmodule Quiddity.Test.Typed do
      fields: [tags: [encode_as: :set], price: [decimals: 2], code: [kind: :string]]},
     JSON.Encoder
   ]
-  defstruct [:price, :at, :tags, :note, :status, :count, :author, :parent, :meta, :code]
+  defstruct [:price, :at, :took, :tags, :note, :status, :count, :author, :parent, :meta, :code]
 
   @type status :: :open | :closed
   @type t :: %__MODULE__{
           price: float(),
           at: DateTime.t(),
+          took: Duration.t(),
           tags: [String.t()],
           note: String.t() | nil,
           status: status(),

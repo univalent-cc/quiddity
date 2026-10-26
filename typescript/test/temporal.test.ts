@@ -22,6 +22,6 @@ describe("Temporal", { skip: T === undefined ? "this runtime has no Temporal" : 
     assert.ok(q.duration().digest(T.Duration.from("PT1H30M")).equals(q.duration().digest("PT90M")));
     assert.ok(q.digest(T.PlainDate.from("2024-01-01")).equals(q.digest("2024-01-01")));
     assert.throws(() => q.digest(T.PlainDateTime.from("2024-01-01T00:00")), /has no instant/);
-    assert.throws(() => q.digest(T.Duration.from("P1M")), /years or months/);
+    assert.ok(q.digest(T.Duration.from("P1M")).equals(q.digest(new q.Duration(2_629_746_000_000_000n))));
   });
 });

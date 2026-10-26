@@ -111,9 +111,10 @@ defmodule Quiddity.Typespec do
 
   defp remote(String, :t, [], _locals, _depth), do: :string
   defp remote(DateTime, :t, [], _locals, _depth), do: :instant
+  defp remote(Duration, :t, [], _locals, _depth), do: :duration
 
   defp remote(module, :t, [], _locals, _depth)
-       when module in [Date, Time, NaiveDateTime, Duration, Decimal],
+       when module in [Date, Time, NaiveDateTime, Decimal],
        do: :string
 
   defp remote(MapSet, :t, [item], locals, depth), do: {:set, kind(item, locals, depth + 1)}

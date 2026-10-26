@@ -84,6 +84,9 @@ defmodule AshQuiddity.Encode do
   # (Ash.Type.dump_to_embedded/3) read as Quiddity reads Elixir values.
   def typed(nil, _type, _constraints, _identity), do: nil
 
+  # A duration dumps to ISO 8601 text; it is digested as a duration (spec 2.6).
+  def typed(%Duration{} = raw, _type, _constraints, _identity), do: Value.from(raw)
+
   def typed(%{__struct__: module} = raw, type, constraints, identity) do
     if Ash.Resource.Info.resource?(module),
       do: record!(raw, identity),

@@ -74,11 +74,14 @@ describe("values", () => {
     assert.throws(() => q.digest(temporal("PlainDateTime", {})), /has no instant/);
   });
 
-  test("Temporal durations without years or months", () => {
+  test("Temporal durations, each field at a fixed length", () => {
     const zero = { years: 0, months: 0, weeks: 0, days: 0, hours: 0, minutes: 0, seconds: 0, milliseconds: 0, microseconds: 0, nanoseconds: 0 };
     const hour = temporal("Duration", { ...zero, hours: 1, microseconds: 5 });
     assert.equal(digestText(hour), digestText(new q.Duration(3_600_000_005_000n)));
-    assert.throws(() => q.digest(temporal("Duration", { ...zero, months: 1 })), /years or months/);
+    const month = temporal("Duration", { ...zero, months: 1 });
+    assert.equal(digestText(month), digestText(new q.Duration(2_629_746_000_000_000n)));
+    const year = temporal("Duration", { ...zero, years: 1 });
+    assert.equal(digestText(year), digestText(new q.Duration(31_556_952_000_000_000n)));
   });
 
   test("Map keys keep their types; equal keys are an error", () => {

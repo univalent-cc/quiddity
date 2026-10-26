@@ -120,7 +120,7 @@ defmodule AshQuiddity.Export do
       Ash.Type.Date => :string,
       Ash.Type.Time => :string,
       Ash.Type.TimeUsec => :string,
-      Ash.Type.Duration => :string,
+      Ash.Type.Duration => :duration,
       Ash.Type.DurationName => :string,
       Ash.Type.Decimal => :string,
       Ash.Type.Module => :string,

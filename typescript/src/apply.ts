@@ -77,9 +77,9 @@ function instantNs(x: unknown, path: string): bigint {
   return (x as { epochNanoseconds: bigint }).epochNanoseconds;
 }
 
-function durationNs(x: unknown, path: string): bigint {
+function durationNs(x: unknown): bigint {
   if (x instanceof Duration) return x.ns;
-  return temporalDurationNs(x as Parameters<typeof temporalDurationNs>[0], path);
+  return temporalDurationNs(x as Parameters<typeof temporalDurationNs>[0]);
 }
 
 /** An object source's members. */
@@ -281,7 +281,7 @@ export class Applier {
 
   #time(kind: "instant" | "duration", opts: { unit?: string }, s: unknown, t: SourceType, path: string): Value {
     const unit = opts.unit;
-    if (t === kind) return kind === "instant" ? instantNs(s, path) : durationNs(s, path);
+    if (t === kind) return kind === "instant" ? instantNs(s, path) : durationNs(s);
     if (t === "number") {
       if (unit === undefined) throw new QuiddityError(`a number for ${kind} needs a declared unit`, path);
       const r: Rational = typeof s === "bigint" ? { n: s, d: 1n } : Number.isInteger(s) ? { n: BigInt(s as number), d: 1n } : finite(s as number, path);

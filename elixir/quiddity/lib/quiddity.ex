@@ -97,7 +97,7 @@ defmodule Quiddity do
   `name` is one of the struct's identities, `:primary` by default. A
   field's kind is the one its `kind:` option declares; otherwise the one
   the struct's `@type t` typespec gives it (`String.t()` is a string,
-  `DateTime.t()` an instant, `t | nil` optional, another struct's `t()`
+  `DateTime.t()` an instant, `Duration.t()` a duration, `t | nil` optional, another struct's `t()`
   its identity, nested); otherwise `:any`. Typespecs are read from the
   compiled module, and are missing where its debug information is stripped,
   as in a default `mix release`; the fields then export as `:any`. Fields

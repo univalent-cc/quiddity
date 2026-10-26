@@ -11,6 +11,7 @@ defmodule Quiddity.TypespecTest do
 
     assert fields["price"] == %{"kind" => "number", "decimals" => 2}
     assert fields["at"] == %{"kind" => %{"instant" => %{}}}
+    assert fields["took"] == %{"kind" => %{"duration" => %{}}}
     assert fields["tags"] == %{"kind" => %{"set" => "string"}}
     assert fields["note"] == %{"kind" => %{"union" => ["null", "string"]}}
     assert fields["status"] == %{"kind" => "string"}
@@ -26,6 +27,7 @@ defmodule Quiddity.TypespecTest do
     typed = %Typed{
       price: 12.989,
       at: ~U[2026-10-15 09:30:00Z],
+      took: Duration.new!(minute: 1, second: 30),
       tags: ["b", "a"],
       note: nil,
       status: :open,
@@ -34,6 +36,7 @@ defmodule Quiddity.TypespecTest do
       parent: %Typed{
         price: 1.5,
         at: ~U[2026-10-14 09:30:00Z],
+        took: Duration.new!(day: 2),
         tags: [],
         note: "n",
         status: :closed,

@@ -37,7 +37,9 @@ iex> to_string(digest)
 Values are read as Elixir's JSON encoders write them, so two values that
 mean the same thing have the same digest: map keys in any order, atom or
 string keys, `1` and `1.0`. A `DateTime` is an instant, the same in any time
-zone; a `MapSet` is a set, whose order does not count. What JSON cannot
+zone; a `Duration` is integer nanoseconds, with a month of 2 629 746
+seconds, the mean Gregorian month; a `MapSet` is a set, whose order does
+not count. What JSON cannot
 write, such as a tuple, is an error:
 
 ```elixir

@@ -65,14 +65,19 @@ interface TemporalDuration {
   milliseconds: number; microseconds: number; nanoseconds: number;
 }
 
-/** A `Temporal.Duration` as integer nanoseconds: weeks of 7 days, days of 86 400 seconds. */
-export function temporalDurationNs(d: TemporalDuration, path: string): bigint {
-  if (d.years !== 0 || d.months !== 0) {
-    throw new QuiddityError("a duration in years or months has no fixed number of nanoseconds", path);
-  }
+/**
+ * A `Temporal.Duration` as integer nanoseconds: weeks of 7 days, days of
+ * 86 400 seconds, months of 2 629 746 seconds and years of 12 months, the
+ * mean Gregorian month and year.
+ */
+export function temporalDurationNs(d: TemporalDuration): bigint {
   const b = (n: number) => BigInt(n);
   return (
-    ((b(d.weeks) * 7n + b(d.days)) * 86_400n + b(d.hours) * 3_600n + b(d.minutes) * 60n + b(d.seconds)) *
+    ((b(d.years) * 12n + b(d.months)) * 2_629_746n +
+      (b(d.weeks) * 7n + b(d.days)) * 86_400n +
+      b(d.hours) * 3_600n +
+      b(d.minutes) * 60n +
+      b(d.seconds)) *
       1_000_000_000n +
     b(d.milliseconds) * 1_000_000n +
     b(d.microseconds) * 1_000n +
@@ -173,7 +178,7 @@ function temporalFromJs(x: object, kind: string, path: string): Value {
     case "ZonedDateTime":
       return new Instant((x as { epochNanoseconds: bigint }).epochNanoseconds);
     case "Duration":
-      return new Duration(temporalDurationNs(x as TemporalDuration, path));
+      return new Duration(temporalDurationNs(x as TemporalDuration));
     case "PlainDate":
     case "PlainTime":
     case "PlainYearMonth":

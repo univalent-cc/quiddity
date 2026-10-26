@@ -24,6 +24,7 @@ defmodule AshQuiddity.Test.Book do
     attribute(:binding, :atom, public?: true, constraints: [one_of: [:hardcover, :paperback]])
     attribute(:published_on, :date, public?: true)
     attribute(:catalogued_at, :utc_datetime_usec, public?: true)
+    attribute(:loan_period, :duration, public?: true)
     attribute(:price, :decimal, public?: true)
     attribute(:publisher, AshQuiddity.Test.Publisher, public?: true)
     attribute(:shelf_note, :string)
@@ -45,6 +46,7 @@ defmodule AshQuiddity.Test.Book do
       :binding,
       :published_on,
       :catalogued_at,
+      :loan_period,
       :price,
       :publisher,
       :shelf_note,

@@ -181,7 +181,10 @@ data model SHOULD map them as follows:
   it. Time is counted as in POSIX [POSIX]: every day has 86 400 seconds,
   and leap seconds are not counted.
 - A **duration** is the integer number of nanoseconds, negative for a
-  negative duration.
+  negative duration. A duration in calendar units counts each unit at a
+  fixed length: a week is 7 days, a day 86 400 seconds, a month
+  2 629 746 seconds and a year 31 556 952 seconds, the mean month and year
+  of the Gregorian calendar (365.2425 days a year).
 
 The conversion MUST be exact. It MUST NOT pass through binary floating
 point, which cannot hold a current instant to the nanosecond. A source
@@ -191,8 +194,7 @@ keeps. For example, 2024-01-01T00:00:00Z is `1704067200000000000`, and
 1969-12-31T23:59:59Z is `-1000000000`.
 
 A date and time without a time zone or UTC offset (a "local" or "naive"
-date and time) is not an instant, and a duration in calendar units, such as
-months, has no fixed number of nanoseconds. Neither has a mapping here.
+date and time) is not an instant, and has no mapping here.
 
 ### 2.7 JSON
 
