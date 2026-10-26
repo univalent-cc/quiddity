@@ -37,6 +37,7 @@ Rust crate.
 | `uuid` | no | `Uuid` | |
 | `bytes` | no | `Bytes` and `BytesMut` | `alloc` |
 | `url` | no | `Url` | `std` |
+| `chrono` | no | `DateTime`, `NaiveDateTime`, `NaiveTime` and `TimeDelta` | |
 | `identity` | no | [Dynamic identities](#dynamic-identities): identities as data, read and written in any serde format, and digests of `Serialize` values under them | `alloc`, `serde` |
 
 With `default-features = false`, `quiddity` is `no_std` and needs no
@@ -432,7 +433,7 @@ representation:
   point and as `e` plus a combining accent are different strings, with
   different digests. Normalize text before hashing if it may contain both.
 
-### `indexmap`, `uuid`, `bytes` and `url`
+### `indexmap`, `uuid`, `bytes`, `url` and `chrono`
 
 Each of these features implements `Quiddity` for the named crate's types:
 
@@ -446,18 +447,23 @@ Each of these features implements `Quiddity` for the named crate's types:
   strings of their bytes. Unlike a `Vec<u8>`, they do not have the same
   digest as a JSON array of numbers.
 - `url`: a `Url` is digested as its string form.
+- `chrono`: a `DateTime` in any time zone is an instant, and a
+  `NaiveDateTime` the instant it would be in UTC; a `TimeDelta` is a
+  duration, and a `NaiveTime` the duration since midnight. They have the
+  same digests as `SystemTime` and `Duration` values of the same time. A
+  leap second counts as the first second of the next minute.
 
 ### Direct from `serde`
 
 The `serde` feature digests any value through its `serde::Serialize` impl.
 It covers types from crates that `quiddity` has no feature for, such as
-`chrono` or `bson`:
+`rust_decimal` or `bson`:
 
 ```rust ignore
 #[derive(Quiddity)]
-struct Event {
+struct Invoice {
     #[quiddity(encode_as = serde)]
-    at: chrono::DateTime<chrono::Utc>,
+    total: rust_decimal::Decimal, // its text, such as "12.50"
 }
 
 let digest = quiddity::serde::digest(&config)?; // any `Serialize` value
@@ -489,9 +495,9 @@ another crate. A type that implements `Display` can be digested as its
 use quiddity::Quiddity;
 
 #[derive(Quiddity)]
-struct Project {
+struct Release {
     #[quiddity(encode_as = display)]
-    homepage: url::Url,
+    version: semver::Version,
 }
 ```
 
@@ -586,7 +592,7 @@ assert_eq!(ring.quiddity(), vec![1, 2, 3].quiddity());
 ### Requesting other implementations
 
 Support for more crates and formats is welcome, for example `smallvec`,
-`arrayvec`, `chrono`, `time`, `jiff`, `rust_decimal`, `bson`, Amazon Ion, CBOR,
+`arrayvec`, `time`, `jiff`, `rust_decimal`, `bson`, Amazon Ion, CBOR,
 MessagePack, TOML or YAML values. Please open an issue and / or a pull request,
 if you would like to see an implementation for another type.  Please say how
 the type's values should be digested. In the meantime, the `serde` feature

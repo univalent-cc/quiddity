@@ -85,6 +85,27 @@ export function temporalDurationNs(d: TemporalDuration): bigint {
   );
 }
 
+/** A `Temporal.PlainDateTime` as the instant it would be in UTC (spec 2.6). */
+export function plainDateTimeNs(d: { toZonedDateTime(timeZone: string): { epochNanoseconds: bigint } }): bigint {
+  return d.toZonedDateTime("UTC").epochNanoseconds;
+}
+
+interface TemporalPlainTime {
+  hour: number; minute: number; second: number;
+  millisecond: number; microsecond: number; nanosecond: number;
+}
+
+/** A `Temporal.PlainTime` as integer nanoseconds since midnight (spec 2.6). */
+export function plainTimeNs(t: TemporalPlainTime): bigint {
+  const b = (n: number) => BigInt(n);
+  return (
+    (b(t.hour) * 3_600n + b(t.minute) * 60n + b(t.second)) * 1_000_000_000n +
+    b(t.millisecond) * 1_000_000n +
+    b(t.microsecond) * 1_000n +
+    b(t.nanosecond)
+  );
+}
+
 /** The instant of a `Date`, or an error if it is invalid. */
 export function dateNs(d: Date, path: string): bigint {
   const ms = d.getTime();
@@ -177,18 +198,16 @@ function temporalFromJs(x: object, kind: string, path: string): Value {
     case "Instant":
     case "ZonedDateTime":
       return new Instant((x as { epochNanoseconds: bigint }).epochNanoseconds);
+    case "PlainDateTime":
+      return new Instant(plainDateTimeNs(x as Parameters<typeof plainDateTimeNs>[0]));
     case "Duration":
       return new Duration(temporalDurationNs(x as TemporalDuration));
-    case "PlainDate":
     case "PlainTime":
+      return new Duration(plainTimeNs(x as TemporalPlainTime));
+    case "PlainDate":
     case "PlainYearMonth":
     case "PlainMonthDay":
       return String(x);
-    case "PlainDateTime":
-      throw new QuiddityError(
-        "a Temporal.PlainDateTime has no instant: it means a different time in each time zone; use a ZonedDateTime or an Instant",
-        path,
-      );
     default:
       throw new QuiddityError(`a Temporal.${kind} has no data-model value`, path);
   }

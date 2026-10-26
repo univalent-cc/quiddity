@@ -360,3 +360,67 @@ fn url() {
     let u: url::Url = "https://example.com/a?b=1".parse().unwrap();
     assert_eq!(u.quiddity(), "https://example.com/a?b=1".quiddity());
 }
+
+#[cfg(feature = "chrono")]
+mod chrono_feature {
+    use super::*;
+    use chrono::{DateTime, FixedOffset, NaiveDate, NaiveTime, TimeDelta, Utc};
+    use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+    fn utc(s: &str) -> DateTime<Utc> {
+        s.parse().unwrap()
+    }
+
+    #[test]
+    fn instants() {
+        let at = utc("2024-01-01T00:00:00.5Z");
+        let system = UNIX_EPOCH + Duration::from_millis(1_704_067_200_500);
+        assert_eq!(at.quiddity(), system.quiddity());
+        let paris: DateTime<FixedOffset> = "2024-01-01T01:00:00.5+01:00".parse().unwrap();
+        assert_eq!(paris.quiddity(), at.quiddity());
+        // Before the epoch, and beyond the range of `i64` nanoseconds.
+        assert_eq!(
+            utc("1969-12-31T23:59:59Z").quiddity(),
+            (-1_000_000_000i64).quiddity()
+        );
+        let far = utc("3000-01-01T00:00:00Z");
+        assert_eq!(
+            far.quiddity(),
+            (i128::from(far.timestamp()) * 1_000_000_000).quiddity()
+        );
+    }
+
+    #[test]
+    fn naive_date_times_are_utc() {
+        let naive = NaiveDate::from_ymd_opt(2024, 1, 1)
+            .unwrap()
+            .and_hms_milli_opt(0, 0, 0, 500)
+            .unwrap();
+        assert_eq!(naive.quiddity(), utc("2024-01-01T00:00:00.5Z").quiddity());
+    }
+
+    #[test]
+    fn leap_seconds_count_as_the_next_minute() {
+        let leap = NaiveDate::from_ymd_opt(2016, 12, 31)
+            .unwrap()
+            .and_hms_milli_opt(23, 59, 59, 1_500)
+            .unwrap();
+        assert_eq!(leap.quiddity(), utc("2017-01-01T00:00:00.5Z").quiddity());
+        let time = NaiveTime::from_hms_milli_opt(23, 59, 59, 1_500).unwrap();
+        assert_eq!(time.quiddity(), 86_400_500_000_000i64.quiddity());
+    }
+
+    #[test]
+    fn times_of_day_and_durations() {
+        let time = NaiveTime::from_hms_micro_opt(9, 30, 0, 500_000).unwrap();
+        assert_eq!(time.quiddity(), 34_200_500_000_000i64.quiddity());
+        assert_eq!(
+            TimeDelta::milliseconds(1_500).quiddity(),
+            Duration::from_millis(1_500).quiddity()
+        );
+        assert_eq!(
+            TimeDelta::milliseconds(-1_500).quiddity(),
+            (-1_500_000_000i64).quiddity()
+        );
+    }
+}

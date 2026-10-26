@@ -56,8 +56,10 @@ model says more than JSON, it is kept:
 | plain object | map with string keys |
 | `Map`, `ValueMap` | map: keys keep their types, so `1` and `"1"` differ |
 | `Date`, `Instant`, `Temporal.Instant`, `Temporal.ZonedDateTime` | instant: integer nanoseconds since 1970, the same in any time zone |
+| `Temporal.PlainDateTime` | instant: as if it were in UTC |
 | `Duration`, `Temporal.Duration` | duration: integer nanoseconds, with a month of 2 629 746 seconds, the mean Gregorian month |
-| `Temporal.PlainDate`, `PlainTime` | string, ISO 8601 |
+| `Temporal.PlainTime` | duration: nanoseconds since midnight |
+| `Temporal.PlainDate` | string, ISO 8601 |
 | `Digest`, `URL` | string: its text |
 | an instance of a class with a static identity | as its identity reads it |
 
@@ -75,10 +77,9 @@ q.digest({ shelves: [new Shelf()] });
 ```
 
 `q.digest` throws `QuiddityError`, with `path` and `detail`. Other values
-it rejects: `undefined` outside an object, an invalid `Date`, a
-`Temporal.PlainDateTime` (it means a different instant in each time zone),
-typed arrays other than `Uint8Array` (their bytes depend on the platform),
-and a value that contains itself.
+it rejects: `undefined` outside an object, an invalid `Date`, typed
+arrays other than `Uint8Array` (their bytes depend on the platform), and a
+value that contains itself.
 
 A `Digest` prints as `sha256:` and 64 hex digits (and `JSON.stringify`
 writes that text), and is read back with `q.Digest.parse`.

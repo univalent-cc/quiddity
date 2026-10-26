@@ -129,3 +129,54 @@ impl<I: crate::IdentityMarker> crate::Quiddity<I> for url::Url {
         e.str(self.as_str());
     }
 }
+
+/// chrono's date and time types as instants and durations (spec 2.6).
+#[cfg(feature = "chrono")]
+mod chrono_impls {
+    use chrono::{DateTime, NaiveDateTime, NaiveTime, TimeDelta, TimeZone, Timelike};
+
+    use crate::{Encoder, IdentityMarker, Quiddity};
+
+    /// Integer nanoseconds since the Unix epoch. A leap second's nanoseconds
+    /// run past 10^9, so it counts as the next minute's first second.
+    impl<I: IdentityMarker, Tz: TimeZone> Quiddity<I> for DateTime<Tz> {
+        describe!(|cx| Kd::Instant(Default::default()));
+
+        fn encode(&self, e: &mut Encoder) {
+            e.int(
+                i128::from(self.timestamp()) * 1_000_000_000
+                    + i128::from(self.timestamp_subsec_nanos()),
+            );
+        }
+    }
+
+    /// The instant it would be in UTC.
+    impl<I: IdentityMarker> Quiddity<I> for NaiveDateTime {
+        describe!(|cx| Kd::Instant(Default::default()));
+
+        fn encode(&self, e: &mut Encoder) {
+            Quiddity::<I>::encode(&self.and_utc(), e);
+        }
+    }
+
+    /// Integer nanoseconds since midnight.
+    impl<I: IdentityMarker> Quiddity<I> for NaiveTime {
+        describe!(|cx| Kd::Duration(Default::default()));
+
+        fn encode(&self, e: &mut Encoder) {
+            e.int(
+                i128::from(self.num_seconds_from_midnight()) * 1_000_000_000
+                    + i128::from(self.nanosecond()),
+            );
+        }
+    }
+
+    /// Integer nanoseconds.
+    impl<I: IdentityMarker> Quiddity<I> for TimeDelta {
+        describe!(|cx| Kd::Duration(Default::default()));
+
+        fn encode(&self, e: &mut Encoder) {
+            e.int(i128::from(self.num_seconds()) * 1_000_000_000 + i128::from(self.subsec_nanos()));
+        }
+    }
+}

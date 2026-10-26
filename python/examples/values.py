@@ -30,10 +30,9 @@ print(f"same value:     {a == b}")
 print(f"sets:           {q.digest({1, 2}) == q.digest({2, 1})}")
 print(f"lists:          {q.digest([1, 2]) == q.digest([2, 1])}")
 
-# What has no data-model value is an error, which says where. A naive
-# datetime is one: it means a different instant on each machine.
+# What has no data-model value is an error, which says where.
 try:
-    q.digest({"steps": [1, datetime(2026, 10, 15, 9, 30)]})
+    q.digest({"steps": [1, 2j]})
 except q.QuiddityError as e:
     print(f"error:          {e.path}: {e.message[:42]}…")
 

@@ -479,3 +479,25 @@ fn identity_fields_export() {
         value.quiddity()
     );
 }
+
+#[cfg(feature = "chrono")]
+#[test]
+fn chrono_kinds() {
+    #[derive(Quiddity)]
+    struct Shift {
+        starts: chrono::NaiveDateTime,
+        ends: chrono::DateTime<chrono::Utc>,
+        opens: chrono::NaiveTime,
+        length: chrono::TimeDelta,
+    }
+
+    let id = <Shift as Quiddity>::construct_identity().unwrap();
+    let doc = to_json(&id);
+    let fields = &doc["definitions"]["Shift"]["object"]["fields"];
+    let instant = serde_json::json!({"instant": {}});
+    let duration = serde_json::json!({"duration": {}});
+    assert_eq!(fields["starts"]["kind"], instant);
+    assert_eq!(fields["ends"]["kind"], instant);
+    assert_eq!(fields["opens"]["kind"], duration);
+    assert_eq!(fields["length"]["kind"], duration);
+}

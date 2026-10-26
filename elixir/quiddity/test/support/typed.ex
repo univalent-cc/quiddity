@@ -29,3 +29,10 @@ defmodule Quiddity.Test.Typed do
           code: integer()
         }
 end
+
+defmodule Quiddity.Test.Shift do
+  @moduledoc false
+  @derive Quiddity.Encoder
+  defstruct [:starts, :opens]
+  @type t :: %__MODULE__{starts: NaiveDateTime.t(), opens: Time.t()}
+end

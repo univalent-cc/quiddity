@@ -80,8 +80,9 @@ port.
 | `Map`, `ValueMap` | map, keys keep their types | Keys that are the same data-model value (`1`, `1n`) are an error (as Python's PP7). |
 | `Date`, `Instant`, `Temporal.Instant`, `Temporal.ZonedDateTime` | instant | An invalid `Date` is an error. `Instant` holds nanoseconds, which a `Date` cannot. |
 | `Duration`, `Temporal.Duration` | duration | Weeks are 7 days, days 86 400 seconds, months 2 629 746 seconds (the mean Gregorian month), years 12 months. |
-| `Temporal.PlainDate`, `PlainTime`, `PlainYearMonth`, `PlainMonthDay` | string, their ISO text | As Python's `date` and `time`. |
-| `Temporal.PlainDateTime` | error | No time zone (spec 2.6), as Python's naive `datetime` (Q4 there). |
+| `Temporal.PlainDateTime` | instant | The instant it would be in UTC (spec 2.6), as Python's naive `datetime` (Q4 there). |
+| `Temporal.PlainTime` | duration | The time since midnight (spec 2.6), as Python's `time`. |
+| `Temporal.PlainDate`, `PlainYearMonth`, `PlainMonthDay` | string, their ISO text | As Python's `date`. |
 | `Digest`, `URL` | string, the text form | |
 | an instance of a class with a static `[q.identity]` | under that identity | In its domain at the top level only. |
 | any other object | error, naming its type and where | |

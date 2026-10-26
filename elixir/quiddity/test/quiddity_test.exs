@@ -32,10 +32,15 @@ defmodule QuiddityTest do
       assert Quiddity.digest!(utc) == Quiddity.digest!(1_704_067_200_000_000_000)
     end
 
-    test "dates and times as ISO 8601 text" do
+    test "dates as ISO 8601 text" do
       assert Value.from(~D[2026-10-15]) == "2026-10-15"
-      assert Value.from(~N[2026-10-15 01:02:03]) == "2026-10-15T01:02:03"
-      assert Value.from(~T[01:02:03]) == "01:02:03"
+    end
+
+    test "a naive date-time as UTC, and a time of day as the time since midnight" do
+      assert Quiddity.digest!(~N[2024-01-01 00:00:00.5]) ==
+               Quiddity.digest!(~U[2024-01-01 00:00:00.5Z])
+
+      assert Value.from(~T[09:30:00.5]) == {:duration, 34_200_500_000_000}
     end
 
     test "durations as integer nanoseconds, each field at a fixed length" do

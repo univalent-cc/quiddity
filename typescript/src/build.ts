@@ -238,11 +238,17 @@ export interface TemporalInstantLike {
   readonly epochNanoseconds: bigint;
 }
 
+/** A `Temporal.PlainDateTime`, as far as quiddity reads it. */
+export interface TemporalPlainDateTimeLike {
+  toZonedDateTime(timeZone: string): TemporalInstantLike;
+}
+
 /** What `instant` reads, besides a number with a unit. */
 export type InstantSource =
   | Date
   | Instant
   | TemporalInstantLike
+  | TemporalPlainDateTimeLike
   | string
   | { secs_since_epoch: number | bigint; nanos_since_epoch: number | bigint };
 
@@ -250,9 +256,9 @@ export type InstantSource =
 export type DurationSource = Duration | string | { secs: number | bigint; nanos: number | bigint } | object;
 
 /**
- * An instant (spec 2.6): a `Date`, an `Instant`, a Temporal instant, RFC
- * 3339 text with an offset, or, with `unit`, a number of units since the
- * epoch.
+ * An instant (spec 2.6): a `Date`, an `Instant`, a Temporal instant or
+ * plain date-time, RFC 3339 text (UTC without an offset), or, with `unit`,
+ * a number of units since the epoch.
  */
 export function instant(): Kind<Date, InstantSource>;
 export function instant(options: { unit: TimeUnit }): Kind<Date, InstantSource | number | bigint>;
@@ -262,8 +268,9 @@ export function instant(options?: { unit?: TimeUnit }): Kind<Date, InstantSource
 }
 
 /**
- * A duration (spec 2.6): a `Duration`, a `Temporal.Duration`, ISO 8601 text such as `"PT1H30M"`, or, with `unit`, a number of
- * units.
+ * A duration (spec 2.6): a `Duration`, a `Temporal.Duration`, a
+ * `Temporal.PlainTime` (the time since midnight), ISO 8601 text such as
+ * `"PT1H30M"`, or, with `unit`, a number of units.
  */
 export function duration(): Kind<Duration | string, DurationSource>;
 export function duration(options: { unit: TimeUnit }): Kind<Duration | string, DurationSource | number | bigint>;

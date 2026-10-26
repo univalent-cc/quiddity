@@ -17,7 +17,17 @@ import {
   BOOLS, NUMBER_WORDS, type Rational, base64Bytes, decimal, decimalRational, floatRational, floorDiv, hexBytes,
   isoDuration, quantizeDecimals, rfc3339, trimSpace, uuid,
 } from "./text.js";
-import { dateNs, fromJs, isPlainObject, keyPath, temporalDurationNs, temporalKind, typeName } from "./value.js";
+import {
+  dateNs,
+  fromJs,
+  isPlainObject,
+  keyPath,
+  plainDateTimeNs,
+  plainTimeNs,
+  temporalDurationNs,
+  temporalKind,
+  typeName,
+} from "./value.js";
 
 /** The source type (spec 5.2) of a JavaScript value. */
 export function sourceType(x: unknown, path: string): SourceType {
@@ -45,9 +55,9 @@ export function sourceType(x: unknown, path: string): SourceType {
   if (x instanceof Duration) return "duration";
   if (x instanceof Digest || typeName(x) === "URL") return "string";
   const temporal = temporalKind(x);
-  if (temporal === "Instant" || temporal === "ZonedDateTime") return "instant";
-  if (temporal === "Duration") return "duration";
-  if (temporal === "PlainDate" || temporal === "PlainTime" || temporal === "PlainYearMonth" || temporal === "PlainMonthDay") {
+  if (temporal === "Instant" || temporal === "ZonedDateTime" || temporal === "PlainDateTime") return "instant";
+  if (temporal === "Duration" || temporal === "PlainTime") return "duration";
+  if (temporal === "PlainDate" || temporal === "PlainYearMonth" || temporal === "PlainMonthDay") {
     return "string";
   }
   if (temporal !== undefined || ArrayBuffer.isView(x)) {
@@ -74,11 +84,13 @@ function bytesOf(x: unknown): Uint8Array {
 function instantNs(x: unknown, path: string): bigint {
   if (x instanceof Instant) return x.ns;
   if (x instanceof Date) return dateNs(x, path);
+  if (temporalKind(x as object) === "PlainDateTime") return plainDateTimeNs(x as Parameters<typeof plainDateTimeNs>[0]);
   return (x as { epochNanoseconds: bigint }).epochNanoseconds;
 }
 
 function durationNs(x: unknown): bigint {
   if (x instanceof Duration) return x.ns;
+  if (temporalKind(x as object) === "PlainTime") return plainTimeNs(x as Parameters<typeof plainTimeNs>[0]);
   return temporalDurationNs(x as Parameters<typeof temporalDurationNs>[0]);
 }
 

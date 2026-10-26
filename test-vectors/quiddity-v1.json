@@ -2459,6 +2459,13 @@
           "digest64": "sha256-64:c426156b1c1b8522"
         },
         {
+          "source": "2024-01-01T00:00:00",
+          "encoding": "17a6101701650000000000000000000810",
+          "digest": "sha256:c426156b1c1b8522abc69e7b177407fd6736694c2d124a7b224a29a7e0b714ed",
+          "digest128": "sha256-128:c426156b1c1b8522abc69e7b177407fd",
+          "digest64": "sha256-64:c426156b1c1b8522"
+        },
+        {
           "source": {
             "secs_since_epoch": 1704067200,
             "nanos_since_epoch": 0
@@ -2490,11 +2497,28 @@
           "digest64": "sha256-64:81520cbfba0ef424"
         },
         {
-          "source": "2016-12-31T23:59:60Z",
-          "error": true
+          "source": "2016-12-31T23:59:60.5Z",
+          "encoding": "14957cbc4e6e6500000000000000000810",
+          "digest": "sha256:fa60e07d36098a1b6602a79d32c54597d53221ec3d69297aa83fad624016fc38",
+          "digest128": "sha256-128:fa60e07d36098a1b6602a79d32c54597",
+          "digest64": "sha256-64:fa60e07d36098a1b"
         },
         {
-          "source": "2024-01-01T00:00:00",
+          "source": "2017-01-01T00:00:00.5Z",
+          "encoding": "14957cbc4e6e6500000000000000000810",
+          "digest": "sha256:fa60e07d36098a1b6602a79d32c54597d53221ec3d69297aa83fad624016fc38",
+          "digest128": "sha256-128:fa60e07d36098a1b6602a79d32c54597",
+          "digest64": "sha256-64:fa60e07d36098a1b"
+        },
+        {
+          "source": "2017-01-01T00:59:60.5+01:00",
+          "encoding": "14957cbc4e6e6500000000000000000810",
+          "digest": "sha256:fa60e07d36098a1b6602a79d32c54597d53221ec3d69297aa83fad624016fc38",
+          "digest128": "sha256-128:fa60e07d36098a1b6602a79d32c54597",
+          "digest64": "sha256-64:fa60e07d36098a1b"
+        },
+        {
+          "source": "2016-12-31T23:59:61Z",
           "error": true
         },
         {

@@ -22,6 +22,7 @@ indexmap = ["alloc", "dep:indexmap"]
 uuid = ["dep:uuid"]
 bytes = ["alloc", "dep:bytes"]
 url = ["std", "dep:url"]
+chrono = ["dep:chrono"]
 identity = ["alloc", "serde", "serde/derive", "serde/alloc"]
 
 [dependencies]
@@ -34,6 +35,7 @@ indexmap = { version = "2", default-features = false, optional = true }
 uuid = { version = "1", default-features = false, optional = true }
 bytes = { version = "1", default-features = false, optional = true }
 url = { version = "2", optional = true }
+chrono = { version = "0.4", default-features = false, optional = true }
 
 [dev-dependencies]
 bytes = "1"
@@ -45,6 +47,8 @@ serde_json = { version = "1", features = ["float_roundtrip"] }
 trybuild = "1"
 url = "2"
 uuid = "1"
+chrono = { version = "0.4", default-features = false }
+semver = "1"
 
 [[example]]
 name = "derive"

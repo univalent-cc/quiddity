@@ -2,7 +2,7 @@ defmodule Quiddity.TypespecTest do
   use ExUnit.Case, async: true
 
   alias Quiddity.Identity
-  alias Quiddity.Test.{Author, Typed}
+  alias Quiddity.Test.{Author, Shift, Typed}
 
   test "an exported identity takes its kinds from the struct's typespec" do
     {:ok, identity} = Quiddity.identity(Typed)
@@ -21,6 +21,13 @@ defmodule Quiddity.TypespecTest do
     assert fields["meta"] == %{"kind" => %{"map" => %{"key" => "string", "value" => "any"}}}
     # A declared kind takes precedence over the typespec.
     assert fields["code"] == %{"kind" => "string"}
+  end
+
+  test "a naive date-time is an instant, and a time of day a duration" do
+    {:ok, identity} = Quiddity.identity(Shift)
+    fields = Identity.to_json(identity)["definitions"]["Shift"]["object"]["fields"]
+    assert fields["starts"] == %{"kind" => %{"instant" => %{}}}
+    assert fields["opens"] == %{"kind" => %{"duration" => %{}}}
   end
 
   test "the exported identity gives the struct's digest to its JSON form" do

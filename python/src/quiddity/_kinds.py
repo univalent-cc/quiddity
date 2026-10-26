@@ -29,7 +29,6 @@ _SCALARS: Final[dict[Any, Kind]] = {
     str: "string",
     uuid.UUID: "uuid",
     dt.date: "string",
-    dt.time: "string",
     Decimal: "string",
     type(None): "null",
     None: "null",
@@ -122,7 +121,7 @@ class Builder:
             return {
                 "bytes": {"text": "hex"} if any(isinstance(m, Hex) for m in kind_markers) else {}
             }
-        if tp is dt.datetime or tp is dt.timedelta:
+        if tp is dt.datetime or tp is dt.timedelta or tp is dt.time:
             name = "instant" if tp is dt.datetime else "duration"
             units = [m.unit for m in kind_markers if isinstance(m, Unit)]
             return {name: {"unit": units[-1]} if units else {}}
@@ -161,6 +160,8 @@ class Builder:
                     return k
             if issubclass(tp, dt.datetime):
                 return self.kind(dt.datetime, identity, kind_markers)
+            if issubclass(tp, dt.time):
+                return self.kind(dt.time, identity, kind_markers)
         return "any"
 
     def declared(self, cls: type, identity: str = _declared.PRIMARY) -> Kind:

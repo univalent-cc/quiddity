@@ -147,7 +147,9 @@ bytes), as in the Rust crate (Q9). Checked 2026-10-15 against Elixir
 | map | map | Atom keys become strings, so `%{a: 1}` equals `%{"a" => 1}`. A map with both `:a` and `"a"` is an error: both encoders write the key twice, which spec 2.7 gives no meaning. |
 | `MapSet` | set | Richer than JSON (`JSON` refuses it; Jason writes a list), as `HashSet` is in Rust. |
 | `DateTime` | instant, integer nanoseconds | Spec 2.6, as `SystemTime` in Rust. Its JSON text reads to the same instant under an identity's `instant` kind. |
-| `NaiveDateTime`, `Date`, `Time` | string, ISO 8601 | As the encoders write them. No time zone, so not an instant; the data model has no date or time-of-day kind. |
+| `NaiveDateTime` | instant, integer nanoseconds | The instant it would be in UTC (spec 2.6). |
+| `Time` | duration, integer nanoseconds | The time since midnight (spec 2.6). |
+| `Date` | string, ISO 8601 | As the encoders write it; the data model has no date kind. |
 | `Duration` (1.17+) | duration, integer nanoseconds | Spec 2.6, as `Duration` in Rust and `timedelta` in Python. Each field at a fixed length, keeping its own sign: a week of 7 days, a day of 86 400 seconds, a month of 2 629 746 seconds and a year of 12 months (the mean Gregorian month and year). The microsecond's precision is how it is displayed, and does not count. |
 | `Decimal` | string, its decimal text | As both encoders write it (`"1.00"`); see Q11. |
 | an Ash record | through `ash_quiddity` (E6) | |
@@ -325,8 +327,9 @@ write it. For the types below this is also what AshJsonApi exports.
 | `:atom`, `Ash.Type.Enum` | string of the atom's name | Its dumped form. |
 | `:uuid`, `:uuid_v7` | uuid | The canonical lowercase hyphenated text. |
 | `:utc_datetime`, `:utc_datetime_usec`, `:datetime` | instant | Integer nanoseconds (spec 2.6). Written as RFC 3339 text, which an identity's `instant` kind reads to the same value. |
-| `:naive_datetime` | string, ISO 8601 | No time zone, so not an instant (spec 2.6). |
-| `:date`, `:time` | string, ISO 8601 | The data model has no date or time-of-day kind. |
+| `:naive_datetime` | instant | The instant it would be in UTC (spec 2.6). |
+| `:time`, `:time_usec` | duration | The time since midnight (spec 2.6). |
+| `:date` | string, ISO 8601 | The data model has no date kind. |
 | `:decimal` | string, its decimal text | Exact decimals are not in the data model (R4). `1.0` and `1.00` are then different strings (Q11). |
 | `:duration` | duration | Integer nanoseconds, from the `Duration` itself rather than its dumped ISO 8601 text (E3). |
 | `:duration_name`, `:module` | string | |

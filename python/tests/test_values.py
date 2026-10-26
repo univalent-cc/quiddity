@@ -64,11 +64,12 @@ def test_times() -> None:
     assert same(utc, Instant(calendar.timegm((2026, 10, 15, 9, 30, 0)) * 10**9))
     assert same(timedelta(days=1, microseconds=1), Duration(86_400 * 10**9 + 1000))
     assert same(timedelta(seconds=-1), -(10**9))
-    with pytest.raises(q.QuiddityError, match="naive datetime") as e:
-        q.digest({"at": [datetime(2026, 10, 15)]})
-    assert e.value.path == "$.at[0]"
+    # A naive datetime is read as UTC.
+    assert same(datetime(2026, 10, 15, 9, 30), utc)
     assert same(date(2026, 10, 15), "2026-10-15")
-    assert same(time(9, 30), "09:30:00")
+    # A time of day is the time since midnight; its tzinfo does not count.
+    assert same(time(9, 30, 0, 500_000), Duration(34_200_500_000_000))
+    assert same(time(9, 30, tzinfo=timezone(timedelta(hours=2))), timedelta(hours=9, minutes=30))
 
 
 def test_strings_of_other_types() -> None:

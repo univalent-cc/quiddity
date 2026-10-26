@@ -825,8 +825,8 @@ impl Kind {
     /// let utc = id.digest(&json!("2024-01-01T00:00:00Z"))?;
     /// let paris = id.digest(&json!("2024-01-01T01:00:00+01:00"))?;
     /// assert_eq!(utc, paris);
-    /// // A time without an offset is not an instant.
-    /// assert!(id.digest(&json!("2024-01-01T00:00:00")).is_err());
+    /// // A time without an offset is read as UTC.
+    /// assert_eq!(utc, id.digest(&json!("2024-01-01T00:00:00"))?);
     /// # Ok(())
     /// # }
     /// ```

@@ -160,9 +160,10 @@ fn fraction(b: &[u8], mut i: usize) -> Result<(i128, usize), &'static str> {
     Ok((i128::from(value) * 10i128.pow((9 - n) as u32), i))
 }
 
-/// An RFC 3339 date-time (spec 5.5) as nanoseconds since the Unix epoch.
+/// An RFC 3339 date-time (spec 5.5) as nanoseconds since the Unix epoch,
+/// in UTC if it has no offset.
 pub(crate) fn instant(s: &str) -> Result<i128, &'static str> {
-    const SHAPE: &str = "not an RFC 3339 date-time with an offset";
+    const SHAPE: &str = "not an RFC 3339 date-time";
     let b = trim(s).as_bytes();
     let y = digits(b, 0, 4).ok_or(SHAPE)?;
     let mo = digits(b, 5, 2).ok_or(SHAPE)?;
@@ -201,16 +202,16 @@ pub(crate) fn instant(s: &str) -> Result<i128, &'static str> {
             }
             (oh * 3600 + om * 60) * if sign == b'-' { -1 } else { 1 }
         }
-        _ => return Err("a date-time needs an offset"),
+        _ => 0,
     };
     if i != b.len() {
         return Err(SHAPE);
     }
-    if !(1..=12).contains(&mo) || d < 1 || d > days_in_month(y, mo) || h > 23 || mi > 59 {
+    // A second of 60 is a leap second, counted as the next minute's first
+    // (spec 2.6).
+    if !(1..=12).contains(&mo) || d < 1 || d > days_in_month(y, mo) || h > 23 || mi > 59 || sec > 60
+    {
         return Err("date or time out of range");
-    }
-    if sec >= 60 {
-        return Err("second out of range; leap seconds are errors");
     }
     let secs = days_from_civil(y, mo, d) * 86_400 + h * 3600 + mi * 60 + sec - offset;
     Ok(i128::from(secs) * 1_000_000_000 + nanos)

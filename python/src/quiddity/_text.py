@@ -34,7 +34,7 @@ _UUID: Final = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9
 _UUID_SIMPLE: Final = re.compile(r"[0-9a-f]{32}\Z")
 _RFC3339: Final = re.compile(
     r"([0-9]{4})-([0-9]{2})-([0-9]{2})[Tt ]([0-9]{2}):([0-9]{2}):([0-9]{2})(?:\.([0-9]{1,9}))?"
-    r"(?:([Zz])|([+-])([0-9]{2})(?::?([0-9]{2}))?)\Z"
+    r"(?:([Zz])|([+-])([0-9]{2})(?::?([0-9]{2}))?)?\Z"
 )
 _ISO_DURATION: Final = re.compile(
     r"([+-])?[Pp](?:([0-9]+)[Ww])?(?:([0-9]+)[Dd])?"
@@ -159,16 +159,17 @@ def _days_in_month(y: int, m: int) -> int:
 
 
 def instant(text: str) -> int:
-    """RFC 3339 text with an offset, as nanoseconds since the Unix epoch."""
+    """RFC 3339 text, UTC without an offset, as nanoseconds since the Unix epoch."""
     m = _RFC3339.match(text)
     if not m:
-        raise QuiddityError(f"not an RFC 3339 date-time with an offset: {text!r}")
+        raise QuiddityError(f"not an RFC 3339 date-time: {text!r}")
     y, mo, d, h, mi, s = (int(g) for g in m.groups()[:6])
     frac = m.group(7) or ""
-    if not (1 <= mo <= 12 and 1 <= d <= _days_in_month(y, mo) and h <= 23 and mi <= 59):
+    # A second of 60 is a leap second, counted as the next minute's first (spec 2.6).
+    if not (
+        1 <= mo <= 12 and 1 <= d <= _days_in_month(y, mo) and h <= 23 and mi <= 59 and s <= 60
+    ):
         raise QuiddityError(f"date or time out of range: {text!r}")
-    if s >= 60:
-        raise QuiddityError(f"second out of range (a leap second is an error): {text!r}")
     offset = 0
     if m.group(9):
         oh, om = int(m.group(10)), int(m.group(11) or 0)

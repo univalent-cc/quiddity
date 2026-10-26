@@ -179,7 +179,9 @@ data model SHOULD map them as follows:
 - An **instant** is the integer number of nanoseconds since
   1970-01-01T00:00:00 UTC (the Unix epoch), negative for an instant before
   it. Time is counted as in POSIX [POSIX]: every day has 86 400 seconds,
-  and leap seconds are not counted.
+  and leap seconds are not counted. A leap second is counted as the
+  first second of the next minute, so 23:59:60.5 is the same instant as
+  00:00:00.5 of the next day.
 - A **duration** is the integer number of nanoseconds, negative for a
   negative duration. A duration in calendar units counts each unit at a
   fixed length: a week is 7 days, a day 86 400 seconds, a month
@@ -194,7 +196,8 @@ keeps. For example, 2024-01-01T00:00:00Z is `1704067200000000000`, and
 1969-12-31T23:59:59Z is `-1000000000`.
 
 A date and time without a time zone or UTC offset (a "local" or "naive"
-date and time) is not an instant, and has no mapping here.
+date and time) is mapped as the instant it would be in UTC. A time of day
+without a date is mapped as a duration: the time since midnight.
 
 ### 2.7 JSON
 
@@ -576,10 +579,8 @@ number in the syntax of RFC 8259, section 6, optionally preceded by `+`.
 - **instant** from a string: a date-time in the syntax of RFC 3339, section
   5.6, with these allowances: the separator between date and time may be
   `T`, `t` or a space; the offset may be `Z`, `z`, `±hh:mm`, `±hhmm` or
-  `±hh`; the fraction of a second has 1 to 9 digits. A second of `60` (a
-  leap second) is an error, as it is in the standard date-time parsers of
-  Python, JavaScript, Go and Elixir, which cannot represent one. A
-  date-time without an offset is an error (2.6). The result is the
+  `±hh`, or absent, which is UTC (2.6); the fraction of a second has 1 to
+  9 digits; the second may be `60`, a leap second (2.6). The result is the
   instant's nanoseconds since the Unix epoch. With `unit`, a string that is
   decimal text is read instead as that number of units. From an object: exactly the members `secs_since_epoch` (an integer,
   at least 0) and `nanos_since_epoch` (an integer from 0 to 999 999 999),
@@ -1047,6 +1048,8 @@ the same identity; a scope list naming an identity not declared in
 | `uuid` | `Uuid` | string: hyphenated, lowercase, e.g. `67e55044-10b1-426f-9247-bb680e5fe0c8` |
 | `bytes` | `Bytes`, `BytesMut` | string: the bytes |
 | `url` | `Url` | string: `Url::as_str()` |
+| `chrono` | `DateTime<Tz>`, `NaiveDateTime` | integer: nanoseconds since the Unix epoch (2.6); a `NaiveDateTime` as if in UTC |
+| `chrono` | `NaiveTime`, `TimeDelta` | integer: nanoseconds (2.6); a `NaiveTime` since midnight |
 
 `serde_json::Value`:
 
@@ -1137,8 +1140,8 @@ exported identity.
 | `BTreeSet<T>`, `HashSet<T>`, `IndexSet<T>` | `{"set": T}` |
 | `BTreeMap<K, V>`, `HashMap<K, V>`, `IndexMap<K, V>` | `{"map": {"key": K, "value": V}}` |
 | pointers, `Wrapping`, `Saturating`, `Reverse`, `Cell`, atomics | the kind of the type they hold |
-| `Duration` | `{"duration": {}}` |
-| `SystemTime` | `{"instant": {}}` |
+| `Duration`, `TimeDelta`, `NaiveTime` | `{"duration": {}}` |
+| `SystemTime`, `DateTime<Tz>`, `NaiveDateTime` | `{"instant": {}}` |
 | `Bytes`, `BytesMut`, `CStr`, `CString` | `{"bytes": {}}` |
 | `Result<T, E>`, `Bound<T>` | tagged unions with the variants `Ok` and `Err`, and `Included`, `Excluded` and `Unbounded` |
 | the range types | objects with the fields `start` and `end`, as they have |

@@ -187,24 +187,23 @@ defmodule Quiddity.Identity.Text do
     end
   end
 
-  @rfc3339 ~r/\A(\d{4})-(\d{2})-(\d{2})[Tt ](\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,9}))?(?:([Zz])|([+-])(\d{2})(?::?(\d{2}))?)\z/
+  @rfc3339 ~r/\A(\d{4})-(\d{2})-(\d{2})[Tt ](\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,9}))?(?:([Zz])|([+-])(\d{2})(?::?(\d{2}))?)?\z/
 
   def instant(text) do
     case Regex.run(@rfc3339, text) do
       nil ->
-        {:error, "not an RFC 3339 date-time with an offset: #{inspect(text)}"}
+        {:error, "not an RFC 3339 date-time: #{inspect(text)}"}
 
       [_ | groups] ->
         groups = groups ++ List.duplicate("", 11 - length(groups))
         [y, mo, d, h, mi, s, frac, _z, sign, oh, om] = groups
         [y, mo, d, h, mi, s] = Enum.map([y, mo, d, h, mi, s], &String.to_integer/1)
 
+        # A second of 60 is a leap second, counted as the next minute's first (spec 2.6).
         cond do
-          not (mo in 1..12 and d >= 1 and d <= days_in_month(y, mo) and h <= 23 and mi <= 59) ->
+          not (mo in 1..12 and d >= 1 and d <= days_in_month(y, mo) and h <= 23 and mi <= 59 and
+                   s <= 60) ->
             {:error, "date or time out of range: #{inspect(text)}"}
-
-          s >= 60 ->
-            {:error, "second out of range (leap seconds are errors): #{inspect(text)}"}
 
           true ->
             offset_result =

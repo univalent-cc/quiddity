@@ -5,7 +5,7 @@ import json
 import pickle
 import uuid
 from collections.abc import Mapping, Sequence
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
 from pathlib import Path
 from typing import Annotated, Any, Literal, NamedTuple, NotRequired, Optional, TypedDict
@@ -42,6 +42,7 @@ def test_types_as_kinds() -> None:
         (datetime, {"instant": {}}),
         (Annotated[datetime, q.Unit("ms")], {"instant": {"unit": "ms"}}),
         (timedelta, {"duration": {}}),
+        (time, {"duration": {}}),
         (uuid.UUID, "uuid"),
         (Path, "path"),
         (date, "string"),

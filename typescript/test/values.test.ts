@@ -71,13 +71,16 @@ describe("values", () => {
     assert.equal(digestText(q.Instant.fromDate(new Date("2024-01-01T01:00:00+01:00"))), d);
     assert.equal(digestText(temporal("Instant", { epochNanoseconds: 1_704_067_200_000_000_000n })), d);
     assert.throws(() => q.digest(new Date(NaN)), /an invalid Date has no instant/);
-    assert.throws(() => q.digest(temporal("PlainDateTime", {})), /has no instant/);
+    const plain = temporal("PlainDateTime", { toZonedDateTime: () => ({ epochNanoseconds: 1_704_067_200_000_000_000n }) });
+    assert.equal(digestText(plain), d);
   });
 
   test("Temporal durations, each field at a fixed length", () => {
     const zero = { years: 0, months: 0, weeks: 0, days: 0, hours: 0, minutes: 0, seconds: 0, milliseconds: 0, microseconds: 0, nanoseconds: 0 };
     const hour = temporal("Duration", { ...zero, hours: 1, microseconds: 5 });
     assert.equal(digestText(hour), digestText(new q.Duration(3_600_000_005_000n)));
+    const time = temporal("PlainTime", { hour: 9, minute: 30, second: 0, millisecond: 500, microsecond: 0, nanosecond: 1 });
+    assert.equal(digestText(time), digestText(new q.Duration(34_200_500_000_001n)));
     const month = temporal("Duration", { ...zero, months: 1 });
     assert.equal(digestText(month), digestText(new q.Duration(2_629_746_000_000_000n)));
     const year = temporal("Duration", { ...zero, years: 1 });

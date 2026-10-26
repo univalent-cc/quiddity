@@ -575,7 +575,7 @@ UUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}
 UUID_SIMPLE = re.compile(r"[0-9a-f]{32}\Z")
 RFC3339 = re.compile(
     r"(\d{4})-(\d{2})-(\d{2})[Tt ](\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,9}))?"
-    r"(?:([Zz])|([+-])(\d{2})(?::?(\d{2}))?)\Z"
+    r"(?:([Zz])|([+-])(\d{2})(?::?(\d{2}))?)?\Z"
 )
 ISO_DURATION = re.compile(
     r"([+-])?[Pp](?:(\d+)[Ww])?(?:(\d+)[Dd])?"
@@ -602,13 +602,12 @@ def days_in_month(y, m):
 def parse_rfc3339(text):
     m = RFC3339.match(text)
     if not m:
-        raise ApplyError(f"not an RFC 3339 date-time with an offset: {text!r}")
+        raise ApplyError(f"not an RFC 3339 date-time: {text!r}")
     y, mo, d, h, mi, s = (int(g) for g in m.groups()[:6])
     frac = m.group(7) or ""
-    if not (1 <= mo <= 12 and 1 <= d <= days_in_month(y, mo) and h <= 23 and mi <= 59):
+    # A second of 60 is a leap second, counted as the next minute's first (spec 2.6).
+    if not (1 <= mo <= 12 and 1 <= d <= days_in_month(y, mo) and h <= 23 and mi <= 59 and s <= 60):
         raise ApplyError(f"date or time out of range: {text!r}")
-    if s >= 60:
-        raise ApplyError(f"second out of range (leap seconds are errors): {text!r}")
     offset = 0
     if m.group(9):
         oh, om = int(m.group(10)), int(m.group(11) or 0)

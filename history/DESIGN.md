@@ -493,10 +493,10 @@ serializer writes for it.
 Deferred until requested (the README invites issues and pull requests;
 meanwhile the `serde` feature, D11, covers most of them):
 
-- Time types (`chrono`, `time`, `jiff`): instants and durations would use
-  the integer nanoseconds of spec 2.6 (D18), so that they digest the same
-  as `SystemTime` and `Duration`. Dates and times without an offset need a
-  separate choice.
+- Time types (`time`, `jiff`): instants and durations would use the
+  integer nanoseconds of spec 2.6 (D18), so that they digest the same as
+  `SystemTime` and `Duration`, and naive date-times and times of day as
+  spec 2.6 maps them. (`chrono` is implemented, behind its feature.)
 - `rust_decimal`: exact decimals are neither integers nor floats in the
   data model.
 - Other formats' value types (`toml::Value`, `serde_yaml::Value`,
@@ -885,7 +885,7 @@ the static and dynamic designs disagree.
 
   | Kind | Accepted automatically | Needs a declaration |
   |---|---|---|
-  | `instant` | RFC 3339 text with an offset; serde's `SystemTime` map | an integer, with its unit |
+  | `instant` | RFC 3339 text, read as UTC without an offset; serde's `SystemTime` map | an integer, with its unit |
   | `duration` | ISO 8601 `PnDTnHnMnS`; serde's `Duration` map | an integer, with its unit |
   | `bytes` | an array of integers 0 to 255; base64 text (standard or URL-safe, padded or not) | hex text |
   | `integer` | a number; decimal text, if exactly an integer (`"5"`, `"5.0"`) | |
@@ -976,14 +976,18 @@ mapping moved from section 5 to section 6. Choices made in the draft:
   accepts the value as it is, so `"yes"` under `bool | string` is the
   string, and under `bool` alone it is `true`. This also keeps exported
   untagged enums faithful to serde without an ordering rule.
-- **Conversions.** A leap second (`:60`) is an error. Parsers disagree:
-  Python, JavaScript, Go and Elixir reject it; Ruby and chrono read it as
-  the next second; jiff clamps it to `:59`, keeping the fraction; the
-  `time` crate clamps it to `23:59:59.999999999`. Quiddity follows the
-  four languages it interoperates with most, which agree, and whose
-  native time types cannot hold a leap second. (Tested 2026-10-13: Python
-  3.12, Node 24, Elixir on OTP 28, Ruby 2.6, chrono 0.4, jiff 0.2, time
-  0.3; Go from its issue tracker.)
+- **Conversions.** A leap second (`:60`) is read as the first second of
+  the next minute, as Ruby and chrono read it. Parsers disagree: Python,
+  JavaScript, Go and Elixir reject it; jiff clamps it to `:59`, keeping
+  the fraction; the `time` crate clamps it to `23:59:59.999999999`.
+  (Tested 2026-10-13: Python 3.12, Node 24, Elixir on OTP 28, Ruby 2.6,
+  chrono 0.4, jiff 0.2, time 0.3; Go from its issue tracker.) It was first
+  an error, following the languages that reject it; that was changed
+  (2026-10-26) because a leap second is a valid time, and a value that
+  only some languages can represent still has a digest. Quiddity is not
+  an interchange format: what matters is that a value representable in
+  two languages digests the same in both. For the same reason, text
+  without an offset is read as UTC, as naive date-times are (spec 2.6).
   With a declared unit, an instant or duration also accepts decimal text,
   read exactly. Integers from text may be of any size; implementations may
   limit sizes (3.8).

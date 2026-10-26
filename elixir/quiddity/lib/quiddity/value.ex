@@ -62,11 +62,11 @@ defmodule Quiddity.Value do
 
     * atoms other than `nil`, `true` and `false` are strings of their
       names, and map keys that are atoms are strings too;
-    * `Date`, `Time` and `NaiveDateTime` are their ISO 8601 text, and a
-      `Decimal` its decimal text (`"12.50"`, `"1E+10"`), as Elixir's
-      `JSON` writes it;
-    * a `DateTime` is an instant, a `Duration` a duration (see
-      `duration_ns/1`), and a `MapSet` a set;
+    * a `Date` is its ISO 8601 text, and a `Decimal` its decimal text
+      (`"12.50"`, `"1E+10"`), as Elixir's `JSON` writes it;
+    * a `DateTime` is an instant, a `NaiveDateTime` the instant it would be
+      in UTC, a `Duration` a duration (see `duration_ns/1`), a `Time` the
+      duration since midnight, and a `MapSet` a set;
     * a `Quiddity.Digest` is the string of its text form (spec 6.2);
     * a struct is read through its `Quiddity.Encoder` implementation.
 
@@ -137,9 +137,14 @@ defmodule Quiddity.Value do
   # A digest used as a value is the string of its text form (spec 6.2).
   def from(%Quiddity.Digest{} = d, _path), do: to_string(d)
   def from(%DateTime{} = dt, _path), do: {:instant, DateTime.to_unix(dt, :nanosecond)}
-  def from(%NaiveDateTime{} = dt, _path), do: NaiveDateTime.to_iso8601(dt)
+
+  # A naive date-time is the instant it would be in UTC, and a time of day
+  # the time since midnight (spec 2.6).
+  def from(%NaiveDateTime{} = dt, _path),
+    do: {:instant, NaiveDateTime.diff(dt, ~N[1970-01-01 00:00:00], :nanosecond)}
+
+  def from(%Time{} = t, _path), do: {:duration, Time.diff(t, ~T[00:00:00], :nanosecond)}
   def from(%Date{} = d, _path), do: Date.to_iso8601(d)
-  def from(%Time{} = t, _path), do: Time.to_iso8601(t)
   def from(%Duration{} = d, _path), do: {:duration, duration_ns(d)}
 
   def from(%{__struct__: Decimal} = d, _path) do

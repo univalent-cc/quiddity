@@ -90,8 +90,9 @@ as in Rust and Elixir:
 | `set`, `frozenset` | set | |
 | `dict`, `Mapping` | map | Keys keep their kinds: `{1: "a"}` has an integer key, as Rust's `HashMap<u32, _>` and Elixir's maps (`json` would make it `"1"`). |
 | `datetime` with a time zone | instant, integer nanoseconds (spec 2.6) | |
-| naive `datetime` | error | No time zone (spec 2.6); the message suggests adding `tzinfo` (Q4). |
-| `date`, `time` | string, ISO 8601 | As pydantic writes them; the data model has no date or time-of-day kind. |
+| naive `datetime` | instant, read as UTC | Spec 2.6 (Q4). |
+| `date` | string, ISO 8601 | As pydantic writes it; the data model has no date kind. |
+| `time` | duration, integer nanoseconds since midnight | Spec 2.6. Its `tzinfo` does not count. |
 | `timedelta` | duration, integer nanoseconds | Exact: days, seconds and microseconds. |
 | `Decimal` | string, `str(d)` | As pydantic, msgspec and Django write it; the same text as Elixir's (Q5). |
 | `UUID` | string, lowercase hyphenated | |
@@ -240,13 +241,13 @@ Computed fields count only when included, as Ash calculations.
   pydantic models alike. `field(metadata=...)`, the older dataclass-only
   idiom (dataclasses-json, marshmallow-dataclass), is not a second
   spelling.
-- **Q4. Naive `datetime`:** an error. Python's documentation warns that
-  naive datetimes are ambiguous, and `datetime.timestamp()` silently takes
-  one as local time; a digest must be the same on every machine. `json`
-  refuses datetimes; pydantic and msgspec write naive ones without an
-  offset. Elixir digests its `NaiveDateTime` as text (ELIXIR.md, P4), a
-  deliberate type there, where Python's naive datetime is usually an
-  accident (`datetime.now()`).
+- **Q4. Naive `datetime`:** read as UTC (spec 2.6), as in every
+  language, so that the same naive date and time digests alike in all of
+  them. It was first an error, because a naive datetime is often an
+  accident (`datetime.now()`); that was changed (2026-10-26): whether a
+  naive time was meant as UTC is the caller's concern, and a digest must
+  only be the same everywhere. It is never `datetime.timestamp()`, which
+  takes a naive datetime as the machine's local time.
 - **Q5. `Decimal`:** `str(d)`, as pydantic, msgspec (by default) and
   Django's JSON encoder write it. `str(Decimal)` implements the General
   Decimal Arithmetic specification's "to-scientific-string", as Elixir's

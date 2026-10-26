@@ -20,20 +20,23 @@ from ._model import Duration, Instant, Map, Set, encode, normalize
 _EPOCH = dt.datetime(1970, 1, 1, tzinfo=dt.UTC)
 
 
-def instant_ns(d: dt.datetime, path: str = "$") -> int:
-    """An aware datetime as integer nanoseconds since the Unix epoch."""
-    if d.tzinfo is None or d.utcoffset() is None:
-        raise QuiddityError(
-            "a naive datetime has no instant: it means a different time on each machine; "
-            "give it a time zone (tzinfo=datetime.timezone.utc, or zoneinfo.ZoneInfo(...))",
-            path,
-        )
+def instant_ns(d: dt.datetime) -> int:
+    """A datetime as integer nanoseconds since the Unix epoch, in UTC if it
+    is naive (spec 2.6)."""
+    if d.utcoffset() is None:
+        d = d.replace(tzinfo=dt.UTC)
     delta = d - _EPOCH
     return (delta.days * 86400 + delta.seconds) * 10**9 + delta.microseconds * 1000
 
 
 def duration_ns(d: dt.timedelta) -> int:
     return (d.days * 86400 + d.seconds) * 10**9 + d.microseconds * 1000
+
+
+def time_ns(t: dt.time) -> int:
+    """A time of day as integer nanoseconds since midnight (spec 2.6). Its
+    tzinfo does not count."""
+    return ((t.hour * 60 + t.minute) * 60 + t.second) * 10**9 + t.microsecond * 1000
 
 
 def from_python(x: Any, path: str = "$") -> Any:
@@ -75,8 +78,10 @@ def _other(x: Any, path: str) -> Any:
     if isinstance(x, Mapping):
         return _map(x, path)
     if isinstance(x, dt.datetime):
-        return Instant(instant_ns(x, path))
-    if isinstance(x, (dt.date, dt.time)):
+        return Instant(instant_ns(x))
+    if isinstance(x, dt.time):
+        return Duration(time_ns(x))
+    if isinstance(x, dt.date):
         return x.isoformat()
     if isinstance(x, dt.timedelta):
         return Duration(duration_ns(x))

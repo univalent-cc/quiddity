@@ -150,7 +150,7 @@ export function base64Bytes(text: string): Uint8Array | string {
 // --- instants and durations ----------------------------------------------------------
 
 const RFC3339 =
-  /^(\d{4})-(\d{2})-(\d{2})[Tt ](\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,9}))?(?:([Zz])|([+-])(\d{2})(?::?(\d{2}))?)$/;
+  /^(\d{4})-(\d{2})-(\d{2})[Tt ](\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,9}))?(?:([Zz])|([+-])(\d{2})(?::?(\d{2}))?)?$/;
 
 /** Days since 1970-01-01 in the proleptic Gregorian calendar. */
 function daysFromCivil(y: number, m: number, d: number): number {
@@ -167,15 +167,15 @@ function daysInMonth(y: number, m: number): number {
   return [4, 6, 9, 11].includes(m) ? 30 : 31;
 }
 
-/** An RFC 3339 date-time with an offset (spec 5.5) as nanoseconds since the epoch; a string says what is wrong. */
+/** An RFC 3339 date-time (spec 5.5), UTC without an offset, as nanoseconds since the epoch; a string says what is wrong. */
 export function rfc3339(text: string): bigint | string {
   const m = RFC3339.exec(text);
-  if (!m) return `not an RFC 3339 date-time with an offset: ${JSON.stringify(text)}`;
+  if (!m) return `not an RFC 3339 date-time: ${JSON.stringify(text)}`;
   const [y, mo, d, h, mi, s] = m.slice(1, 7).map(Number) as [number, number, number, number, number, number];
-  if (!(mo >= 1 && mo <= 12 && d >= 1 && d <= daysInMonth(y, mo) && h <= 23 && mi <= 59)) {
+  // A second of 60 is a leap second, counted as the next minute's first (spec 2.6).
+  if (!(mo >= 1 && mo <= 12 && d >= 1 && d <= daysInMonth(y, mo) && h <= 23 && mi <= 59 && s <= 60)) {
     return `date or time out of range: ${JSON.stringify(text)}`;
   }
-  if (s >= 60) return `second out of range (leap seconds are errors): ${JSON.stringify(text)}`;
   let offset = 0;
   if (m[9] !== undefined) {
     const oh = Number(m[10]);

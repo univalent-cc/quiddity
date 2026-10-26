@@ -39,16 +39,14 @@ whose order does not count; bytes are bytes; and dict keys keep their
 types. What has no data-model value is an error, which says where:
 
 ```python
->>> from datetime import datetime
->>> q.digest({"steps": [1, datetime(2026, 10, 15, 9, 30)]})
+>>> q.digest({"steps": [1, 2j]})
 Traceback (most recent call last):
 ...
-quiddity.QuiddityError: a naive datetime has no instant: ... (at $.steps[1])
+quiddity.QuiddityError: a complex has no data-model value (at $.steps[1])
 
 ```
 
-A naive `datetime` has no instant: it means a different time on each
-machine. `q.digest` raises `quiddity.QuiddityError`, a `ValueError` with
+`q.digest` raises `quiddity.QuiddityError`, a `ValueError` with
 `.path` and `.message`.
 
 A `Digest` prints as `sha256:` and 64 hex digits, and is read back with
@@ -64,6 +62,7 @@ digested under their names. Options are markers in the field's
 
 ```python
 >>> from dataclasses import dataclass
+>>> from datetime import datetime
 >>> from typing import Annotated
 >>> @q.digestible(domain="example.book")
 ... @dataclass

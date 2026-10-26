@@ -50,6 +50,7 @@ export {
   Skip,
   type TaggedOptions,
   type TemporalInstantLike,
+  type TemporalPlainDateTimeLike,
   type TimeUnit,
   Variant,
   any,
